@@ -216,3 +216,21 @@ h1,h2,.card-h,.btn,.pill,.tabbar button,.fab{font-family:Kanit,"IBM Plex Sans Th
 .rainlbl{width:50px;text-align:center;font:700 12px Kanit,sans-serif;color:#fff;text-shadow:0 0 3px #000,0 0 3px #000;line-height:1.1}
 .rainlbl small{display:block;font-size:9px;font-weight:500}
 .rain-card.wet{border-color:#1d4ed8;background:#12203a}
+
+.mapctl{gap:6px;bottom:calc(var(--nav) + var(--safe-b) + 40px)}
+.mapctl button{width:52px;min-height:48px;font-size:18px;border-radius:14px}
+.mapctl small{font-size:9px}
+.alertbar{position:absolute;left:94px;right:10px;top:calc(124px + var(--safe-t));z-index:495;background:rgba(58,42,16,.96);border:1px solid #b7791f;color:#fde68a;border-radius:14px;padding:8px 12px;font-size:13px;line-height:1.35}
+.alertbar.severe{background:rgba(69,10,10,.96);border-color:#ef4444;color:#fecaca}
+.alertbar small{display:block;opacity:.75;font-size:11px;margin-top:2px}
+.alert-in div+div{margin-top:4px}
+.measbar{bottom:calc(var(--nav) + var(--safe-b) + 40px)}
+.rainbar:not(.hidden)~.measbar,.measbar:not(.hidden)+.rainbar:not(.hidden){bottom:calc(var(--nav) + var(--safe-b) + 150px)}
+.mlbl{width:80px;text-align:center;font:700 12px "JetBrains Mono",monospace;color:#fff;text-shadow:0 0 3px #000,0 0 3px #000,0 0 3px #000}
+.prog{height:10px;border-radius:9px;background:#22342d;overflow:hidden;margin:8px 0}
+.prog i{display:block;height:100%;width:0;background:var(--acc);transition:width .2s}
+.btn[disabled]{opacity:.4}
+.sbar{display:grid;grid-template-columns:118px 1fr 24px;align-items:center;gap:8px;font-size:13px;padding:3px 0}
+.sbar i{height:10px;border-radius:9px;background:#22342d;overflow:hidden}
+.sbar em{display:block;height:100%;background:var(--olive);border-radius:9px}
+.sbar b{text-align:right;font-family:"JetBrains Mono",monospace}

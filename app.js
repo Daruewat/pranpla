@@ -64,14 +64,15 @@ const save = k => DB.set(k, S[k]).catch(() => toast('บันทึกข้อ
 
 /* ============ map ============ */
 const map = L.map('map', { zoomControl: false }).setView(ls.get('view', [18.79, 98.98]), ls.get('zoom', 13));
+const OSM = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/';
+const TL = (u, o) => L.tileLayer(u, { crossOrigin: true, maxZoom: 19, ...o });
 const LAYERS = {
-  light: { name: 'แผนที่', ico: '🗺️', desc: 'สว่าง อ่านง่าย ชื่อสถานที่ภาษาไทย', l: L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }) },
-  sat: null,
-  map: { name: 'กลางคืน', ico: '🌙', desc: 'โทนมืด ถนอมสายตาและแบต', l: L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, className: 'dark-tiles', attribution: '© OpenStreetMap' }) },
-  sat: { name: 'ดาวเทียม', ico: '🛰️', desc: 'ภาพถ่ายจริง + ชื่อสถานที่ เห็นแนวน้ำ กอหญ้า ทางเข้า', l: L.layerGroup([
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, maxNativeZoom: 18, attribution: 'Esri, Maxar' }),
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, maxNativeZoom: 18 })]) },
-  topo: { name: 'ภูมิประเทศ', ico: '⛰️', desc: 'เส้นชั้นความสูง ลำห้วย ทางเดินป่า', l: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17, subdomains: 'abc', attribution: '© OpenTopoMap' }) }
+  light: { name: 'แผนที่', ico: '🗺️', desc: 'สว่าง อ่านง่าย ชื่อสถานที่ภาษาไทย', urls: [OSM], maxZ: 18, kb: 18, l: TL(OSM, { attribution: '© OpenStreetMap' }) },
+  sat: { name: 'ดาวเทียม', ico: '🛰️', desc: 'ภาพถ่ายจริง + ชื่อสถานที่ เห็นแนวน้ำ กอหญ้า ทางเข้า', maxZ: 18, kb: 30,
+    urls: [ESRI + 'World_Imagery/MapServer/tile/{z}/{y}/{x}', ESRI + 'Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'],
+    l: L.layerGroup([TL(ESRI + 'World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxNativeZoom: 18, attribution: 'Esri, Maxar' }), TL(ESRI + 'Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxNativeZoom: 18 })]) },
+  map: { name: 'กลางคืน', ico: '🌙', desc: 'โทนมืด ถนอมสายตาและแบต', urls: [OSM], maxZ: 18, kb: 18, l: TL(OSM, { className: 'dark-tiles', attribution: '© OpenStreetMap' }) },
+  topo: { name: 'ภูมิประเทศ', ico: '⛰️', desc: 'เส้นชั้นความสูง ลำห้วย ทางเดินป่า', urls: ['https://a.tile.opentopomap.org/{z}/{x}/{y}.png'], maxZ: 16, kb: 28, l: TL('https://a.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17, attribution: '© OpenTopoMap' }) }
 };
 function setLayer(k) {
   Object.values(LAYERS).forEach(o => map.removeLayer(o.l));
@@ -86,7 +87,7 @@ let meMarker = null, accCircle = null;
 
 map.on('moveend', () => { const c = map.getCenter(); ls.set('view', [c.lat, c.lng]); ls.set('zoom', map.getZoom()); });
 map.on('dragstart', () => { S.follow = false; $('#btnLocate').classList.remove('follow'); });
-map.on('contextmenu', e => spotForm({ lat: e.latlng.lat, lng: e.latlng.lng }));   // กดค้าง = ปักหมุด
+map.on('contextmenu', e => M.on || spotForm({ lat: e.latlng.lat, lng: e.latlng.lng }));   // กดค้าง = ปักหมุด
 map.on('click', () => { closeSearch(); map.removeLayer(searchPin); });
 
 function spotIcon(type) {
@@ -139,13 +140,74 @@ $('#btnLocate').onclick = () => {
   S.follow = true; $('#btnLocate').classList.add('follow'); map.setView([S.pos.lat, S.pos.lng], Math.max(map.getZoom(), 15));
 };
 $('#btnLayer').onclick = () => {
-  openSheet('<h3>เลือกแผนที่</h3>' + Object.entries(LAYERS).map(([k, o]) => `<button class="menu-item" data-layer="${k}"><span class="mi" style="${k === S.layer ? 'outline:2px solid var(--acc)' : ''}">${o.ico}</span><span><b>${o.name}${k === S.layer ? ' ✓' : ''}</b><span class="sub">${o.desc}</span></span></button>`).join(''));
+  openSheet('<h3>เลือกแผนที่</h3>' + Object.entries(LAYERS).map(([k, o]) => `<button class="menu-item" data-layer="${k}"><span class="mi" style="${k === S.layer ? 'outline:2px solid var(--acc)' : ''}">${o.ico}</span><span><b>${o.name}${k === S.layer ? ' ✓' : ''}</b><span class="sub">${o.desc}</span></span></button>`).join('') + `<button class="menu-item" id="offOpen"><span class="mi">⬇️</span><span><b>เก็บแผนที่ไว้ใช้ออฟไลน์</b><span class="sub">ดาวน์โหลดบริเวณที่เห็นอยู่ ไว้เปิดตอนไม่มีสัญญาณ</span></span></button>`);
+  $('#offOpen').onclick = offlineSheet;
   $$('#sheet [data-layer]').forEach(b => b.onclick = () => { setLayer(b.dataset.layer); closeSheet(); });
 };
 $('#mapCompass').onclick = () => {
   if (S.heading == null && typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') $('#compassPerm').click();
   showTab('tools');
 };
+
+/* ============ ดาวน์โหลดแผนที่ออฟไลน์ ============ */
+const OFF = { cap: 1200, running: false, cancel: false };
+const lon2x = (lon, z) => Math.floor((lon + 180) / 360 * 2 ** z);
+const lat2y = (lat, z) => { const r = lat * Math.PI / 180; return Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * 2 ** z); };
+function offlinePlan() {
+  const ly = LAYERS[S.layer], b = map.getBounds(), z0 = Math.min(Math.round(map.getZoom()), ly.maxZ);
+  const list = z1 => { const out = []; for (let z = Math.max(z0 - 3, 5); z <= z1; z++) { const x0 = lon2x(b.getWest(), z), x1 = lon2x(b.getEast(), z), y0 = lat2y(b.getNorth(), z), y1 = lat2y(b.getSouth(), z); for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) ly.urls.forEach(u => out.push(u.replace('{z}', z).replace('{x}', x).replace('{y}', y))); } return out; };
+  let z1 = Math.min(z0 + 3, ly.maxZ), urls = list(z1);
+  while (urls.length > OFF.cap && z1 > z0) urls = list(--z1);
+  return { urls, z0, z1, ly, tooBig: urls.length > OFF.cap };
+}
+async function offlineCount() { try { return (await (await caches.open('pranpla-offline')).keys()).length; } catch { return 0; } }
+async function offlineSheet() {
+  if (!('caches' in window)) { closeSheet(); return toast('เบราว์เซอร์นี้เก็บแผนที่ออฟไลน์ไม่ได้'); }
+  const p = offlinePlan(), have = await offlineCount(), b = map.getBounds();
+  const w = dist({ lat: b.getCenter().lat, lng: b.getWest() }, { lat: b.getCenter().lat, lng: b.getEast() }), h = dist({ lat: b.getNorth(), lng: b.getWest() }, { lat: b.getSouth(), lng: b.getWest() });
+  openSheet(`<h3>⬇️ แผนที่ออฟไลน์</h3>
+  <div class="kv"><span>ชั้นแผนที่</span><b>${p.ly.ico} ${p.ly.name}</b><span>พื้นที่</span><b>บริเวณที่เห็นบนจอ ~${fmtDist(w)} × ${fmtDist(h)}</b>
+  <span>ความละเอียด</span><b>ซูมได้ถึงระดับ ${p.z1}${p.z1 >= 16 ? ' (เห็นถนนเล็ก ทางเดิน)' : p.z1 >= 14 ? ' (เห็นถนนและแหล่งน้ำ)' : ' (ภาพรวม)'}</b>
+  <span>ขนาด</span><b>${p.urls.length} แผ่น ~${(p.urls.length * p.ly.kb / 1024).toFixed(1)} MB</b><span>เก็บไว้แล้ว</span><b id="offHave">${have} แผ่น</b></div>
+  ${p.tooBig ? '<div class="warn">พื้นที่กว้างเกินไป ซูมเข้าให้แคบลงก่อนแล้วลองใหม่</div>' : p.z1 < 15 ? '<div class="warn">พื้นที่กว้าง เลยเก็บได้แค่ระดับภาพรวม ถ้าอยากเห็นละเอียด ให้ซูมเข้าไปที่จุดตกปลาแล้วกดเก็บอีกรอบ</div>' : ''}
+  <div class="prog hidden" id="offProg"><i></i></div><div class="sub" id="offMsg">เก็บทีละบริเวณ เก็บได้หลายรอบและหลายชั้นแผนที่ ควรทำตอนต่อ Wi-Fi</div>
+  <div class="row"><button class="btn acc" id="offGo" ${p.tooBig ? 'disabled' : ''}>ดาวน์โหลดบริเวณนี้</button><button class="btn ghost" id="offDel">ลบแผนที่ออฟไลน์ทั้งหมด</button></div>`);
+  $('#offGo').onclick = async e => {
+    if (OFF.running) { OFF.cancel = true; return; }
+    OFF.running = true; OFF.cancel = false; e.target.textContent = 'หยุด'; $('#offProg').classList.remove('hidden');
+    const cache = await caches.open('pranpla-offline'), q = p.urls.slice(); let done = 0, fail = 0;
+    const worker = async () => { while (q.length && !OFF.cancel) { const u = q.shift(); try { if (!(await cache.match(u))) { const r = await fetch(u); if (!r.ok) throw 0; await cache.put(u, r); } } catch { fail++; } done++; const bar = $('#offProg i'); if (bar) { bar.style.width = (done / p.urls.length * 100) + '%'; $('#offMsg').textContent = `${done}/${p.urls.length} แผ่น${fail ? ` · พลาด ${fail}` : ''}`; } } };
+    await Promise.all([worker(), worker(), worker(), worker()]);
+    OFF.running = false; const n = await offlineCount();
+    if ($('#offMsg')) { $('#offMsg').textContent = OFF.cancel ? `หยุดแล้ว เก็บได้ ${done - fail} แผ่น` : fail ? `เสร็จ แต่พลาด ${fail} แผ่น กดดาวน์โหลดอีกครั้งเพื่อเก็บส่วนที่ขาด` : '✅ เก็บครบแล้ว บริเวณนี้เปิดได้โดยไม่ต้องมีเน็ต'; $('#offHave').textContent = n + ' แผ่น'; $('#offGo').textContent = 'ดาวน์โหลดบริเวณนี้'; }
+    else toast(fail ? `เก็บแผนที่เสร็จ พลาด ${fail} แผ่น` : 'เก็บแผนที่ออฟไลน์ครบแล้ว ✅');
+  };
+  let armed = false;
+  $('#offDel').onclick = async e => { if (!armed) { armed = true; e.target.textContent = 'แตะอีกครั้งเพื่อลบ'; return; } await caches.delete('pranpla-offline'); $('#offHave').textContent = '0 แผ่น'; e.target.textContent = 'ลบแล้ว'; };
+}
+
+/* ============ วัดระยะ ============ */
+const M = { on: false, pts: [] }, gMeasure = L.layerGroup().addTo(map);
+function drawMeasure() {
+  gMeasure.clearLayers(); let tot = 0;
+  if (M.pts.length > 1) L.polyline(M.pts, { color: '#f43f5e', weight: 4 }).addTo(gMeasure);
+  M.pts.forEach((p, i) => {
+    if (i) tot += dist({ lat: M.pts[i - 1][0], lng: M.pts[i - 1][1] }, { lat: p[0], lng: p[1] });
+    L.circleMarker(p, { radius: 6, color: '#fff', weight: 2, fillColor: '#f43f5e', fillOpacity: 1, interactive: false }).addTo(gMeasure);
+    if (i) L.marker(p, { interactive: false, icon: L.divIcon({ className: '', html: `<div class="mlbl">${fmtDist(tot)}</div>`, iconSize: [80, 20], iconAnchor: [40, 30] }) }).addTo(gMeasure);
+  });
+  const n = M.pts.length, last = n > 1 ? bearing({ lat: M.pts[n - 2][0], lng: M.pts[n - 2][1] }, { lat: M.pts[n - 1][0], lng: M.pts[n - 1][1] }) : null;
+  $('#measLabel').innerHTML = n < 2 ? (n ? 'แตะจุดถัดไป' : 'แตะแผนที่เพื่อวางจุดแรก') : `<b>${fmtDist(tot)}</b> · เดิน ~${durTxt(tot / 4000 * 36e5)} · ช่วงล่าสุดทิศ ${Math.round(last)}° ${dirE(last)}`;
+}
+function setMeasure(on) {
+  M.on = on; M.pts = []; $('#btnMeasure').classList.toggle('on', on); $('#measBar').classList.toggle('hidden', !on); drawMeasure();
+  if (on) toast('โหมดวัดระยะ: แตะแผนที่ทีละจุด');
+}
+map.on('click', e => { if (M.on) { M.pts.push([e.latlng.lat, e.latlng.lng]); drawMeasure(); } });
+$('#btnMeasure').onclick = () => setMeasure(!M.on);
+$('#measClose').onclick = () => setMeasure(false);
+$('#measUndo').onclick = () => { M.pts.pop(); drawMeasure(); };
+$('#measMe').onclick = () => { if (!S.pos) return toast('ยังไม่ได้ตำแหน่ง GPS'); M.pts.push([S.pos.lat, S.pos.lng]); drawMeasure(); };
 
 /* ============ compass ============ */
 function onOrient(e) {
@@ -303,7 +365,7 @@ function spotSheet(id) {
 /* ---- catches ---- */
 function wxSnap() {
   const w = S.wx; if (!w || !w.now) return null;
-  return { temp: w.now.temp, pres: w.now.pres, wind: w.now.wind, code: w.now.code, score: w.now.score, place: S.fcLoc?.name };
+  return { dp: w.now.dp, rain: w.now.rain, temp: w.now.temp, pres: w.now.pres, wind: w.now.wind, code: w.now.code, score: w.now.score, place: S.fcLoc?.name };
 }
 function catchForm(init = {}) {
   const d = { id: uid(), t: Date.now(), species: '', len: '', wt: '', bait: '', note: '', photo: null, released: false, spotId: '', ...init };
@@ -549,7 +611,8 @@ function buildWx(d, lat, lng) {
     else if (ev.some(e => e.type === 'minor' && Math.abs(e.t - mid) <= 45 * 6e4)) s += 6;
     const ill = SunCalc.getMoonIllumination(t).fraction; if (ill < .08 || ill > .92) s += 5;
     if (tmp < 14 || tmp > 37) s -= 6; else if (tmp >= 20 && tmp <= 33) s += 3;
-    H.push({ t, temp: tmp, pres: p, sp: h.surface_pressure[i], dp, wind: w, wdir: h.wind_direction_10m[i], rain: r, pop: h.precipitation_probability?.[i], code, cloud: cl, hum: h.relative_humidity_2m[i], day, score: clamp(Math.round(s), 5, 98) });
+    s += personalAdj(t.getHours());
+    H.push({ t, temp: tmp, pres: p, sp: h.surface_pressure[i], dp, wind: w, gust: h.wind_gusts_10m?.[i] ?? w, wdir: h.wind_direction_10m[i], rain: r, pop: h.precipitation_probability?.[i], code, cloud: cl, hum: h.relative_humidity_2m[i], day, score: clamp(Math.round(s), 5, 98) });
   }
   const nowMs = Date.now(); let ni = H.findIndex(x => x.t.getTime() + 36e5 > nowMs); if (ni < 0) ni = 0;
   const days = d.daily.time.map((ds, i) => {
@@ -564,7 +627,7 @@ function buildWx(d, lat, lng) {
 async function loadForecast(loc) {
   if (loc) S.fcLoc = loc; loc = S.fcLoc; if (!loc) return;
   $('#fcPlace').textContent = loc.name;
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${loc.lat.toFixed(4)}&longitude=${loc.lng.toFixed(4)}&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,precipitation,weather_code,pressure_msl,surface_pressure,cloud_cover,wind_speed_10m,wind_direction_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=14&past_days=1`;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${loc.lat.toFixed(4)}&longitude=${loc.lng.toFixed(4)}&hourly=wind_gusts_10m,temperature_2m,relative_humidity_2m,precipitation_probability,precipitation,weather_code,pressure_msl,surface_pressure,cloud_cover,wind_speed_10m,wind_direction_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=14&past_days=1`;
   let d = null, stale = false;
   try { const r = await fetch(url); if (!r.ok) throw 0; d = await r.json(); d._fetched = Date.now(); ls.set('wx', { loc, d }); }
   catch { const c = ls.get('wx'); if (c && dist(c.loc, loc) < 30000) { d = c.d; stale = true; } }
@@ -590,6 +653,18 @@ function rainOutlook(next) {
   return { ok: false, txt: `${i === 0 ? 'ฝนกำลังตก/ใกล้ตก' : 'ฝนน่าจะเริ่ม ~' + pad(h12[i].t.getHours()) + ':00'} ถึง ~${pad((h12[j].t.getHours() + 1) % 24)}:00 · โอกาส ${Math.max(...h12.slice(i, j + 1).map(x => x.pop ?? 0))}% · รวม ~${mm.toFixed(1)} มม.` };
 }
 function season(d = new Date()) { const m = d.getMonth() + 1; return SEASONS.find(s => s.m.includes(m)) || SEASONS[0]; }
+function renderAlert() {
+  const el = $('#alertBar'), W = S.wx; if (!W) return;
+  const h3 = W.next.slice(0, 4), at = x => pad(x.t.getHours()) + ':00', msgs = [];
+  const th = h3.find(x => x.code >= 95), hv = h3.find(x => x.rain >= 5), gs = h3.find(x => x.gust >= 45 || x.wind >= 30), ht = h3.find(x => x.temp >= 38);
+  if (th) msgs.push(`⛈️ พายุฝนฟ้าคะนอง ~${at(th)} เก็บคัน ออกห่างน้ำและต้นไม้สูง`);
+  if (hv && !th) msgs.push(`🌧️ ฝนหนัก ~${at(hv)} (${hv.rain.toFixed(0)} มม./ชม.) ระวังน้ำป่า ทางลื่น`);
+  if (gs) msgs.push(`💨 ลมแรง ~${at(gs)} กระโชก ${Math.round(Math.max(gs.gust, gs.wind))} กม./ชม.`);
+  if (ht) msgs.push(`🥵 ร้อนจัด ${Math.round(ht.temp)}° ~${at(ht)} ดื่มน้ำ หลบแดด`);
+  el.classList.toggle('hidden', !msgs.length); el.classList.toggle('severe', !!th);
+  el.innerHTML = msgs.map(m => `<div>${m}</div>`).join('') + (msgs.length ? `<small>ใน 3 ชม. ที่ ${esc(S.fcLoc?.place?.short || S.fcLoc?.name || '')}</small>` : '');
+  return msgs;
+}
 function renderForecast() {
   const W = S.wx, n = W.now, wm = wmo(n.code, !n.day), sn = season(), mo = new Date().getMonth() + 1;
   const best = W.next[W.bi], best2 = W.next[W.bi + 1] || best;
@@ -612,6 +687,7 @@ function renderForecast() {
     <div class="bars">${W.next.map((x, i) => `<div class="${i === 0 ? 'now' : ''} ${i === W.bi || i === W.bi + 1 ? 'best' : ''}" style="height:${clamp(x.score, 8, 100)}%;background:${scoreColor(x.score)}"></div>`).join('')}</div>
     <div class="bar-axis"><span>ตอนนี้</span>${[6, 12, 18].map(k => `<span>${pad(W.next[k]?.t.getHours() ?? 0)}</span>`).join('')}<span>+24ชม.</span></div>
   </div>
+  ${(() => { const m = renderAlert() || []; return m.length ? `<div class="warn alert-in">${m.map(x => `<div>${x}</div>`).join('')}</div>` : ''; })()}
   ${(() => { const r = rainOutlook(W.next); return `<div class="card rain-card ${r.ok ? 'dry' : 'wet'}"><div class="card-h">${r.ok ? '🌂' : '🌧️'} ฝนที่จุดนี้</div><div>${r.txt}</div><div class="row"><button class="btn ghost small" id="fcRainMap">🗺️ ดูฝนบนแผนที่</button></div></div>`; })()}
   <div class="card"><div class="card-h">🌙 ช่วงปลากินตามดวงจันทร์ (24 ชม.)</div>
     <div class="solunar">${W.ev.length ? W.ev.map(e => `<span class="chip ${e.type}">${e.type === 'major' ? '★ ' : ''}${hm(new Date(e.t))} ${e.label}</span>`).join('') : '<span class="sub">-</span>'}</div>
@@ -630,13 +706,14 @@ function renderForecast() {
     <div class="card-h" style="margin-top:12px;font-size:15px">น่าตกช่วงนี้</div>
     <div class="fishrow">${fishNow.map(f => `<div class="fish"><b>${f.n}</b><p>🪱 ${f.bait}</p><p>📍 ${f.where}</p></div>`).join('')}</div></div>
   <div class="row"><button class="btn ghost small" id="fcMine">📍 ดูที่ตำแหน่งของฉัน</button><button class="btn ghost small" id="fcCenter">🎯 ดูที่กลางแผนที่</button></div>
-  <div class="foot sub">คะแนน 0–100 คำนวณในเครื่องจาก แนวโน้มความกดอากาศ ลม ฝน ช่วงแสงเช้า-เย็น และตำแหน่งดวงจันทร์</div>`;
-  showPlace();
+  <div class="foot sub">คะแนน 0–100 คำนวณในเครื่องจาก แนวโน้มความกดอากาศ ลม ฝน ช่วงแสงเช้า-เย็น และตำแหน่งดวงจันทร์${S.catches.length >= MIN_PERSONAL ? ' · ปรับตามสถิติการจับปลาของคุณแล้ว' : ''}</div>`;
+  showPlace(); renderAlert();
   $('#fcRainMap').onclick = () => { showTab('map'); map.setView([W.lat, W.lng], Math.min(map.getZoom(), 11)); setRain(true); };
   $('#fcMine').onclick = () => S.pos ? loadForecast({ lat: S.pos.lat, lng: S.pos.lng, name: 'ตำแหน่งของฉัน', auto: true }) : toast('ยังไม่ได้ตำแหน่ง GPS');
   $('#fcCenter').onclick = () => { const c = map.getCenter(); loadForecast({ lat: c.lat, lng: c.lng, name: `กลางแผนที่ (${c.lat.toFixed(3)}, ${c.lng.toFixed(3)})` }); };
 }
 $('#fcRefresh').onclick = () => { toast('กำลังรีเฟรช…'); loadForecast(); };
+$('#alertBar').onclick = () => showTab('forecast');
 $('#wxPill').onclick = () => showTab('forecast');
 $('#seasonPill').onclick = () => { showTab('forecast'); setTimeout(() => $('#view-forecast').scrollTo({ top: 99999, behavior: 'smooth' }), 80); };
 
@@ -777,6 +854,32 @@ function renderChecklist() {
 }
 $('#checkReset').onclick = () => { ls.set('check', {}); renderChecklist(); };
 
+/* ============ สถิติส่วนตัว + ปรับคะแนนตามผลจริง ============ */
+const BUCKETS = [['เช้ามืด 04–07', 4, 7], ['เช้า 07–10', 7, 10], ['สาย–เที่ยง 10–14', 10, 14], ['บ่าย 14–17', 14, 17], ['เย็น 17–19', 17, 19], ['กลางคืน 19–04', 19, 28]];
+const bucketOf = h => BUCKETS.findIndex(b => (h >= b[1] && h < b[2]) || (h + 24 >= b[1] && h + 24 < b[2]));
+const MIN_PERSONAL = 10;
+function personalAdj(hour) {   // ±คะแนนจากสัดส่วนปลาที่คุณได้จริงในช่วงเวลานั้น เทียบกับถ้าได้สม่ำเสมอทั้งวัน
+  const n = S.catches.length; if (n < MIN_PERSONAL) return 0;
+  const bi = bucketOf(hour), got = S.catches.filter(c => bucketOf(new Date(c.t).getHours()) === bi).length / n, exp = (BUCKETS[bi][2] - BUCKETS[bi][1]) / 24;
+  return Math.round(clamp((got / exp - 1) * 6, -5, 8));
+}
+function topOf(arr, k = 3) { const m = {}; arr.filter(Boolean).forEach(x => m[x] = (m[x] || 0) + 1); return Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, k); }
+function renderStats() {
+  const C = S.catches, n = C.length, el = $('#myStats');
+  if (n < 3) { el.innerHTML = `<div class="sub">บันทึกปลาอย่างน้อย 3 ตัว แล้วตรงนี้จะสรุปว่าคุณได้ปลาช่วงไหน เหยื่ออะไร อากาศแบบไหน (ตอนนี้ ${n} ตัว) · ครบ ${MIN_PERSONAL} ตัว แอปจะปรับคะแนนปลากินให้เข้ากับคุณ</div>`; return; }
+  const bc = BUCKETS.map((b, i) => C.filter(c => bucketOf(new Date(c.t).getHours()) === i).length), mx = Math.max(...bc);
+  const wx = C.filter(c => c.wx), avg = f => wx.length ? wx.reduce((s, c) => s + f(c.wx), 0) / wx.length : null;
+  const moon = [['ข้างขึ้น', c => c.moon < .5], ['ข้างแรม', c => c.moon >= .5], ['ใกล้เดือนมืด/เดือนเพ็ญ', c => c.moon < .1 || c.moon > .9 || Math.abs(c.moon - .5) < .1]].map(([l, f]) => `${l} ${C.filter(c => c.moon != null && f(c)).length}`).join(' · ');
+  const lst = a => a.length ? a.map(([k, v]) => `${esc(k)} (${v})`).join(', ') : '-';
+  el.innerHTML = `<div class="card-h">⏰ ได้ปลาช่วงไหน</div>
+  ${BUCKETS.map((b, i) => `<div class="sbar"><span>${b[0]}</span><i><em style="width:${mx ? bc[i] / mx * 100 : 0}%;${bc[i] === mx ? 'background:var(--acc)' : ''}"></em></i><b>${bc[i]}</b></div>`).join('')}
+  <div class="kv" style="margin-top:12px"><span>เหยื่อได้ผล</span><b>${lst(topOf(C.map(c => c.bait)))}</b><span>ชนิดปลา</span><b>${lst(topOf(C.map(c => c.species)))}</b>
+  <span>จุดที่ได้บ่อย</span><b>${lst(topOf(C.map(c => S.spots.find(s => s.id === c.spotId)?.name)))}</b>
+  ${wx.length ? `<span>อากาศตอนได้</span><b>เฉลี่ย ${avg(w => w.temp).toFixed(0)}° · ${avg(w => w.pres).toFixed(0)} hPa · ลม ${avg(w => w.wind).toFixed(0)} กม./ชม. · คะแนนเฉลี่ย ${avg(w => w.score).toFixed(0)} <span class="sub">(จาก ${wx.length} ตัว)</span></b>` : ''}
+  <span>ดวงจันทร์</span><b>${moon}</b></div>
+  <div class="sub">${n >= MIN_PERSONAL ? '✅ คะแนนปลากินถูกปรับตามช่วงเวลาที่คุณได้ปลาจริงแล้ว (สูงสุด +8 / −5)' : `อีก ${MIN_PERSONAL - n} ตัว แอปจะเริ่มปรับคะแนนปลากินตามสถิติของคุณ`}</div>`;
+}
+
 /* ============ log ============ */
 function renderLog() {
   const sp = new Set(S.catches.map(c => c.species)), big = S.catches.reduce((m, c) => Math.max(m, c.wt || 0), 0);
@@ -789,7 +892,7 @@ function renderLog() {
     const t = SPOT_TYPES[s.type] || SPOT_TYPES.other;
     return `<div class="item" data-act="spot" data-id="${s.id}"><div class="th" ${s.photo ? `style="background-image:url(${s.photo})"` : `style="background:${t.color}33"`}>${s.photo ? '' : t.icon}</div><div class="mid"><b>${esc(s.name)}</b><div class="sub">${t.label}${S.pos ? ' · ' + fmtDist(dist(S.pos, s)) : ''}</div>${s.note ? `<div class="sub">${esc(s.note)}</div>` : ''}</div></div>`;
   }).join('') : '<div class="empty">ยังไม่มีหมุด กดค้างบนแผนที่เพื่อปักหมุด</div>';
-  renderTrackUI();
+  renderTrackUI(); renderStats();
 }
 $('#exportBtn').onclick = () => {
   const blob = new Blob([JSON.stringify({ app: 'pranpla', v: 1, exported: new Date().toISOString(), spots: S.spots, catches: S.catches, track: S.track })], { type: 'application/json' });
@@ -829,6 +932,7 @@ $$('.tabbar [data-tab]').forEach(b => b.onclick = () => showTab(b.dataset.tab));
   startGeo();
   setTimeout(() => { if (!S.fcLoc) { const c = map.getCenter(); loadForecast({ lat: c.lat, lng: c.lng, name: 'กลางแผนที่ (ยังไม่มี GPS)', auto: true }); } }, 3500);
   setInterval(() => { if ($('#view-tools').classList.contains('show')) renderTools(); }, 30000);
+  setInterval(() => { if (document.visibilityState !== 'visible' || !S.fcLoc) return; if (S.fcLoc.auto && S.pos) loadForecast({ lat: S.pos.lat, lng: S.pos.lng, name: 'ตำแหน่งของฉัน', auto: true }); else loadForecast(); }, 20 * 6e4);
   navigator.storage?.persist?.();
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 })();

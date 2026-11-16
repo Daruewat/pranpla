@@ -37,6 +37,7 @@
     <button id="btnLayer" title="ชั้นแผนที่"><span>🗺️</span><small id="layerName">แผนที่</small></button>
     <button id="btnRain" title="ฝน"><span>🌧️</span><small>ฝน</small></button>
     <button id="btnWater" title="หาแหล่งน้ำใกล้ๆ"><span>💧</span><small>แหล่งน้ำ</small></button>
+    <button id="btnMeasure" title="วัดระยะ"><span>📏</span><small>วัดระยะ</small></button>
     <button id="btnTrack" title="บันทึกเส้นทาง"><span>👣</span><small id="trackLabel">เส้นทาง</small></button>
     <button id="btnLocate" class="primary" title="ตำแหน่งของฉัน"><span>◎</span></button>
   </div>
@@ -53,6 +54,11 @@
     </svg>
     <small id="mcDeg">เข็มทิศ</small>
   </button>
+  <div id="alertBar" class="alertbar hidden"></div>
+  <div id="measBar" class="rainbar measbar hidden">
+    <div class="rain-top"><span id="measLabel">แตะแผนที่เพื่อวางจุดแรก</span><button id="measClose">✕</button></div>
+    <div class="row" style="margin-top:8px"><button class="btn ghost small" id="measMe">◎ เริ่มจากตัวฉัน</button><button class="btn ghost small" id="measUndo">↶ ย้อนจุด</button></div>
+  </div>
   <div id="rainBar" class="rainbar hidden">
     <div class="rain-top"><span id="rainLabel">ฝน</span><button id="rainClose">✕</button></div>
     <input id="rainSlider" type="range" min="0" max="12" step="1" value="0">
@@ -167,6 +173,8 @@
     <div id="catchList"></div>
     <div class="sect-h"><h2>จุดของฉัน</h2><button class="link" data-act="new-spot-here">+ ปักหมุดตรงนี้</button></div>
     <div id="spotList"></div>
+    <div class="sect-h"><h2>สถิติของฉัน</h2></div>
+    <div id="myStats" class="card"></div>
     <div class="sect-h"><h2>เส้นทาง</h2></div>
     <div id="trackInfo" class="card"></div>
     <div class="sect-h"><h2>สำรองข้อมูล</h2></div>
