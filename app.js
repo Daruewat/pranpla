@@ -257,11 +257,19 @@ function setTarget(t) {
 $('#targetClear').onclick = () => setTarget(null);
 
 /* ============ sheets ============ */
+let sheetHist = false;
 function openSheet(html) {
-  $('#sheet').innerHTML = '<div class="grab"></div>' + html;
+  $('#sheet').innerHTML = '<div class="grab"></div><button class="sheet-x" data-act="close" aria-label="ปิด">✕</button>' + html;
   $('#sheet').classList.add('open'); $('#sheetBg').classList.remove('hidden'); $('#sheet').scrollTop = 0;
+  if (!sheetHist) { try { history.pushState({ sheet: 1 }, ''); sheetHist = true; } catch {} }   // ให้ปุ่มย้อนกลับของมือถือปิดหน้าต่างนี้
 }
-function closeSheet() { $('#sheet').classList.remove('open'); $('#sheetBg').classList.add('hidden'); $('#crosshair').classList.add('hidden'); }
+function hideSheet() { $('#sheet').classList.remove('open'); $('#sheetBg').classList.add('hidden'); $('#crosshair').classList.add('hidden'); }
+function closeSheet() { hideSheet(); if (sheetHist) { sheetHist = false; try { history.back(); } catch {} } }
+window.addEventListener('popstate', () => { if (sheetHist) { sheetHist = false; hideSheet(); } });
+// ลากแถบบนลงเพื่อปิด
+{ let y0 = null; const sh = $('#sheet');
+  sh.addEventListener('touchstart', e => { y0 = sh.scrollTop <= 0 && e.touches[0].clientY - sh.getBoundingClientRect().top < 70 ? e.touches[0].clientY : null; }, { passive: true });
+  sh.addEventListener('touchend', e => { if (y0 != null && e.changedTouches[0].clientY - y0 > 70) closeSheet(); y0 = null; }, { passive: true }); }
 $('#sheetBg').onclick = closeSheet;
 function compressImage(file, max = 1100, q = .72) {
   return new Promise((res, rej) => {

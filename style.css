@@ -263,3 +263,6 @@ h1,h2,.card-h,.btn,.pill,.tabbar button,.fab{font-family:Kanit,"IBM Plex Sans Th
 .seg button.sel{background:var(--blue);color:#fff}
 
 #fcPlace{text-decoration:underline dotted;text-underline-offset:3px;cursor:pointer}
+
+.sheet-x{position:sticky;top:0;float:right;z-index:5;width:40px;height:40px;margin:-4px -4px 0 8px;border-radius:50%;border:1px solid var(--line);background:var(--card2);color:var(--tx);font-size:18px}
+.sheet .grab{width:54px;height:6px}
