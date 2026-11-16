@@ -67,8 +67,8 @@ const map = L.map('map', { zoomControl: false }).setView(ls.get('view', [18.79, 
 const OSM = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/';
 const TL = (u, o) => L.tileLayer(u, { crossOrigin: true, maxZoom: 19, ...o });
 const LAYERS = {
-  vec: { name: 'พรานปลา (เวกเตอร์)', ico: '🎣', desc: 'โทนสีเข้ากับแอป ซูมลื่น ตัวหนังสือคม เปลี่ยนตามธีมมืด/สว่าง · ออฟไลน์ใช้พื้นที่น้อย', maxZ: 14, kb: 22, urls: [], make: makeVec },
-  light: { name: 'แผนที่', ico: '🗺️', desc: 'สว่าง อ่านง่าย ชื่อสถานที่ภาษาไทย', urls: [OSM], maxZ: 18, kb: 18, l: TL(OSM, { attribution: '© OpenStreetMap' }) },
+  vec: { short: 'เรียบง่าย', name: 'พรานปลา (เวกเตอร์)', ico: '🎣', desc: 'โทนสีเข้ากับแอป ซูมลื่น ตัวหนังสือคม เปลี่ยนตามธีมมืด/สว่าง · ออฟไลน์ใช้พื้นที่น้อย', maxZ: 14, kb: 22, urls: [], make: makeVec },
+  light: { short: 'ถนน', name: 'แผนที่', ico: '🗺️', desc: 'สว่าง อ่านง่าย ชื่อสถานที่ภาษาไทย', urls: [OSM], maxZ: 18, kb: 18, l: TL(OSM, { attribution: '© OpenStreetMap' }) },
   sat: { name: 'ดาวเทียม', ico: '🛰️', desc: 'ภาพถ่ายจริง + ชื่อสถานที่ เห็นแนวน้ำ กอหญ้า ทางเข้า', maxZ: 18, kb: 30,
     urls: [ESRI + 'World_Imagery/MapServer/tile/{z}/{y}/{x}', ESRI + 'Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'],
     l: L.layerGroup([TL(ESRI + 'World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxNativeZoom: 18, attribution: 'Esri, Maxar' }), TL(ESRI + 'Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxNativeZoom: 18 })]) },
@@ -109,10 +109,23 @@ function spotIcon(type) {
   const t = SPOT_TYPES[type] || SPOT_TYPES.other;
   return L.divIcon({ className: '', html: `<div class="mk" style="background:${t.color}"><span>${t.icon}</span></div>`, iconSize: [34, 34], iconAnchor: [17, 34] });
 }
+const OPT = Object.assign({ types: null, catches: false, cross: false, heat: false, water: true }, ls.get('mapopt', {}));
+const saveOpt = () => ls.set('mapopt', OPT);
+const gCatch = L.layerGroup().addTo(map), gHeat = L.layerGroup().addTo(map);
 function renderSpots() {
-  gSpots.clearLayers();
-  S.spots.forEach(s => L.marker([s.lat, s.lng], { icon: spotIcon(s.type) }).on('click', () => spotSheet(s.id)).addTo(gSpots));
+  gSpots.clearLayers(); gCatch.clearLayers(); gHeat.clearLayers();
+  S.spots.filter(s => !OPT.types || OPT.types.includes(s.type)).forEach(s => L.marker([s.lat, s.lng], { icon: spotIcon(s.type) }).on('click', () => spotSheet(s.id)).addTo(gSpots));
+  const C = S.catches.filter(c => c.lat != null);
+  if (OPT.catches) C.forEach(c => L.marker([c.lat + (Math.random() - .5) * 8e-5, c.lng + (Math.random() - .5) * 8e-5], { icon: L.divIcon({ className: '', html: '<div class="cmk">🐟</div>', iconSize: [26, 26], iconAnchor: [13, 13] }) }).on('click', () => catchSheet(c.id)).addTo(gCatch));
+  if (OPT.heat) C.forEach(c => L.marker([c.lat, c.lng], { interactive: false, zIndexOffset: -1000, icon: L.divIcon({ className: '', html: '<div class="heat"></div>', iconSize: [110, 110], iconAnchor: [55, 55] }) }).addTo(gHeat));
+  if (OPT.water) { if (!map.hasLayer(gWater)) gWater.addTo(map); } else map.removeLayer(gWater);
 }
+function updateCoordBar() {
+  const el = $('#coordBar');
+  if (OPT.cross) { const c = map.getCenter(); el.textContent = `🎯 ${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}${S.pos ? ' · ห่าง ' + fmtDist(dist(S.pos, { lat: c.lat, lng: c.lng })) : ''}`; }
+  else if (S.pos) el.textContent = `${S.pos.lat.toFixed(5)}, ${S.pos.lng.toFixed(5)} ±${Math.round(S.pos.acc)}ม.`;
+}
+map.on('move', () => { if (OPT.cross) updateCoordBar(); });
 function updateMe() {
   if (!S.pos) return;
   const ll = [S.pos.lat, S.pos.lng];
@@ -128,7 +141,7 @@ function updateMe() {
 /* ============ GPS ============ */
 function onPos(p) {
   S.pos = { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy, alt: p.coords.altitude, spd: p.coords.speed, t: p.timestamp };
-  $('#coordBar').textContent = `${S.pos.lat.toFixed(5)}, ${S.pos.lng.toFixed(5)} ±${Math.round(S.pos.acc)}ม.`;
+  updateCoordBar();
   if (!S.firstFix) {
     S.firstFix = true;
     if (!S.noCenter) { map.setView([S.pos.lat, S.pos.lng], Math.max(map.getZoom(), 14)); $('#btnLocate').classList.add('follow'); }
@@ -154,11 +167,31 @@ $('#btnLocate').onclick = () => {
   if (!S.pos) { toast('ยังไม่ได้ตำแหน่ง GPS'); startGeo(); return; }
   S.follow = true; $('#btnLocate').classList.add('follow'); map.setView([S.pos.lat, S.pos.lng], Math.max(map.getZoom(), 15));
 };
-$('#btnLayer').onclick = () => {
-  openSheet('<h3>เลือกแผนที่</h3>' + Object.entries(LAYERS).map(([k, o]) => `<button class="menu-item" data-layer="${k}"><span class="mi" style="${k === S.layer ? 'outline:2px solid var(--acc)' : ''}">${o.ico}</span><span><b>${o.name}${k === S.layer ? ' ✓' : ''}</b><span class="sub">${o.desc}</span></span></button>`).join('') + `<button class="menu-item" id="offOpen"><span class="mi">⬇️</span><span><b>เก็บแผนที่ไว้ใช้ออฟไลน์</b><span class="sub">ดาวน์โหลดบริเวณที่เห็นอยู่ ไว้เปิดตอนไม่มีสัญญาณ</span></span></button>`);
+function mapOptSheet() {
+  const sw = (k, ico, title, sub) => `<label class="optrow"><span class="oi">${ico}</span><span class="ot"><b>${title}</b><small>${sub}</small></span><input type="checkbox" class="switch" data-opt="${k}" ${OPT[k] ? 'checked' : ''}></label>`;
+  openSheet(`<h3>ตัวเลือกแผนที่</h3>
+  <div class="card-h" style="font-size:15px;margin-top:6px">รูปแบบแผนที่</div>
+  <div class="stylegrid">${Object.entries(LAYERS).map(([k, o]) => `<button data-layer="${k}" class="${k === S.layer ? 'sel' : ''}"><span>${o.ico}</span>${o.short || o.name}</button>`).join('')}</div>
+  <div class="card-h" style="font-size:15px;margin-top:14px">กรองหมุด <span class="sub" style="font-weight:400">แตะเพื่อซ่อน/แสดงแต่ละประเภท</span></div>
+  <div class="types" id="optTypes">${Object.entries(SPOT_TYPES).map(([k, t]) => `<button type="button" data-type="${k}" class="${!OPT.types || OPT.types.includes(k) ? 'sel' : ''}">${t.icon} ${t.label}</button>`).join('')}</div>
+  ${sw('catches', '🐟', 'ปลาที่ฉันจับได้', 'แสดงจุดที่ได้ปลาแต่ละตัวบนแผนที่')}
+  ${sw('heat', '🔥', 'ฮีตแมปของฉัน', 'ระบายสีบริเวณที่ได้ปลาบ่อย จากสมุดบันทึกของคุณเอง')}
+  ${sw('water', '💧', 'แหล่งน้ำและระดับน้ำ', 'หมุดจากปุ่มแหล่งน้ำ และ % ของเขื่อน/อ่าง')}
+  ${sw('cross', '🎯', 'เส้นเล็ง', 'กากบาทกลางจอ บอกพิกัดและระยะจากตัวคุณ')}
+  <button class="menu-item" id="offOpen"><span class="mi">⬇️</span><span><b>ดาวน์โหลดไว้ใช้ออฟไลน์</b><span class="sub">เก็บบริเวณที่เห็นอยู่ ไว้เปิดตอนไม่มีสัญญาณ</span></span></button>
+  <button class="menu-item" data-act="toggle-track"><span class="mi">👣</span><span><b>${S.track.on ? 'หยุดโหมดเดินทาง' : 'โหมดเดินทาง'}</b><span class="sub">บันทึกเส้นทางที่เดิน เปิดจอค้าง ไว้นำทางกลับจุดเริ่ม</span></span></button>`);
   $('#offOpen').onclick = offlineSheet;
-  $$('#sheet [data-layer]').forEach(b => b.onclick = () => { setLayer(b.dataset.layer); closeSheet(); });
-};
+  $$('#sheet [data-layer]').forEach(b => b.onclick = () => { setLayer(b.dataset.layer); $$('#sheet [data-layer]').forEach(x => x.classList.toggle('sel', x === b)); });
+  $$('#optTypes button').forEach(b => b.onclick = () => {
+    b.classList.toggle('sel'); const on = $$('#optTypes button.sel').map(x => x.dataset.type);
+    OPT.types = on.length === Object.keys(SPOT_TYPES).length ? null : on; saveOpt(); renderSpots();
+  });
+  $$('#sheet [data-opt]').forEach(x => x.onchange = () => {
+    OPT[x.dataset.opt] = x.checked; saveOpt(); renderSpots(); updateCoordBar();
+    if (x.dataset.opt === 'heat' && x.checked && !S.catches.some(c => c.lat != null)) toast('ยังไม่มีปลาในสมุดบันทึก ฮีตแมปจะขึ้นเมื่อบันทึกปลาพร้อมตำแหน่ง');
+  });
+}
+$('#btnLayer').onclick = mapOptSheet;
 $('#mapCompass').onclick = () => {
   if (S.heading == null && typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') $('#compassPerm').click();
   showTab('tools');
@@ -279,7 +312,7 @@ function openSheet(html) {
   $('#sheet').classList.add('open'); $('#sheetBg').classList.remove('hidden'); $('#sheet').scrollTop = 0;
   if (!sheetHist) { try { history.pushState({ sheet: 1 }, ''); sheetHist = true; } catch {} }   // ให้ปุ่มย้อนกลับของมือถือปิดหน้าต่างนี้
 }
-function hideSheet() { $('#sheet').classList.remove('open'); $('#sheetBg').classList.add('hidden'); $('#crosshair').classList.add('hidden'); }
+function hideSheet() { $('#sheet').classList.remove('open'); $('#sheetBg').classList.add('hidden'); $('#crosshair').classList.toggle('hidden', !OPT.cross); }
 function closeSheet() { hideSheet(); if (sheetHist) { sheetHist = false; try { history.back(); } catch {} } }
 window.addEventListener('popstate', () => { if (sheetHist) { sheetHist = false; hideSheet(); } });
 // ลากแถบบนลงเพื่อปิด
@@ -1008,6 +1041,7 @@ function renderStats() {
 
 /* ============ log ============ */
 function renderLog() {
+  if (OPT.catches || OPT.heat) renderSpots();
   const sp = new Set(S.catches.map(c => c.species)), big = S.catches.reduce((m, c) => Math.max(m, c.wt || 0), 0);
   $('#stats').innerHTML = `<div><b>${S.catches.length}</b><span>ปลาที่จับได้</span></div><div><b>${sp.size}</b><span>ชนิดปลา</span></div><div><b>${S.spots.length}</b><span>หมุด</span></div><div><b>${big || '-'}</b><span>กก. ใหญ่สุด</span></div>`;
   $('#catchList').innerHTML = S.catches.length ? S.catches.map(c => {
@@ -1071,7 +1105,7 @@ $$('.tabbar [data-tab]').forEach(b => b.onclick = () => showTab(b.dataset.tab));
     S.spots = (await DB.get('spots')) || []; S.catches = (await DB.get('catches')) || [];
     const tr = await DB.get('track'); if (tr) { S.track = tr; S.track.on = false; trackLine.setLatLngs(tr.pts.map(p => [p[0], p[1]])); }
   } catch { toast('เปิดที่เก็บข้อมูลในเครื่องไม่ได้ ข้อมูลจะไม่ถูกบันทึก'); }
-  renderSpots(); renderLog(); renderChecklist(); renderTools();
+  renderSpots(); renderLog(); renderChecklist(); renderTools(); $('#crosshair').classList.toggle('hidden', !OPT.cross);
   const sn = season(); $('#seasonPillText').textContent = `${sn.icon} ${sn.name}`;
   importPinFromHash();
   startGeo();

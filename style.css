@@ -266,3 +266,22 @@ h1,h2,.card-h,.btn,.pill,.tabbar button,.fab{font-family:Kanit,"IBM Plex Sans Th
 
 .sheet-x{position:sticky;top:0;float:right;z-index:5;width:40px;height:40px;margin:-4px -4px 0 8px;border-radius:50%;border:1px solid var(--line);background:var(--card2);color:var(--tx);font-size:18px}
 .sheet .grab{width:54px;height:6px}
+
+.stylegrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(64px,1fr));gap:8px;margin-top:8px}
+.stylegrid button{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 4px 10px;display:flex;flex-direction:column;align-items:center;gap:6px;font-family:Kanit,sans-serif;font-size:12.5px;color:var(--tx)}
+.stylegrid button span{font-size:24px}
+.stylegrid button.sel{border:2px solid var(--blue);color:var(--link);background:var(--wet-bg)}
+.optrow{display:flex;align-items:center;gap:14px;padding:13px 0;border-bottom:1px solid var(--line)}
+.optrow .oi{width:30px;text-align:center;font-size:20px}
+.optrow .ot{flex:1}
+.optrow b{display:block;font-family:Kanit,sans-serif;font-weight:500;font-size:16px}
+.optrow small{color:var(--tx2);font-size:12px}
+.switch{appearance:none;-webkit-appearance:none;width:54px;height:32px;border-radius:99px;background:var(--track);border:1px solid var(--line);position:relative;flex:none;transition:.15s;cursor:pointer}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:var(--tx3);transition:.15s}
+.switch:checked{background:#1d4ed8;border-color:#1d4ed8}
+.switch:checked::after{left:25px;background:#fff}
+.sheet .types{margin-top:8px}
+.cmk{width:26px;height:26px;border-radius:50%;background:#0ea5e9;border:2px solid #fff;display:grid;place-items:center;font-size:13px;box-shadow:0 2px 5px rgba(0,0,0,.5)}
+.heat{width:110px;height:110px;border-radius:50%;background:radial-gradient(circle,rgba(239,68,68,.55) 0%,rgba(245,158,11,.38) 35%,rgba(250,204,21,.18) 60%,rgba(250,204,21,0) 72%);mix-blend-mode:screen;pointer-events:none}
+:root[data-theme=light] .heat{mix-blend-mode:multiply}
+.crosshair{font-weight:300}
