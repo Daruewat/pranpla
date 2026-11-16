@@ -67,6 +67,7 @@ const map = L.map('map', { zoomControl: false }).setView(ls.get('view', [18.79, 
 const OSM = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/';
 const TL = (u, o) => L.tileLayer(u, { crossOrigin: true, maxZoom: 19, ...o });
 const LAYERS = {
+  vec: { name: 'พรานปลา (เวกเตอร์)', ico: '🎣', desc: 'โทนสีเข้ากับแอป ซูมลื่น ตัวหนังสือคม เปลี่ยนตามธีมมืด/สว่าง · ออฟไลน์ใช้พื้นที่น้อย', maxZ: 14, kb: 22, urls: [], make: makeVec },
   light: { name: 'แผนที่', ico: '🗺️', desc: 'สว่าง อ่านง่าย ชื่อสถานที่ภาษาไทย', urls: [OSM], maxZ: 18, kb: 18, l: TL(OSM, { attribution: '© OpenStreetMap' }) },
   sat: { name: 'ดาวเทียม', ico: '🛰️', desc: 'ภาพถ่ายจริง + ชื่อสถานที่ เห็นแนวน้ำ กอหญ้า ทางเข้า', maxZ: 18, kb: 30,
     urls: [ESRI + 'World_Imagery/MapServer/tile/{z}/{y}/{x}', ESRI + 'Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'],
@@ -74,9 +75,23 @@ const LAYERS = {
   map: { name: 'กลางคืน', ico: '🌙', desc: 'โทนมืด ถนอมสายตาและแบต', urls: [OSM], maxZ: 18, kb: 18, l: TL(OSM, { className: 'dark-tiles', attribution: '© OpenStreetMap' }) },
   topo: { name: 'ภูมิประเทศ', ico: '⛰️', desc: 'เส้นชั้นความสูง ลำห้วย ทางเดินป่า', urls: ['https://a.tile.opentopomap.org/{z}/{x}/{y}.png'], maxZ: 16, kb: 28, l: TL('https://a.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17, attribution: '© OpenTopoMap' }) }
 };
-function setLayer(k) {
-  Object.values(LAYERS).forEach(o => map.removeLayer(o.l));
-  LAYERS[k].l.addTo(map); S.layer = k; ls.set('layer', k); $('#layerName').textContent = LAYERS[k].name;
+const loadScript = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+const curTheme = () => document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+async function makeVec() {   // โหลดตัววาดแผนที่เวกเตอร์เฉพาะตอนเลือกใช้
+  if (!window.maplibregl) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'lib/maplibre-gl.css'; document.head.appendChild(l); await loadScript('lib/maplibre-gl.js'); await loadScript('lib/leaflet-maplibre-gl.js'); await loadScript('vecstyle.js'); }
+  if (!maplibregl.supported?.() && !document.createElement('canvas').getContext('webgl')) throw new Error('no webgl');
+  fetch('https://tiles.openfreemap.org/planet').then(r => r.json()).then(j => { if (j.tiles?.[0]) LAYERS.vec.urls = [j.tiles[0]]; }).catch(() => {});
+  return L.maplibreGL({ style: vecStyle(curTheme()), attribution: '© OpenStreetMap · OpenFreeMap' });
+}
+function vecRestyle() { const l = LAYERS.vec.l; try { l?.getMaplibreMap?.()?.setStyle(vecStyle(curTheme())); } catch {} }
+let layerSeq = 0;
+async function setLayer(k) {
+  const seq = ++layerSeq, o = LAYERS[k];
+  if (o.make && !o.l) { try { toast('กำลังโหลดแผนที่เวกเตอร์…'); o.l = await o.make(); } catch { toast('เครื่อง/เบราว์เซอร์นี้เปิดแผนที่เวกเตอร์ไม่ได้ ใช้แผนที่ปกติแทน'); if (seq === layerSeq) return setLayer('light'); return; } }
+  if (seq !== layerSeq) return;
+  Object.values(LAYERS).forEach(x => x.l && map.removeLayer(x.l));
+  o.l.addTo(map); S.layer = k; ls.set('layer', k); $('#layerName').textContent = k === 'vec' ? 'เวกเตอร์' : o.name;
+  if (k === 'vec') vecRestyle();
 }
 setLayer(LAYERS[S.layer] ? S.layer : 'light');
 const searchPin = L.marker([0, 0], { icon: L.divIcon({ className: '', html: '<div class="mk" style="background:#e11d48"><span>🔎</span></div>', iconSize: [34, 34], iconAnchor: [17, 34] }) });
@@ -163,13 +178,14 @@ function offlinePlan() {
 async function offlineCount() { try { return (await (await caches.open('pranpla-offline')).keys()).length; } catch { return 0; } }
 async function offlineSheet() {
   if (!('caches' in window)) { closeSheet(); return toast('เบราว์เซอร์นี้เก็บแผนที่ออฟไลน์ไม่ได้'); }
+  if (!LAYERS[S.layer].urls.length) { closeSheet(); return toast('แผนที่เวกเตอร์ยังโหลดข้อมูลไม่เสร็จ ลองใหม่อีกครั้ง'); }
   const p = offlinePlan(), have = await offlineCount(), b = map.getBounds();
   const w = dist({ lat: b.getCenter().lat, lng: b.getWest() }, { lat: b.getCenter().lat, lng: b.getEast() }), h = dist({ lat: b.getNorth(), lng: b.getWest() }, { lat: b.getSouth(), lng: b.getWest() });
   openSheet(`<h3>⬇️ แผนที่ออฟไลน์</h3>
   <div class="kv"><span>ชั้นแผนที่</span><b>${p.ly.ico} ${p.ly.name}</b><span>พื้นที่</span><b>บริเวณที่เห็นบนจอ ~${fmtDist(w)} × ${fmtDist(h)}</b>
-  <span>ความละเอียด</span><b>ซูมได้ถึงระดับ ${p.z1}${p.z1 >= 16 ? ' (เห็นถนนเล็ก ทางเดิน)' : p.z1 >= 14 ? ' (เห็นถนนและแหล่งน้ำ)' : ' (ภาพรวม)'}</b>
+  <span>ความละเอียด</span><b>${S.layer === 'vec' && p.z1 >= 14 ? 'เต็ม (เวกเตอร์ซูมได้ทุกระดับ)' : 'ซูมได้ถึงระดับ ' + p.z1}${S.layer === 'vec' ? '' : p.z1 >= 16 ? ' (เห็นถนนเล็ก ทางเดิน)' : p.z1 >= 14 ? ' (เห็นถนนและแหล่งน้ำ)' : ' (ภาพรวม)'}</b>
   <span>ขนาด</span><b>${p.urls.length} แผ่น ~${(p.urls.length * p.ly.kb / 1024).toFixed(1)} MB</b><span>เก็บไว้แล้ว</span><b id="offHave">${have} แผ่น</b></div>
-  ${p.tooBig ? '<div class="warn">พื้นที่กว้างเกินไป ซูมเข้าให้แคบลงก่อนแล้วลองใหม่</div>' : p.z1 < 15 ? '<div class="warn">พื้นที่กว้าง เลยเก็บได้แค่ระดับภาพรวม ถ้าอยากเห็นละเอียด ให้ซูมเข้าไปที่จุดตกปลาแล้วกดเก็บอีกรอบ</div>' : ''}
+  ${p.tooBig ? '<div class="warn">พื้นที่กว้างเกินไป ซูมเข้าให้แคบลงก่อนแล้วลองใหม่</div>' : p.z1 < Math.min(15, p.ly.maxZ) ? '<div class="warn">พื้นที่กว้าง เลยเก็บได้แค่ระดับภาพรวม ถ้าอยากเห็นละเอียด ให้ซูมเข้าไปที่จุดตกปลาแล้วกดเก็บอีกรอบ</div>' : ''}
   <div class="prog hidden" id="offProg"><i></i></div><div class="sub" id="offMsg">เก็บทีละบริเวณ เก็บได้หลายรอบและหลายชั้นแผนที่ ควรทำตอนต่อ Wi-Fi</div>
   <div class="row"><button class="btn acc" id="offGo" ${p.tooBig ? 'disabled' : ''}>ดาวน์โหลดบริเวณนี้</button><button class="btn ghost" id="offDel">ลบแผนที่ออฟไลน์ทั้งหมด</button></div>`);
   $('#offGo').onclick = async e => {
@@ -1033,6 +1049,7 @@ $$('#themeSeg button').forEach(b => b.onclick = () => {
   const old = document.documentElement.dataset.theme; ls.set('theme', b.dataset.theme); applyTheme();
   const now = document.documentElement.dataset.theme;      // สลับแผนที่ตามธีมให้ด้วย ถ้ายังใช้คู่ แผนที่สว่าง/กลางคืน อยู่
   if (now !== old && (S.layer === 'light' || S.layer === 'map')) setLayer(now === 'light' ? 'light' : 'map');
+  if (S.layer === 'vec') vecRestyle();
 });
 mqLight.addEventListener?.('change', applyTheme);
 applyTheme();
