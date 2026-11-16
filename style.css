@@ -234,3 +234,10 @@ h1,h2,.card-h,.btn,.pill,.tabbar button,.fab{font-family:Kanit,"IBM Plex Sans Th
 .sbar i{height:10px;border-radius:9px;background:#22342d;overflow:hidden}
 .sbar em{display:block;height:100%;background:var(--olive);border-radius:9px}
 .sbar b{text-align:right;font-family:"JetBrains Mono",monospace}
+
+.dam{padding:8px 0;border-bottom:1px solid var(--line)}
+.dam:last-of-type{border-bottom:0}
+.dam-h{display:flex;justify-content:space-between;gap:8px;font-size:14px}
+.dam-h span{font-weight:700}
+.dam .track{height:8px;border-radius:9px;background:#22342d;overflow:hidden;margin:5px 0 3px}
+.dam .track i{display:block;height:100%;border-radius:9px}

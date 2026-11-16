@@ -115,8 +115,8 @@ function onPos(p) {
   S.pos = { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy, alt: p.coords.altitude, spd: p.coords.speed, t: p.timestamp };
   $('#coordBar').textContent = `${S.pos.lat.toFixed(5)}, ${S.pos.lng.toFixed(5)} ±${Math.round(S.pos.acc)}ม.`;
   if (!S.firstFix) {
-    S.firstFix = true; map.setView([S.pos.lat, S.pos.lng], Math.max(map.getZoom(), 14));
-    $('#btnLocate').classList.add('follow');
+    S.firstFix = true;
+    if (!S.noCenter) { map.setView([S.pos.lat, S.pos.lng], Math.max(map.getZoom(), 14)); $('#btnLocate').classList.add('follow'); }
     if (!S.fcLoc || S.fcLoc.auto) loadForecast({ lat: S.pos.lat, lng: S.pos.lng, name: 'ตำแหน่งของฉัน', auto: true });
   } else if (S.follow) map.panTo([S.pos.lat, S.pos.lng], { animate: true });
   if (S.track.on && S.pos.acc < 40) {
@@ -308,7 +308,7 @@ document.addEventListener('click', e => {
 /* ---- spots ---- */
 function spotForm(init) {
   const ex = init.id ? S.spots.find(s => s.id === init.id) : null;
-  const d = ex ? { ...ex } : { id: uid(), type: 'fish', name: '', note: '', fish: '', photo: null, created: Date.now(), ...init };
+  const d = ex ? { fee: '', hours: '', rules: '', tel: '', ...ex } : { id: uid(), type: 'fish', name: '', note: '', fish: '', fee: '', hours: '', rules: '', tel: '', photo: null, created: Date.now(), ...init };
   openSheet(`<h3>${ex ? 'แก้ไขหมุด' : 'ปักหมุดใหม่'}</h3>
   <div class="sub mono">${d.lat.toFixed(5)}, ${d.lng.toFixed(5)}</div>
   <div class="form">
@@ -317,6 +317,10 @@ function spotForm(init) {
     <label>ชื่อจุด</label><input name="name" value="${esc(d.name)}" placeholder="เช่น หนองบัว ฝั่งตอไม้">
     <label>ปลาที่เจอ</label><input name="fish" value="${esc(d.fish)}" placeholder="ช่อน ชะโด นิล…">
     <label>โน้ต</label><textarea name="note" placeholder="ทางเข้า ความลึก เหยื่อที่ได้ผล ข้อควรระวัง">${esc(d.note)}</textarea>
+    <div class="two"><div><label>ค่าบริการ / ค่าบ่อ</label><input name="fee" value="${esc(d.fee)}" placeholder="ฟรี, 100 บ./วัน"></div>
+    <div><label>เวลาเปิด–ปิด</label><input name="hours" value="${esc(d.hours)}" placeholder="06:00–18:00"></div></div>
+    <label>กฎ / ข้อห้าม</label><input name="rules" value="${esc(d.rules)}" placeholder="ห้ามเหยื่อสด, ปล่อยปลาเล็ก, ขออนุญาตเจ้าของ">
+    <label>เบอร์ติดต่อ</label><input name="tel" type="tel" value="${esc(d.tel)}" placeholder="เจ้าของบ่อ / ผู้ดูแล">
     <label>รูป</label><input name="photo" type="file" accept="image/*">
     <img class="photo-prev ${d.photo ? '' : 'hidden'}" src="${d.photo || ''}">
     <div class="row"><button class="btn block acc" id="spSave">บันทึกหมุด</button></div>
@@ -326,7 +330,7 @@ function spotForm(init) {
   bindPhoto(r, d);
   $('#spSave').onclick = () => {
     d.name = $('[name=name]', r).value.trim() || SPOT_TYPES[d.type].label;
-    d.fish = $('[name=fish]', r).value.trim(); d.note = $('[name=note]', r).value.trim();
+    ['fish', 'note', 'fee', 'hours', 'rules', 'tel'].forEach(k => d[k] = $(`[name=${k}]`, r).value.trim());
     const i = S.spots.findIndex(s => s.id === d.id);
     if (i >= 0) S.spots[i] = d; else S.spots.push(d);
     save('spots'); renderSpots(); renderLog(); closeSheet(); toast('บันทึกหมุดแล้ว');
@@ -341,12 +345,15 @@ function spotSheet(id) {
   ${s.photo ? `<img class="photo-prev" src="${s.photo}">` : ''}
   <div class="kv"><span>พิกัด</span><b class="mono">${s.lat.toFixed(5)}, ${s.lng.toFixed(5)}</b>
     ${s.fish ? `<span>ปลา</span><b>${esc(s.fish)}</b>` : ''}${s.note ? `<span>โน้ต</span><b>${esc(s.note)}</b>` : ''}
+    ${s.fee ? `<span>ค่าบริการ</span><b>${esc(s.fee)}</b>` : ''}${s.hours ? `<span>เปิด–ปิด</span><b>${esc(s.hours)}</b>` : ''}${s.rules ? `<span>กฎ/ข้อห้าม</span><b style="color:#fde68a">⚠️ ${esc(s.rules)}</b>` : ''}${s.tel ? `<span>ติดต่อ</span><b><a href="tel:${esc(s.tel.replace(/[^0-9+]/g, ''))}" style="color:#93c5fd">${esc(s.tel)}</a></b>` : ''}
     <span>ปลาที่บันทึก</span><b>${n} ตัว</b></div>
+  <div id="spDam"></div>
   <div class="row">
     <button class="btn acc" id="spNav">🧭 นำทางด้วยเข็มทิศ</button>
     <a class="btn ghost" href="${gmaps(s)}" target="_blank" rel="noopener">Google Maps</a>
     <button class="btn ghost" id="spFc">🌤️ พยากรณ์ที่นี่</button>
     <button class="btn ghost" id="spCatch">🐟 บันทึกปลาที่นี่</button>
+    <button class="btn ghost" id="spShare">📤 แชร์หมุด</button>
     <button class="btn ghost" id="spEdit">แก้ไข</button>
     <button class="btn danger" id="spDel">ลบ</button>
   </div>`);
@@ -354,6 +361,8 @@ function spotSheet(id) {
   $('#spFc').onclick = () => { closeSheet(); loadForecast({ lat: s.lat, lng: s.lng, name: s.name }); showTab('forecast'); };
   $('#spCatch').onclick = () => catchForm({ spotId: s.id });
   $('#spEdit').onclick = () => spotForm({ id: s.id });
+  $('#spShare').onclick = () => shareSpot(s);
+  damNear(s, 4000).then(h => { const el = $('#spDam'); if (el && h) el.innerHTML = h; });
   let armed = false;
   $('#spDel').onclick = e => {
     if (!armed) { armed = true; e.target.textContent = 'แตะอีกครั้งเพื่อลบ'; return; }
@@ -478,12 +487,14 @@ async function findWater() {
   list.forEach(w => L.marker([w.lat, w.lng], {
     icon: L.divIcon({ className: '', html: `<div class="wmk"><i style="${w.fishing ? 'background:#f59e0b' : ''}">${w.fishing ? '🎣' : '💧'}</i>${w.name ? `<b>${esc(w.name)}</b>` : ''}</div>`, iconSize: [120, 44], iconAnchor: [60, 14] })
   }).on('click', () => waterSheet(w)).addTo(gWater));
+  loadDams().then(D => { if (!D) return; D.list.filter(x => dist({ lat: c.lat, lng: c.lng }, x) <= r * 1.5).forEach(x => L.marker([x.lat, x.lng], { zIndexOffset: 500, icon: L.divIcon({ className: '', html: `<div class="wmk"><i style="background:${damColor(x.pct)};width:38px;height:38px;font-size:11px;font-weight:700;color:#fff">${x.pct.toFixed(0)}%</i><b>${esc(x.n)}</b></div>`, iconSize: [140, 56], iconAnchor: [70, 19] }) }).on('click', () => waterSheet({ lat: x.lat, lng: x.lng, name: x.n, kind: x.type === 'L' ? 'เขื่อนขนาดใหญ่' : x.type === 'M' ? 'อ่างเก็บน้ำขนาดกลาง' : 'อ่างเก็บน้ำขนาดเล็ก' })).addTo(gWater)); });
   toast(list.length ? `เจอแหล่งน้ำ ${list.length} แห่ง แตะหมุดเพื่อดูรายละเอียด` : 'ไม่พบแหล่งน้ำในบริเวณนี้ ลองซูมออกแล้วค้นใหม่');
 }
 function waterSheet(w) {
   const nm = w.name || w.kind + ' (ไม่มีชื่อ)';
   openSheet(`<h3>💧 ${esc(nm)}</h3><div class="sub">${w.kind}${S.pos ? ' · ห่าง ' + fmtDist(dist(S.pos, w)) : ''}</div>
   <div class="kv"><span>พิกัด</span><b class="mono">${w.lat.toFixed(5)}, ${w.lng.toFixed(5)}</b></div>
+  <div id="spDam"></div>
   <div class="warn">ข้อมูลจากแผนที่ชุมชน OSM ยังไม่ยืนยันว่าตกปลาได้ ตรวจสอบว่าเป็นที่สาธารณะหรือขออนุญาตเจ้าของก่อน</div>
   <div class="row">
     <button class="btn acc" id="wSave">📍 บันทึกเป็นจุดของฉัน</button>
@@ -491,11 +502,72 @@ function waterSheet(w) {
     <button class="btn ghost" id="wNav">🧭 นำทางด้วยเข็มทิศ</button>
     <a class="btn ghost" href="${gmaps(w)}" target="_blank" rel="noopener">Google Maps</a>
   </div>`);
+  damNear(w, 4000).then(h => { const el = $('#spDam'); if (el && h) el.innerHTML = h; });
   $('#wSave').onclick = () => spotForm({ lat: w.lat, lng: w.lng, name: w.name || '', type: 'fish' });
   $('#wFc').onclick = () => { closeSheet(); loadForecast({ lat: w.lat, lng: w.lng, name: nm }); showTab('forecast'); };
   $('#wNav').onclick = () => { setTarget({ lat: w.lat, lng: w.lng, name: nm }); closeSheet(); showTab('tools'); };
 }
 $('#btnWater').onclick = findWater;
+
+/* ============ ระดับน้ำเขื่อน/อ่าง (คลังข้อมูลน้ำแห่งชาติ thaiwater.net) ============ */
+let damMem = null, damPromise = null;
+async function loadDams() {
+  const c = damMem || ls.get('dams'); if (c && Date.now() - c.t < 6 * 36e5) return damMem = c;
+  if (damPromise) return damPromise;
+  return damPromise = (async () => {
+    try {
+      const d = (await (await fetch('https://api-v3.thaiwater.net/api/v1/thaiwater30/analyst/dam')).json()).data, list = [];
+      const add = (arr, type, f) => (arr || []).forEach(x => { try { const o = f(x); if (o.n && o.lat && o.lng && o.pct != null) list.push({ ...o, type, pct: +(+o.pct).toFixed(1), date: String(o.date).slice(0, 10) }); } catch {} });
+      add(d.dam_daily, 'L', x => ({ n: 'เขื่อน' + x.dam.dam_name.th, lat: x.dam.dam_lat, lng: x.dam.dam_long, pct: x.dam_storage_percent, vol: x.dam_storage, cap: x.dam.normal_storage, date: x.dam_date }));
+      add(d.dam_medium, 'M', x => ({ n: x.dam.dam_name.th, lat: x.dam.dam_lat, lng: x.dam.dam_long, pct: x.dam_storage_percent, vol: x.dam_storage, cap: x.dam.normal_storage, date: x.dam_date }));
+      add(d.dam_small_tele, 'S', x => ({ n: x.dam.smalldam_name.th, lat: x.dam.tele_station_lat, lng: x.dam.tele_station_long, pct: x.percent_storage, vol: x.volume, cap: x.dam.normal_storage, date: x.smalldam_datetime }));
+      if (!list.length) throw 0;
+      const fresh = list.filter(x => Date.now() - new Date(x.date).getTime() < 10 * 864e5);
+      const old = ls.get('dams'); let prev = ls.get('damPrev');
+      const day = fresh.map(x => x.date).sort().pop();
+      if (old && old.day && old.day !== day) { prev = { day: old.day, pct: Object.fromEntries(old.list.map(x => [x.n, x.pct])) }; ls.set('damPrev', prev); }
+      damMem = { t: Date.now(), day, list: fresh }; ls.set('dams', damMem); return damMem;
+    } catch { return damMem = c || null; } finally { damPromise = null; }
+  })();
+}
+const damColor = p => p >= 100 ? '#3b82f6' : p >= 80 ? '#22c55e' : p >= 50 ? '#a3b14b' : p >= 30 ? '#f59e0b' : '#ef4444';
+function damRow(x, from) {
+  const prev = ls.get('damPrev'), p0 = prev?.pct?.[x.n], dl = p0 != null ? x.pct - p0 : null;
+  const tr = dl == null ? '' : Math.abs(dl) < 0.05 ? ' · ทรงตัว' : ` · ${dl > 0 ? '▲ +' : '▼ '}${dl.toFixed(1)}% จาก ${prev.day.slice(5)}`;
+  return `<div class="dam"><div class="dam-h"><b>${esc(x.n)}</b><span class="mono" style="color:${damColor(x.pct)}">${x.pct.toFixed(0)}%</span></div>
+    <div class="track"><i style="width:${clamp(x.pct, 0, 100)}%;background:${damColor(x.pct)}"></i></div>
+    <div class="sub">${x.vol != null ? (+x.vol).toFixed(x.vol < 10 ? 2 : 0) + (x.cap ? ' / ' + (+x.cap).toFixed(x.cap < 10 ? 2 : 0) : '') + ' ล้าน ลบ.ม.' : ''}${from ? ' · ห่าง ' + fmtDist(dist(from, x)) : ''} · ${x.date.slice(5)}${tr}</div></div>`;
+}
+async function damNear(p, maxM) {
+  const D = await loadDams(); if (!D) return '';
+  const x = D.list.map(d => ({ ...d, d: dist(p, d) })).filter(d => d.d <= maxM).sort((a, b) => a.d - b.d)[0];
+  return x ? `<div class="card" style="margin:10px 0 0"><div class="card-h">🌊 ระดับน้ำ</div>${damRow(x)}</div>` : '';
+}
+async function renderDamCard() {
+  const el = $('#damCard'), loc = S.fcLoc; if (!el || !loc) return;
+  const D = await loadDams(); if (!$('#damCard')) return;
+  if (!D) { el.innerHTML = '<div class="card-h">🌊 ระดับน้ำเขื่อน/อ่างใกล้ที่นี่</div><div class="sub">โหลดข้อมูลระดับน้ำไม่ได้ (ต้องต่อเน็ต)</div>'; return; }
+  const near = D.list.map(d => ({ ...d, d: dist(loc, d) })).filter(d => d.d < 60000).sort((a, b) => a.d - b.d).slice(0, 5);
+  $('#damCard').innerHTML = `<div class="card-h">🌊 ระดับน้ำเขื่อน/อ่างใกล้ที่นี่</div>${near.length ? near.map(x => damRow(x, loc)).join('') : '<div class="sub">ไม่มีเขื่อนหรืออ่างที่มีการรายงานระดับน้ำในรัศมี 60 กม.</div>'}
+    <div class="sub" style="margin-top:8px">% ของความจุปกติ · หลักทั่วไป: น้ำขึ้นเร็วปลามักกระจายเข้าชายตื้นและน้ำใหม่ น้ำลดปลามักรวมตัวตามร่องน้ำลึก · ข้อมูล: คลังข้อมูลน้ำแห่งชาติ (thaiwater.net) รายงานวันละครั้ง${ls.get('damPrev') ? '' : ' · แนวโน้มขึ้น/ลงจะแสดงเมื่อเปิดแอปข้ามวัน'}</div>`;
+}
+
+/* ============ แชร์หมุด / รับหมุดจากลิงก์ ============ */
+async function shareSpot(s) {
+  const t = SPOT_TYPES[s.type] || SPOT_TYPES.other, ll = `${s.lat.toFixed(5)},${s.lng.toFixed(5)}`;
+  const link = `${location.origin}${location.pathname}#pin=${ll},${s.type},${encodeURIComponent(s.name)}`;
+  const text = [`${t.icon} ${s.name} (${t.label})`, s.fish && 'ปลา: ' + s.fish, s.fee && 'ค่าบริการ: ' + s.fee, s.hours && 'เวลา: ' + s.hours, s.rules && 'กฎ: ' + s.rules, `พิกัด: ${ll}`, `Google Maps: https://maps.google.com/?q=${ll}`, `เปิดในพรานปลา: ${link}`].filter(Boolean).join('\n');
+  if (navigator.share) { try { await navigator.share({ text }); return; } catch (e) { if (e.name === 'AbortError') return; } }
+  copy(text, 'คัดลอกข้อมูลหมุดแล้ว นำไปวางใน LINE ได้เลย');
+}
+function importPinFromHash() {
+  const m = decodeURIComponent(location.hash).match(/^#pin=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?),([a-z]+),(.*)$/); if (!m) return;
+  history.replaceState(null, '', location.pathname);
+  const lat = +m[1], lng = +m[2]; if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return;
+  S.follow = false; $('#btnLocate').classList.remove('follow'); S.noCenter = true; map.setView([lat, lng], 15);
+  spotForm({ lat, lng, type: SPOT_TYPES[m[3]] ? m[3] : 'fish', name: m[4].slice(0, 80) }); toast('หมุดที่เพื่อนแชร์มา ตรวจแล้วกดบันทึกหมุด');
+}
+window.addEventListener('hashchange', importPinFromHash);
 
 /* ============ place search: จุดของฉัน + แหล่งน้ำที่โหลดไว้ + Nominatim (ใกล้ก่อน) + Photon ============ */
 const KIND_TH = { water: 'แหล่งน้ำ', reservoir: 'อ่างเก็บน้ำ', river: 'แม่น้ำ', stream: 'ลำห้วย', canal: 'คลอง', lake: 'ทะเลสาบ', pond: 'บ่อ/สระ', dam: 'เขื่อน', village: 'หมู่บ้าน', hamlet: 'หมู่บ้าน', town: 'เมือง', city: 'เมือง', suburb: 'ย่าน', administrative: 'เขตปกครอง', fishing: 'บ่อตกปลา', peak: 'ยอดเขา', waterfall: 'น้ำตก', national_park: 'อุทยาน', temple: 'วัด', place_of_worship: 'วัด/ศาสนสถาน' };
@@ -508,7 +580,7 @@ async function doSearch(q, typing) {
   if (m) { closeSearch(); S.follow = false; $('#btnLocate').classList.remove('follow'); map.setView([+m[1], +m[2]], 15); return; }
   $('.pills').classList.add('hidden'); box.classList.remove('hidden');
   const nq = norm(q), res = [];
-  S.spots.filter(s => norm(s.name + s.fish + s.note).includes(nq)).forEach(s => res.push({ lat: s.lat, lng: s.lng, name: s.name, sub: '📍 จุดของฉัน', pri: 0, spotId: s.id }));
+  S.spots.filter(s => norm(s.name + s.fish + s.note + (s.rules || '')).includes(nq)).forEach(s => res.push({ lat: s.lat, lng: s.lng, name: s.name, sub: '📍 จุดของฉัน', pri: 0, spotId: s.id }));
   (S.water || []).filter(w => w.name && norm(w.name).includes(nq)).forEach(w => res.push({ lat: w.lat, lng: w.lng, name: w.name, sub: '💧 ' + w.kind, pri: 1 }));
   const render = loading => {
     if (seq !== searchSeq) return;
@@ -549,20 +621,18 @@ let searchDeb; $('#searchInput').oninput = e => {
 };
 
 /* ============ ชื่อสถานที่จากพิกัด (reverse geocode) ============ */
-const placeCache = ls.get('places2', {});
+const placeCache = ls.get('places3', {});
 async function placeName(lat, lng) {
   const k = lat.toFixed(2) + ',' + lng.toFixed(2);
   if (placeCache[k]) return placeCache[k];
   try {
     const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=14&accept-language=th&lat=${lat.toFixed(5)}&lon=${lng.toFixed(5)}`);
     const ad = (await r.json()).address || {};
-    const cut = s => s && s.replace(/^(ตำบล|อำเภอ|จังหวัด|เทศบาลตำบล|เทศบาลเมือง|เทศบาลนคร)\s*/, '');
-    // ตำบลก่อน (OSM ไทยเก็บตำบลเป็น subdistrict/municipality/town) หมู่บ้านเป็นตัวสำรอง
-    const small = cut(ad.subdistrict || ad.municipality || ad.town || ad.city || ad.suburb || ad.quarter || ad.village || ad.hamlet || ad.neighbourhood);
-    const mid = cut(ad.county || ad.city_district || ad.district || ad.city), big = cut(ad.state || ad.province);
-    const parts = [...new Set([small, mid].filter(Boolean))];
-    const out = { short: parts[0] || big || '', full: (parts.length ? parts : [big]).concat(parts.length < 2 && big && !parts.includes(big) ? [big] : []).filter(Boolean).join(' · ') };
-    if (out.short) { placeCache[k] = out; const ks = Object.keys(placeCache); if (ks.length > 60) delete placeCache[ks[0]]; ls.set('places2', placeCache); }
+    const cut = s => s && s.replace(/^(ตำบล|อำเภอ|จังหวัด|เขต)\s*/, '');
+    // ข้อมูลตำบลใน OSM ของไทยยังไม่ครบ/ผิดบ่อย จึงใช้ หมู่บ้าน + อำเภอ ซึ่งเชื่อได้กว่า
+    const small = ad.hamlet || ad.village || ad.neighbourhood || ad.quarter || ad.suburb, mid = cut(ad.county || ad.city_district || ad.district || ad.city), big = cut(ad.province || ad.state);
+    const out = { short: mid || small || big || '', full: [small, mid || big].filter(Boolean).join(' · ') || big || '' };
+    if (out.short) { placeCache[k] = out; const ks = Object.keys(placeCache); if (ks.length > 60) delete placeCache[ks[0]]; ls.set('places3', placeCache); }
     return out;
   } catch { return null; }
 }
@@ -701,13 +771,14 @@ function renderForecast() {
     <div><div class="sub">💧 ความชื้น / ฝน</div><div class="v">${Math.round(n.hum)}<small>%</small></div><div class="sub">โอกาสฝน ${n.pop ?? 0}%</div></div>
     <div><div class="sub">🌅 พระอาทิตย์</div><div class="v">${hm(sun.sunrise)}</div><div class="sub">ตก ${hm(sun.sunset)}</div></div>
   </div>
-  <div class="card" style="margin-top:12px"><div class="card-h">${sn.icon} ${sn.name}</div><div class="sub" style="color:var(--tx)">${sn.tip}</div>
+  <div class="card" style="margin-top:12px" id="damCard"><div class="card-h">🌊 ระดับน้ำเขื่อน/อ่างใกล้ที่นี่</div><div class="sub">กำลังโหลด…</div></div>
+  <div class="card"><div class="card-h">${sn.icon} ${sn.name}</div><div class="sub" style="color:var(--tx)">${sn.tip}</div>
     ${sn.law ? `<div class="warn" style="margin:10px 0 0">${sn.law}</div>` : ''}
     <div class="card-h" style="margin-top:12px;font-size:15px">น่าตกช่วงนี้</div>
     <div class="fishrow">${fishNow.map(f => `<div class="fish"><b>${f.n}</b><p>🪱 ${f.bait}</p><p>📍 ${f.where}</p></div>`).join('')}</div></div>
   <div class="row"><button class="btn ghost small" id="fcMine">📍 ดูที่ตำแหน่งของฉัน</button><button class="btn ghost small" id="fcCenter">🎯 ดูที่กลางแผนที่</button></div>
   <div class="foot sub">คะแนน 0–100 คำนวณในเครื่องจาก แนวโน้มความกดอากาศ ลม ฝน ช่วงแสงเช้า-เย็น และตำแหน่งดวงจันทร์${S.catches.length >= MIN_PERSONAL ? ' · ปรับตามสถิติการจับปลาของคุณแล้ว' : ''}</div>`;
-  showPlace(); renderAlert();
+  showPlace(); renderAlert(); renderDamCard();
   $('#fcRainMap').onclick = () => { showTab('map'); map.setView([W.lat, W.lng], Math.min(map.getZoom(), 11)); setRain(true); };
   $('#fcMine').onclick = () => S.pos ? loadForecast({ lat: S.pos.lat, lng: S.pos.lng, name: 'ตำแหน่งของฉัน', auto: true }) : toast('ยังไม่ได้ตำแหน่ง GPS');
   $('#fcCenter').onclick = () => { const c = map.getCenter(); loadForecast({ lat: c.lat, lng: c.lng, name: `กลางแผนที่ (${c.lat.toFixed(3)}, ${c.lng.toFixed(3)})` }); };
@@ -929,6 +1000,7 @@ $$('.tabbar [data-tab]').forEach(b => b.onclick = () => showTab(b.dataset.tab));
   } catch { toast('เปิดที่เก็บข้อมูลในเครื่องไม่ได้ ข้อมูลจะไม่ถูกบันทึก'); }
   renderSpots(); renderLog(); renderChecklist(); renderTools();
   const sn = season(); $('#seasonPillText').textContent = `${sn.icon} ${sn.name}`;
+  importPinFromHash();
   startGeo();
   setTimeout(() => { if (!S.fcLoc) { const c = map.getCenter(); loadForecast({ lat: c.lat, lng: c.lng, name: 'กลางแผนที่ (ยังไม่มี GPS)', auto: true }); } }, 3500);
   setInterval(() => { if ($('#view-tools').classList.contains('show')) renderTools(); }, 30000);
