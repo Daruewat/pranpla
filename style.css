@@ -199,3 +199,20 @@ h1,h2,.card-h,.btn,.pill,.tabbar button,.fab{font-family:Kanit,"IBM Plex Sans Th
 .kv span{color:var(--tx2)}
 .toast{position:fixed;left:50%;top:calc(80px + var(--safe-t));transform:translate(-50%,-20px);background:#f1f5f2;color:#111;padding:10px 16px;border-radius:12px;z-index:4000;opacity:0;transition:.2s;pointer-events:none;max-width:90vw;text-align:center;font-size:14px}
 .toast.show{opacity:1;transform:translate(-50%,0)}
+
+.pill-place{font-size:13px;font-weight:500;color:var(--tx2);max-width:92px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mapctl{gap:8px}
+.mapctl button{width:54px;min-height:52px}
+.mapctl button.on{border-color:var(--blue);box-shadow:0 0 0 2px rgba(59,130,246,.4)}
+#btnTrack.on{border-color:var(--red);box-shadow:0 0 0 2px rgba(239,68,68,.35)}
+.rainbar{position:absolute;left:10px;right:74px;bottom:calc(var(--nav) + var(--safe-b) + 40px);z-index:510;background:rgba(17,27,24,.95);border:1px solid var(--line);border-radius:16px;padding:10px 12px}
+.rain-top{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px}
+.rain-top b{font-family:Kanit,sans-serif;color:#93c5fd}
+.rain-top button{background:none;border:0;font-size:16px;padding:2px 6px;color:var(--tx2)}
+.rainbar input{width:100%;margin:8px 0 2px;accent-color:var(--blue)}
+.rain-axis{display:flex;justify-content:space-between;font-size:10px;color:var(--tx3)}
+.rain-legend{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--tx2);margin-top:6px}
+.rain-legend i{width:12px;height:12px;border-radius:3px;margin-left:6px}
+.rainlbl{width:50px;text-align:center;font:700 12px Kanit,sans-serif;color:#fff;text-shadow:0 0 3px #000,0 0 3px #000;line-height:1.1}
+.rainlbl small{display:block;font-size:9px;font-weight:500}
+.rain-card.wet{border-color:#1d4ed8;background:#12203a}

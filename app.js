@@ -65,7 +65,7 @@ const save = k => DB.set(k, S[k]).catch(() => toast('บันทึกข้อ
 /* ============ map ============ */
 const map = L.map('map', { zoomControl: false }).setView(ls.get('view', [18.79, 98.98]), ls.get('zoom', 13));
 const LAYERS = {
-  light: { name: 'แผนที่', ico: '🗺️', desc: 'สว่าง อ่านง่าย คล้าย Google Maps', l: L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 20, subdomains: 'abcd', attribution: '© OpenStreetMap © CARTO' }) },
+  light: { name: 'แผนที่', ico: '🗺️', desc: 'สว่าง อ่านง่าย ชื่อสถานที่ภาษาไทย', l: L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }) },
   sat: null,
   map: { name: 'กลางคืน', ico: '🌙', desc: 'โทนมืด ถนอมสายตาและแบต', l: L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, className: 'dark-tiles', attribution: '© OpenStreetMap' }) },
   sat: { name: 'ดาวเทียม', ico: '🛰️', desc: 'ภาพถ่ายจริง + ชื่อสถานที่ เห็นแนวน้ำ กอหญ้า ทางเข้า', l: L.layerGroup([
@@ -485,6 +485,24 @@ let searchDeb; $('#searchInput').oninput = e => {
   if (q.length >= 3) searchDeb = setTimeout(() => doSearch(q), 900);
 };
 
+/* ============ ชื่อสถานที่จากพิกัด (reverse geocode) ============ */
+const placeCache = ls.get('places', {});
+async function placeName(lat, lng) {
+  const k = lat.toFixed(2) + ',' + lng.toFixed(2);
+  if (placeCache[k]) return placeCache[k];
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=14&accept-language=th&lat=${lat.toFixed(5)}&lon=${lng.toFixed(5)}`);
+    const ad = (await r.json()).address || {};
+    const cut = s => s && s.replace(/^(ตำบล|อำเภอ|จังหวัด|เทศบาลตำบล|เทศบาลเมือง|เทศบาลนคร)\s*/, '');
+    const small = cut(ad.suburb || ad.quarter || ad.village || ad.hamlet || ad.neighbourhood || ad.municipality || ad.town);
+    const mid = cut(ad.county || ad.city_district || ad.district || ad.city), big = cut(ad.state || ad.province);
+    const parts = [...new Set([small, mid].filter(Boolean))];
+    const out = { short: parts[0] || big || '', full: (parts.length ? parts : [big]).concat(parts.length < 2 && big && !parts.includes(big) ? [big] : []).filter(Boolean).join(' · ') };
+    if (out.short) { placeCache[k] = out; const ks = Object.keys(placeCache); if (ks.length > 60) delete placeCache[ks[0]]; ls.set('places', placeCache); }
+    return out;
+  } catch { return null; }
+}
+
 /* ============ forecast & fish score ============ */
 const wmo = (c, night) => { const w = WMO[c] || WMO[[0, 1, 2, 3, 45, 51, 61, 80, 95].reduce((a, b) => Math.abs(b - c) < Math.abs(a - c) ? b : a)]; return { txt: w[0], ico: night ? w[2] : w[1] }; };
 const scoreColor = s => s >= 76 ? '#f59e0b' : s >= 68 ? '#d4c24a' : s >= 60 ? '#a8c256' : s >= 50 ? '#5fc47a' : s >= 40 ? '#2bb8a3' : '#64748b';
@@ -549,10 +567,26 @@ async function loadForecast(loc) {
   try { const r = await fetch(url); if (!r.ok) throw 0; d = await r.json(); d._fetched = Date.now(); ls.set('wx', { loc, d }); }
   catch { const c = ls.get('wx'); if (c && dist(c.loc, loc) < 30000) { d = c.d; stale = true; } }
   if (!d) { $('#fcBody').innerHTML = '<div class="empty">โหลดพยากรณ์ไม่ได้ ต้องต่อเน็ตอย่างน้อยครั้งแรก<br><br><button class="btn" onclick="loadForecast()">ลองใหม่</button></div>'; return; }
+  if (!loc.place) placeName(loc.lat, loc.lng).then(p => { if (p && p.short && S.fcLoc === loc) { loc.place = p; showPlace(); } });
   try { S.wx = buildWx(d, loc.lat, loc.lng); S.wx.stale = stale; } catch (e) { console.error(e); $('#fcBody').innerHTML = '<div class="empty">ข้อมูลพยากรณ์ผิดรูปแบบ</div>'; return; }
   renderForecast(); renderTools();
 }
 window.loadForecast = loadForecast;
+function showPlace() {
+  const loc = S.fcLoc; if (!loc) return;
+  const generic = loc.auto || /^กลางแผนที่/.test(loc.name);
+  $('#fcPlace').textContent = loc.place ? (generic ? '📍 ' + loc.place.full : `${loc.name} · ${loc.place.full}`) : loc.name;
+  $('#wxPillPlace').textContent = loc.place ? loc.place.short : '';
+  const el = $('#fcNowPlace'); if (el) el.textContent = loc.place ? 'ตอนนี้ที่ ' + (generic ? loc.place.short : loc.name) : 'ตอนนี้';
+}
+function rainOutlook(next) {
+  const wet = x => (x.pop ?? 0) >= 50 || x.rain >= 0.3, h12 = next.slice(0, 12), i = h12.findIndex(wet);
+  const mx = Math.max(...h12.map(x => x.pop ?? 0));
+  if (i < 0) return { ok: true, txt: `12 ชม.ข้างหน้าไม่น่ามีฝน (โอกาสสูงสุด ${mx}%)` };
+  let j = i; while (j + 1 < h12.length && wet(h12[j + 1])) j++;
+  const mm = h12.slice(i, j + 1).reduce((s, x) => s + x.rain, 0);
+  return { ok: false, txt: `${i === 0 ? 'ฝนกำลังตก/ใกล้ตก' : 'ฝนน่าจะเริ่ม ~' + pad(h12[i].t.getHours()) + ':00'} ถึง ~${pad((h12[j].t.getHours() + 1) % 24)}:00 · โอกาส ${Math.max(...h12.slice(i, j + 1).map(x => x.pop ?? 0))}% · รวม ~${mm.toFixed(1)} มม.` };
+}
 function season(d = new Date()) { const m = d.getMonth() + 1; return SEASONS.find(s => s.m.includes(m)) || SEASONS[0]; }
 function renderForecast() {
   const W = S.wx, n = W.now, wm = wmo(n.code, !n.day), sn = season(), mo = new Date().getMonth() + 1;
@@ -568,7 +602,7 @@ function renderForecast() {
   $('#fcBody').innerHTML = `
   ${W.stale ? `<div class="warn">ออฟไลน์อยู่ – แสดงข้อมูลที่โหลดไว้ล่าสุด ${new Date(W.fetched).toLocaleString('th-TH', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })}</div>` : ''}
   <div class="card">
-    <div class="fc-now"><div><div class="sub">ตอนนี้</div><div class="fc-temp">${Math.round(n.temp)}°C</div><div class="sub">${wm.txt}</div></div><div class="fc-ico">${wm.ico}</div></div>
+    <div class="fc-now"><div><div class="sub" id="fcNowPlace">ตอนนี้</div><div class="fc-temp">${Math.round(n.temp)}°C</div><div class="sub">${wm.txt}</div></div><div class="fc-ico">${wm.ico}</div></div>
     <div class="score-row">
       <div class="ring"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="none" stroke="#22342d" stroke-width="9"/><circle cx="50" cy="50" r="40" fill="none" stroke="${scoreColor(n.score)}" stroke-width="9" stroke-linecap="round" stroke-dasharray="${C * n.score / 100} ${C}"/></svg><b>${n.score}</b></div>
       <div><div class="score-label">${scoreLabel(n.score)}</div><div class="sub">🔥 ช่วงดีที่สุด: ${bestTxt}</div></div>
@@ -576,6 +610,7 @@ function renderForecast() {
     <div class="bars">${W.next.map((x, i) => `<div class="${i === 0 ? 'now' : ''} ${i === W.bi || i === W.bi + 1 ? 'best' : ''}" style="height:${clamp(x.score, 8, 100)}%;background:${scoreColor(x.score)}"></div>`).join('')}</div>
     <div class="bar-axis"><span>ตอนนี้</span>${[6, 12, 18].map(k => `<span>${pad(W.next[k]?.t.getHours() ?? 0)}</span>`).join('')}<span>+24ชม.</span></div>
   </div>
+  ${(() => { const r = rainOutlook(W.next); return `<div class="card rain-card ${r.ok ? 'dry' : 'wet'}"><div class="card-h">${r.ok ? '🌂' : '🌧️'} ฝนที่จุดนี้</div><div>${r.txt}</div><div class="row"><button class="btn ghost small" id="fcRainMap">🗺️ ดูฝนบนแผนที่</button></div></div>`; })()}
   <div class="card"><div class="card-h">🌙 ช่วงปลากินตามดวงจันทร์ (24 ชม.)</div>
     <div class="solunar">${W.ev.length ? W.ev.map(e => `<span class="chip ${e.type}">${e.type === 'major' ? '★ ' : ''}${hm(new Date(e.t))} ${e.label}</span>`).join('') : '<span class="sub">-</span>'}</div>
     <div class="sub" style="margin-top:8px">★ = ช่วงหลัก (ราว ±1 ชม.) · ${moonName(mp)}</div></div>
@@ -594,12 +629,68 @@ function renderForecast() {
     <div class="fishrow">${fishNow.map(f => `<div class="fish"><b>${f.n}</b><p>🪱 ${f.bait}</p><p>📍 ${f.where}</p></div>`).join('')}</div></div>
   <div class="row"><button class="btn ghost small" id="fcMine">📍 ดูที่ตำแหน่งของฉัน</button><button class="btn ghost small" id="fcCenter">🎯 ดูที่กลางแผนที่</button></div>
   <div class="foot sub">คะแนน 0–100 คำนวณในเครื่องจาก แนวโน้มความกดอากาศ ลม ฝน ช่วงแสงเช้า-เย็น และตำแหน่งดวงจันทร์</div>`;
+  showPlace();
+  $('#fcRainMap').onclick = () => { showTab('map'); map.setView([W.lat, W.lng], Math.min(map.getZoom(), 11)); setRain(true); };
   $('#fcMine').onclick = () => S.pos ? loadForecast({ lat: S.pos.lat, lng: S.pos.lng, name: 'ตำแหน่งของฉัน', auto: true }) : toast('ยังไม่ได้ตำแหน่ง GPS');
   $('#fcCenter').onclick = () => { const c = map.getCenter(); loadForecast({ lat: c.lat, lng: c.lng, name: `กลางแผนที่ (${c.lat.toFixed(3)}, ${c.lng.toFixed(3)})` }); };
 }
 $('#fcRefresh').onclick = () => { toast('กำลังรีเฟรช…'); loadForecast(); };
 $('#wxPill').onclick = () => showTab('forecast');
 $('#seasonPill').onclick = () => { showTab('forecast'); setTimeout(() => $('#view-forecast').scrollTo({ top: 99999, behavior: 'smooth' }), 80); };
+
+/* ============ ฝนบนแผนที่: เรดาร์ล่าสุด + พยากรณ์รายชั่วโมงเป็นตาราง ============ */
+const gRain = L.layerGroup().addTo(map);
+const R = { on: false, grid: null, hour: 0, radar: null, radarTime: null, key: '' };
+const rainStyle = (mm, pop) => mm >= 10 ? ['#dc2626', .5] : mm >= 4 ? ['#f59e0b', .5] : mm >= 1 ? ['#2563eb', .5] : mm >= 0.1 ? ['#3b82f6', .35] : pop >= 40 ? ['#60a5fa', .18] : null;
+async function loadRadar() {
+  try {
+    const j = await (await fetch('https://api.rainviewer.com/public/weather-maps.json')).json(), f = j.radar.past[j.radar.past.length - 1];
+    if (R.radar) map.removeLayer(R.radar);
+    R.radar = L.tileLayer(`${j.host}${f.path}/256/{z}/{x}/{y}/2/1_1.png`, { opacity: .65, maxNativeZoom: 7, maxZoom: 19, zIndex: 300, attribution: 'RainViewer' });
+    R.radarTime = new Date(f.time * 1000);
+  } catch { R.radar = null; R.radarTime = null; }
+}
+async function loadRainGrid() {
+  const b = map.getBounds().pad(.05), nx = 5, ny = 6, la = [], lo = [], cells = [];
+  const dLat = (b.getNorth() - b.getSouth()) / ny, dLng = (b.getEast() - b.getWest()) / nx;
+  for (let y = 0; y < ny; y++) for (let x = 0; x < nx; x++) {
+    const s = b.getSouth() + y * dLat, w = b.getWest() + x * dLng;
+    cells.push([[s, w], [s + dLat, w + dLng]]); la.push((s + dLat / 2).toFixed(3)); lo.push((w + dLng / 2).toFixed(3));
+  }
+  const key = la[0] + lo[0] + la[la.length - 1] + lo[lo.length - 1]; if (key === R.key && R.grid) return; R.key = key;
+  $('#rainLabel').textContent = 'กำลังโหลดพยากรณ์ฝน…';
+  try {
+    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${la.join(',')}&longitude=${lo.join(',')}&hourly=precipitation,precipitation_probability&forecast_hours=13&timezone=auto`);
+    if (!r.ok) throw 0; const js = await r.json(); if (key !== R.key) return;
+    R.grid = (Array.isArray(js) ? js : [js]).map((d, i) => ({ box: cells[i], t: d.hourly.time, mm: d.hourly.precipitation, pop: d.hourly.precipitation_probability }));
+  } catch { R.grid = null; R.key = ''; $('#rainLabel').textContent = 'โหลดพยากรณ์ฝนไม่ได้ (ต้องต่อเน็ต)'; return; }
+  drawRain();
+}
+function drawRain() {
+  gRain.clearLayers(); if (!R.on) return;
+  const h = R.hour;
+  if (R.radar) { if (h === 0) R.radar.addTo(map); else map.removeLayer(R.radar); }
+  if (!R.grid) return;
+  let wet = 0;
+  R.grid.forEach(c => {
+    const mm = c.mm[h] ?? 0, pop = c.pop?.[h] ?? 0, st = rainStyle(mm, pop); if (!st) return; wet++;
+    L.rectangle(c.box, { stroke: false, fillColor: st[0], fillOpacity: st[1], interactive: false }).addTo(gRain);
+    const ctr = [(c.box[0][0] + c.box[1][0]) / 2, (c.box[0][1] + c.box[1][1]) / 2];
+    L.marker(ctr, { interactive: false, icon: L.divIcon({ className: '', html: `<div class="rainlbl">${pop}%${mm >= 0.1 ? `<small>${mm.toFixed(1)}มม.</small>` : ''}</div>`, iconSize: [50, 30], iconAnchor: [25, 15] }) }).addTo(gRain);
+  });
+  const t = new Date(R.grid[0].t[h]);
+  $('#rainLabel').innerHTML = `<b>${h === 0 ? 'ตอนนี้' : '+' + h + ' ชม.'} · ${pad(t.getHours())}:00</b> ${wet ? `มีโอกาสฝน ${wet}/${R.grid.length} ช่อง` : 'ไม่มีฝนในบริเวณที่เห็น'}${h === 0 ? (R.radarTime ? ` · เรดาร์ ${hm(R.radarTime)}` : ' · ไม่มีภาพเรดาร์') : ''}`;
+}
+async function setRain(on) {
+  R.on = on; $('#btnRain').classList.toggle('on', on); $('#rainBar').classList.toggle('hidden', !on);
+  if (!on) { gRain.clearLayers(); if (R.radar) map.removeLayer(R.radar); return; }
+  R.hour = 0; $('#rainSlider').value = 0; R.key = '';
+  await Promise.all([loadRadar(), loadRainGrid()]); drawRain();
+}
+$('#btnRain').onclick = () => setRain(!R.on);
+$('#rainClose').onclick = () => setRain(false);
+$('#rainSlider').oninput = e => { R.hour = +e.target.value; drawRain(); };
+let rainDeb; map.on('moveend', () => { if (!R.on) return; clearTimeout(rainDeb); rainDeb = setTimeout(loadRainGrid, 700); });
 
 /* ============ survival tools ============ */
 function renderTools() {

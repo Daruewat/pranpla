@@ -27,13 +27,14 @@
     </form>
     <div id="searchResults" class="search-results hidden"></div>
     <div class="pills">
-      <button id="wxPill" class="pill"><span id="wxPillTemp">--°</span><span id="wxPillScore" class="score-dot">--</span></button>
+      <button id="wxPill" class="pill"><span id="wxPillTemp">--°</span><span id="wxPillPlace" class="pill-place"></span><span id="wxPillScore" class="score-dot">--</span></button>
       <button id="seasonPill" class="pill"><span id="seasonPillText">ฤดูกาล</span> ›</button>
     </div>
   </div>
 
   <div class="mapctl">
     <button id="btnLayer" title="ชั้นแผนที่"><span>🗺️</span><small id="layerName">แผนที่</small></button>
+    <button id="btnRain" title="ฝน"><span>🌧️</span><small>ฝน</small></button>
     <button id="btnWater" title="หาแหล่งน้ำใกล้ๆ"><span>💧</span><small>แหล่งน้ำ</small></button>
     <button id="btnTrack" title="บันทึกเส้นทาง"><span>👣</span><small id="trackLabel">เส้นทาง</small></button>
     <button id="btnLocate" class="primary" title="ตำแหน่งของฉัน"><span>◎</span></button>
@@ -51,6 +52,12 @@
     </svg>
     <small id="mcDeg">เข็มทิศ</small>
   </button>
+  <div id="rainBar" class="rainbar hidden">
+    <div class="rain-top"><span id="rainLabel">ฝน</span><button id="rainClose">✕</button></div>
+    <input id="rainSlider" type="range" min="0" max="12" step="1" value="0">
+    <div class="rain-axis"><span>ตอนนี้</span><span>+3</span><span>+6</span><span>+9</span><span>+12 ชม.</span></div>
+    <div class="rain-legend"><i style="background:#60a5fa"></i>มีโอกาส<i style="background:#2563eb"></i>ฝนเบา<i style="background:#f59e0b"></i>ฝนหนัก<i style="background:#dc2626"></i>หนักมาก</div>
+  </div>
   <div id="coordBar" class="coordbar mono">กำลังหาตำแหน่ง GPS…</div>
   <div id="crosshair" class="crosshair hidden">＋</div>
 
