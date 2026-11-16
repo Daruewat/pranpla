@@ -1,7 +1,7 @@
 /* พรานปลา service worker: ตัวแอปใช้ออฟไลน์ได้ + เก็บแผนที่ที่เคยเปิดดูไว้ */
-const V = 'pranpla-v1';
+const V = 'pranpla-v2';
 const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'data.js', 'lib/leaflet.js', 'lib/leaflet.css', 'lib/suncalc.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
-const TILE_HOSTS = ['tile.openstreetmap.org', 'server.arcgisonline.com', 'tile.opentopomap.org'];
+const TILE_HOSTS = ['tile.openstreetmap.org', 'server.arcgisonline.com', 'tile.opentopomap.org', 'basemaps.cartocdn.com'];
 const TILE_MAX = 4000;
 
 self.addEventListener('install', e => e.waitUntil(caches.open(V).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())));

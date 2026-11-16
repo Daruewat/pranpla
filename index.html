@@ -39,6 +39,18 @@
     <button id="btnLocate" class="primary" title="ตำแหน่งของฉัน"><span>◎</span></button>
   </div>
 
+  <button id="mapCompass" class="mapcompass" title="เข็มทิศ">
+    <svg viewBox="0 0 100 100">
+      <g id="mcRose">
+        <circle cx="50" cy="50" r="46" class="mc-ring"/>
+        <path d="M50 10 L59 50 L41 50 Z" class="mc-n"/><path d="M50 90 L59 50 L41 50 Z" class="mc-s"/>
+        <text x="50" y="9" class="mc-t n">N</text><text x="93" y="54" class="mc-t">E</text><text x="50" y="99" class="mc-t">S</text><text x="7" y="54" class="mc-t">W</text>
+      </g>
+      <path id="mcTarget" class="mc-tg hidden" d="M50 0 L57 14 L43 14 Z"/>
+      <circle cx="50" cy="50" r="4" fill="#fff"/>
+    </svg>
+    <small id="mcDeg">เข็มทิศ</small>
+  </button>
   <div id="coordBar" class="coordbar mono">กำลังหาตำแหน่ง GPS…</div>
   <div id="crosshair" class="crosshair hidden">＋</div>
 

@@ -58,24 +58,26 @@ const DB = (() => {
 const S = {
   spots: [], catches: [], track: { on: false, pts: [], started: null },
   pos: null, heading: null, target: null, follow: true,
-  wx: null, fcLoc: null, layer: ls.get('layer', 'map'), firstFix: false
+  wx: null, fcLoc: null, layer: ls.get('layer', 'light'), firstFix: false
 };
 const save = k => DB.set(k, S[k]).catch(() => toast('บันทึกข้อมูลไม่สำเร็จ'));
 
 /* ============ map ============ */
 const map = L.map('map', { zoomControl: false }).setView(ls.get('view', [18.79, 98.98]), ls.get('zoom', 13));
 const LAYERS = {
-  map: { name: 'แผนที่', l: L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, className: 'dark-tiles', attribution: '© OpenStreetMap' }) },
-  sat: { name: 'ดาวเทียม', l: L.layerGroup([
+  light: { name: 'แผนที่', ico: '🗺️', desc: 'สว่าง อ่านง่าย คล้าย Google Maps', l: L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 20, subdomains: 'abcd', attribution: '© OpenStreetMap © CARTO' }) },
+  sat: null,
+  map: { name: 'กลางคืน', ico: '🌙', desc: 'โทนมืด ถนอมสายตาและแบต', l: L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, className: 'dark-tiles', attribution: '© OpenStreetMap' }) },
+  sat: { name: 'ดาวเทียม', ico: '🛰️', desc: 'ภาพถ่ายจริง + ชื่อสถานที่ เห็นแนวน้ำ กอหญ้า ทางเข้า', l: L.layerGroup([
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, maxNativeZoom: 18, attribution: 'Esri, Maxar' }),
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, maxNativeZoom: 18 })]) },
-  topo: { name: 'ภูมิประเทศ', l: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17, subdomains: 'abc', attribution: '© OpenTopoMap' }) }
+  topo: { name: 'ภูมิประเทศ', ico: '⛰️', desc: 'เส้นชั้นความสูง ลำห้วย ทางเดินป่า', l: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17, subdomains: 'abc', attribution: '© OpenTopoMap' }) }
 };
 function setLayer(k) {
   Object.values(LAYERS).forEach(o => map.removeLayer(o.l));
   LAYERS[k].l.addTo(map); S.layer = k; ls.set('layer', k); $('#layerName').textContent = LAYERS[k].name;
 }
-setLayer(LAYERS[S.layer] ? S.layer : 'map');
+setLayer(LAYERS[S.layer] ? S.layer : 'light');
 const gSpots = L.layerGroup().addTo(map), gWater = L.layerGroup().addTo(map);
 const trackLine = L.polyline([], { color: '#ef4444', weight: 4, opacity: .85 }).addTo(map);
 const targetLine = L.polyline([], { color: '#f59e0b', weight: 3, dashArray: '8 8' }).addTo(map);
@@ -84,7 +86,7 @@ let meMarker = null, accCircle = null;
 map.on('moveend', () => { const c = map.getCenter(); ls.set('view', [c.lat, c.lng]); ls.set('zoom', map.getZoom()); });
 map.on('dragstart', () => { S.follow = false; $('#btnLocate').classList.remove('follow'); });
 map.on('contextmenu', e => spotForm({ lat: e.latlng.lat, lng: e.latlng.lng }));   // กดค้าง = ปักหมุด
-map.on('click', () => $('#searchResults').classList.add('hidden'));
+map.on('click', () => closeSearch());
 
 function spotIcon(type) {
   const t = SPOT_TYPES[type] || SPOT_TYPES.other;
@@ -135,7 +137,14 @@ $('#btnLocate').onclick = () => {
   if (!S.pos) { toast('ยังไม่ได้ตำแหน่ง GPS'); startGeo(); return; }
   S.follow = true; $('#btnLocate').classList.add('follow'); map.setView([S.pos.lat, S.pos.lng], Math.max(map.getZoom(), 15));
 };
-$('#btnLayer').onclick = () => { const ks = Object.keys(LAYERS); setLayer(ks[(ks.indexOf(S.layer) + 1) % ks.length]); toast('ชั้นแผนที่: ' + LAYERS[S.layer].name); };
+$('#btnLayer').onclick = () => {
+  openSheet('<h3>เลือกแผนที่</h3>' + Object.entries(LAYERS).map(([k, o]) => `<button class="menu-item" data-layer="${k}"><span class="mi" style="${k === S.layer ? 'outline:2px solid var(--acc)' : ''}">${o.ico}</span><span><b>${o.name}${k === S.layer ? ' ✓' : ''}</b><span class="sub">${o.desc}</span></span></button>`).join(''));
+  $$('#sheet [data-layer]').forEach(b => b.onclick = () => { setLayer(b.dataset.layer); closeSheet(); });
+};
+$('#mapCompass').onclick = () => {
+  if (S.heading == null && typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') $('#compassPerm').click();
+  showTab('tools');
+};
 
 /* ============ compass ============ */
 function onOrient(e) {
@@ -162,6 +171,10 @@ if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEve
 })();
 function renderCompass() {
   const h = S.heading;
+  $('#mcRose').style.transform = `rotate(${h == null ? 0 : -h}deg)`;
+  $('#mcDeg').textContent = h == null ? 'เข็มทิศ' : Math.round(h) + '° ' + dirE(h);
+  const mt = $('#mcTarget');
+  if (S.target && S.pos) { mt.classList.remove('hidden'); mt.style.transform = `rotate(${bearing(S.pos, S.target) - (h || 0)}deg)`; } else mt.classList.add('hidden');
   $('#compassDial').style.transform = `rotate(${h == null ? 0 : -h}deg)`;
   $('#headingDeg').textContent = h == null ? '---°' : Math.round(h) + '°';
   $('#headingTxt').textContent = h == null ? 'ไม่มีเซนเซอร์เข็มทิศ' : dirTxt(h);
@@ -397,7 +410,7 @@ async function findWater() {
     out.push({ lat, lng, name, kind, fishing: tg.leisure === 'fishing', d: dist({ lat: c.lat, lng: c.lng }, { lat, lng }) });
   }
   out.sort((a, b) => (b.fishing - a.fishing) || (!!b.name - !!a.name) || a.d - b.d);
-  const list = out.slice(0, 120);
+  const list = out.slice(0, 120); S.water = list;
   gWater.clearLayers();
   list.forEach(w => L.marker([w.lat, w.lng], {
     icon: L.divIcon({ className: '', html: `<div class="wmk"><i style="${w.fishing ? 'background:#f59e0b' : ''}">${w.fishing ? '🎣' : '💧'}</i>${w.name ? `<b>${esc(w.name)}</b>` : ''}</div>`, iconSize: [120, 44], iconAnchor: [60, 14] })
@@ -421,18 +434,55 @@ function waterSheet(w) {
 }
 $('#btnWater').onclick = findWater;
 
-/* ============ place search (Nominatim) ============ */
-$('#searchForm').onsubmit = async e => {
-  e.preventDefault(); const q = $('#searchInput').value.trim(), box = $('#searchResults'); if (!q) return;
+/* ============ place search: จุดของฉัน + แหล่งน้ำที่โหลดไว้ + Nominatim (ใกล้ก่อน) + Photon ============ */
+const KIND_TH = { water: 'แหล่งน้ำ', reservoir: 'อ่างเก็บน้ำ', river: 'แม่น้ำ', stream: 'ลำห้วย', canal: 'คลอง', lake: 'ทะเลสาบ', pond: 'บ่อ/สระ', dam: 'เขื่อน', village: 'หมู่บ้าน', hamlet: 'หมู่บ้าน', town: 'เมือง', city: 'เมือง', suburb: 'ย่าน', administrative: 'เขตปกครอง', fishing: 'บ่อตกปลา', peak: 'ยอดเขา', waterfall: 'น้ำตก', national_park: 'อุทยาน', temple: 'วัด', place_of_worship: 'วัด/ศาสนสถาน' };
+const norm = s => String(s || '').toLowerCase().replace(/\s+/g, '');
+function closeSearch() { $('#searchResults').classList.add('hidden'); $('.pills').classList.remove('hidden'); }
+let searchSeq = 0;
+async function doSearch(q) {
+  const box = $('#searchResults'), seq = ++searchSeq, c = map.getCenter(), ctr = { lat: c.lat, lng: c.lng };
   const m = q.match(/^\s*(-?\d+(?:\.\d+)?)\s*[, ]\s*(-?\d+(?:\.\d+)?)\s*$/);
-  if (m) { map.setView([+m[1], +m[2]], 15); return; }
-  box.classList.remove('hidden'); box.innerHTML = '<div class="empty">กำลังค้นหา…</div>';
-  try {
-    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=8&accept-language=th&countrycodes=th&q=${encodeURIComponent(q)}`);
-    const js = await res.json();
-    box.innerHTML = js.length ? js.map((p, i) => `<button data-i="${i}">${esc(p.display_name)}</button>`).join('') : '<div class="empty">ไม่พบสถานที่</div>';
-    $$('button', box).forEach(b => b.onclick = () => { const p = js[b.dataset.i]; S.follow = false; $('#btnLocate').classList.remove('follow'); map.setView([+p.lat, +p.lon], 14); box.classList.add('hidden'); $('#searchInput').blur(); });
-  } catch { box.innerHTML = '<div class="empty">ค้นหาไม่ได้ (ต้องต่อเน็ต)</div>'; }
+  if (m) { closeSearch(); S.follow = false; $('#btnLocate').classList.remove('follow'); map.setView([+m[1], +m[2]], 15); return; }
+  $('.pills').classList.add('hidden'); box.classList.remove('hidden');
+  const nq = norm(q), res = [];
+  S.spots.filter(s => norm(s.name + s.fish + s.note).includes(nq)).forEach(s => res.push({ lat: s.lat, lng: s.lng, name: s.name, sub: '📍 จุดของฉัน', pri: 0, spotId: s.id }));
+  (S.water || []).filter(w => w.name && norm(w.name).includes(nq)).forEach(w => res.push({ lat: w.lat, lng: w.lng, name: w.name, sub: '💧 ' + w.kind, pri: 1 }));
+  const render = loading => {
+    if (seq !== searchSeq) return;
+    const seen = [], list = [];
+    res.map(r => ({ ...r, d: dist(ctr, r) })).sort((x, y) => (x.pri - y.pri) || (x.d - y.d)).forEach(r => {
+      if (seen.some(o => norm(o.name) === norm(r.name) && dist(o, r) < 400)) return; seen.push(r); list.push(r);
+    });
+    box.innerHTML = (list.length ? list.slice(0, 25).map((r, i) => `<button data-i="${i}"><b>${esc(r.name)}</b><small>${fmtDist(r.d)}</small><span>${esc(r.sub)}</span></button>`).join('') : loading ? '' : `<div class="empty">ไม่พบ "${esc(q)}"<br><span class="sub">ลองพิมพ์ชื่อเฉพาะ เช่น "อ่างแม่กวง" "หนองบัว สันทราย" หรือกดปุ่ม 💧 เพื่อหาแหล่งน้ำรอบแผนที่</span></div>`)
+      + (loading ? '<div class="empty">กำลังค้นหา…</div>' : '');
+    $$('button', box).forEach(b => b.onclick = () => {
+      const r = list[b.dataset.i]; closeSearch(); $('#searchInput').blur();
+      S.follow = false; $('#btnLocate').classList.remove('follow'); map.setView([r.lat, r.lng], 15);
+      if (r.spotId) spotSheet(r.spotId);
+      else { searchPin.setLatLng([r.lat, r.lng]).addTo(map).bindPopup(`<b>${esc(r.name)}</b><br>กดค้างบนแผนที่เพื่อปักหมุด`).openPopup(); }
+    });
+  };
+  render(true);
+  const d = .9, vb = `${(c.lng - d).toFixed(3)},${(c.lat + d).toFixed(3)},${(c.lng + d).toFixed(3)},${(c.lat - d).toFixed(3)}`;
+  const nomi = extra => fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=12&accept-language=th&countrycodes=th&addressdetails=1&q=${encodeURIComponent(q)}${extra}`).then(r => r.json()).then(js => js.forEach(p => {
+    const ad = p.address || {}, area = [ad.village || ad.hamlet || ad.suburb, ad.town || ad.city || ad.municipality || ad.county, ad.state].filter(Boolean).join(' · ');
+    res.push({ lat: +p.lat, lng: +p.lon, name: p.name || p.display_name.split(',')[0], sub: [KIND_TH[p.type] || KIND_TH[p.category], area].filter(Boolean).join(' · '), pri: 2 });
+  })).catch(() => {});
+  const photon = fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&lat=${c.lat.toFixed(4)}&lon=${c.lng.toFixed(4)}&limit=12&bbox=97.3,5.5,105.7,20.5`).then(r => r.json()).then(js => (js.features || []).forEach(f => {
+    const p = f.properties || {}, g = f.geometry?.coordinates; if (!g || !p.name || (p.countrycode && p.countrycode !== 'TH')) return;
+    res.push({ lat: g[1], lng: g[0], name: p.name, sub: [KIND_TH[p.osm_value] || KIND_TH[p.osm_key], p.district || p.city || p.county, p.state].filter(Boolean).join(' · '), pri: 2 });
+  })).catch(() => {});
+  let left = 3; const done = () => render(--left > 0);
+  nomi(`&viewbox=${vb}&bounded=1`).then(done);        // ใกล้แผนที่ก่อน (~100 กม.)
+  nomi(`&viewbox=${vb}`).then(done);                   // ทั่วประเทศ
+  photon.then(done);                                   // สะกดไม่เป๊ะก็เจอ
+}
+const searchPin = L.marker([0, 0], { icon: L.divIcon({ className: '', html: '<div class="mk" style="background:#e11d48"><span>🔎</span></div>', iconSize: [34, 34], iconAnchor: [17, 34] }) });
+$('#searchForm').onsubmit = e => { e.preventDefault(); const q = $('#searchInput').value.trim(); if (q) doSearch(q); };
+let searchDeb; $('#searchInput').oninput = e => {
+  clearTimeout(searchDeb); const q = e.target.value.trim();
+  if (!q) { searchSeq++; closeSearch(); return; }
+  if (q.length >= 3) searchDeb = setTimeout(() => doSearch(q), 900);
 };
 
 /* ============ forecast & fish score ============ */
