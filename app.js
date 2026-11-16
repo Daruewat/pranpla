@@ -345,7 +345,7 @@ function spotSheet(id) {
   ${s.photo ? `<img class="photo-prev" src="${s.photo}">` : ''}
   <div class="kv"><span>พิกัด</span><b class="mono">${s.lat.toFixed(5)}, ${s.lng.toFixed(5)}</b>
     ${s.fish ? `<span>ปลา</span><b>${esc(s.fish)}</b>` : ''}${s.note ? `<span>โน้ต</span><b>${esc(s.note)}</b>` : ''}
-    ${s.fee ? `<span>ค่าบริการ</span><b>${esc(s.fee)}</b>` : ''}${s.hours ? `<span>เปิด–ปิด</span><b>${esc(s.hours)}</b>` : ''}${s.rules ? `<span>กฎ/ข้อห้าม</span><b style="color:#fde68a">⚠️ ${esc(s.rules)}</b>` : ''}${s.tel ? `<span>ติดต่อ</span><b><a href="tel:${esc(s.tel.replace(/[^0-9+]/g, ''))}" style="color:#93c5fd">${esc(s.tel)}</a></b>` : ''}
+    ${s.fee ? `<span>ค่าบริการ</span><b>${esc(s.fee)}</b>` : ''}${s.hours ? `<span>เปิด–ปิด</span><b>${esc(s.hours)}</b>` : ''}${s.rules ? `<span>กฎ/ข้อห้าม</span><b style="color:var(--warn-tx)">⚠️ ${esc(s.rules)}</b>` : ''}${s.tel ? `<span>ติดต่อ</span><b><a href="tel:${esc(s.tel.replace(/[^0-9+]/g, ''))}" style="color:var(--link)">${esc(s.tel)}</a></b>` : ''}
     <span>ปลาที่บันทึก</span><b>${n} ตัว</b></div>
   <div id="spDam"></div>
   <div class="row">
@@ -649,6 +649,19 @@ async function placeName(lat, lng) {
   return out;
 }
 
+// ใกล้รอยต่อตำบล แอปอาจเลือกผิด: ให้ผู้ใช้แตะชื่อสถานที่เพื่อเลือกตำบลที่ถูกเองได้ (จำไว้สำหรับบริเวณนั้น)
+async function pickTambon() {
+  const loc = S.fcLoc, T = await loadTambons(); if (!loc || !T) return toast('ยังโหลดรายชื่อตำบลไม่ได้');
+  const near = T.map(t => ({ t, d: dist(loc, { lat: t[0], lng: t[1] }) })).sort((x, y) => x.d - y.d).slice(0, 6);
+  openSheet(`<h3>อยู่ตำบลไหน?</h3><div class="sub">แอปเดาจากจุดกึ่งกลางตำบลที่ใกล้ที่สุด ถ้าไม่ตรง เลือกที่ถูกได้เลย แอปจะจำไว้สำหรับบริเวณนี้</div>` +
+    near.map((x, i) => `<button class="menu-item" data-tb="${i}"><span class="mi">📍</span><span><b>${esc(x.t[2])}${loc.place?.short === x.t[2] ? ' ✓' : ''}</b><span class="sub">อ.${esc(x.t[3])} · ศูนย์กลางห่าง ${fmtDist(x.d)}</span></span></button>`).join(''));
+  $$('#sheet [data-tb]').forEach(b => b.onclick = () => {
+    const t = near[b.dataset.tb].t, p = { short: t[2], full: `${t[2]} · ${t[3]}`, manual: true };
+    placeCache[loc.lat.toFixed(2) + ',' + loc.lng.toFixed(2)] = p; ls.set('places4', placeCache); loc.place = p; showPlace(); closeSheet();
+  });
+}
+$('#fcPlace').onclick = pickTambon;
+
 /* ============ forecast & fish score ============ */
 const wmo = (c, night) => { const w = WMO[c] || WMO[[0, 1, 2, 3, 45, 51, 61, 80, 95].reduce((a, b) => Math.abs(b - c) < Math.abs(a - c) ? b : a)]; return { txt: w[0], ico: night ? w[2] : w[1] }; };
 const scoreColor = s => s >= 76 ? '#22c55e' : s >= 68 ? '#84cc16' : s >= 60 ? '#facc15' : s >= 50 ? '#f59e0b' : s >= 40 ? '#f97316' : '#ef4444';   // แดง=ไม่กิน → เหลือง → เขียว=กินดี
@@ -763,7 +776,7 @@ function renderForecast() {
   <div class="card">
     <div class="fc-now"><div><div class="sub" id="fcNowPlace">ตอนนี้</div><div class="fc-temp">${Math.round(n.temp)}°C</div><div class="sub">${wm.txt}</div></div><div class="fc-ico">${wm.ico}</div></div>
     <div class="score-row">
-      <div class="ring"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="none" stroke="#22342d" stroke-width="9"/><circle cx="50" cy="50" r="40" fill="none" stroke="${scoreColor(n.score)}" stroke-width="9" stroke-linecap="round" stroke-dasharray="${C * n.score / 100} ${C}"/></svg><b>${n.score}</b></div>
+      <div class="ring"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="none" style="stroke:var(--track)" stroke-width="9"/><circle cx="50" cy="50" r="40" fill="none" stroke="${scoreColor(n.score)}" stroke-width="9" stroke-linecap="round" stroke-dasharray="${C * n.score / 100} ${C}"/></svg><b>${n.score}</b></div>
       <div><div class="score-label">${scoreLabel(n.score)}</div><div class="sub">🔥 ช่วงดีที่สุด: ${bestTxt}</div></div>
     </div>
     <div class="bars">${W.next.map((x, i) => `<div class="${i === 0 ? 'now' : ''} ${i === W.bi || i === W.bi + 1 ? 'best' : ''}" style="height:${clamp(x.score, 8, 100)}%;background:${scoreColor(x.score)}"></div>`).join('')}</div>
@@ -993,6 +1006,23 @@ $('#importFile').onchange = async e => {
   } catch { toast('ไฟล์นี้ไม่ใช่ไฟล์สำรองของพรานปลา'); }
   e.target.value = '';
 };
+
+/* ============ ธีม มืด / สว่าง / ตามเครื่อง ============ */
+const mqLight = window.matchMedia('(prefers-color-scheme: light)');
+function applyTheme() {
+  const pref = ls.get('theme', 'dark'), t = pref === 'auto' ? (mqLight.matches ? 'light' : 'dark') : pref;
+  document.documentElement.dataset.theme = t;
+  $('meta[name=theme-color]').content = t === 'light' ? '#f3f5f1' : '#0b1210';
+  $('meta[name=color-scheme]').content = t;
+  $$('#themeSeg button').forEach(b => b.classList.toggle('sel', b.dataset.theme === pref));
+}
+$$('#themeSeg button').forEach(b => b.onclick = () => {
+  const old = document.documentElement.dataset.theme; ls.set('theme', b.dataset.theme); applyTheme();
+  const now = document.documentElement.dataset.theme;      // สลับแผนที่ตามธีมให้ด้วย ถ้ายังใช้คู่ แผนที่สว่าง/กลางคืน อยู่
+  if (now !== old && (S.layer === 'light' || S.layer === 'map')) setLayer(now === 'light' ? 'light' : 'map');
+});
+mqLight.addEventListener?.('change', applyTheme);
+applyTheme();
 
 /* ============ tabs ============ */
 function showTab(t) {

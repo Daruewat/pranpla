@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#0b1210">
 <meta name="color-scheme" content="dark">
 <title>พรานปลา – แผนที่ตกปลา & เอาชีวิตรอด</title>
+<script>try{var t=JSON.parse(localStorage.getItem("theme")||'"dark"');if(t==="auto")t=matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";document.documentElement.dataset.theme=t}catch(e){}</script>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -177,6 +178,11 @@
     <div id="myStats" class="card"></div>
     <div class="sect-h"><h2>เส้นทาง</h2></div>
     <div id="trackInfo" class="card"></div>
+    <div class="sect-h"><h2>หน้าตาแอป</h2></div>
+    <div class="card">
+      <div id="themeSeg" class="seg"><button data-theme="dark">🌙 มืด</button><button data-theme="light">☀️ สว่าง</button><button data-theme="auto">📱 ตามเครื่อง</button></div>
+      <div class="sub" style="margin-top:8px">โหมดมืดถนอมสายตาตอนกลางคืนและประหยัดแบต โหมดสว่างอ่านง่ายกลางแดด</div>
+    </div>
     <div class="sect-h"><h2>สำรองข้อมูล</h2></div>
     <div class="card">
       <div class="sub">ข้อมูลอยู่ในมือถือเครื่องนี้เท่านั้น ส่งออกไว้เป็นไฟล์บ้างเผื่อเปลี่ยนเครื่อง</div>
