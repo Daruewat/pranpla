@@ -1,0 +1,691 @@
+'use strict';
+/* ============ helpers ============ */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const pad = n => String(n).padStart(2, '0');
+const hm = d => (d && !isNaN(d)) ? pad(d.getHours()) + ':' + pad(d.getMinutes()) : '--:--';
+const DAYS = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
+const ls = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+};
+function toast(msg, ms = 2600) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), ms);
+}
+function dist(a, b) { // เมตร
+  const R = 6371000, r = Math.PI / 180, dLa = (b.lat - a.lat) * r, dLo = (b.lng - a.lng) * r;
+  const x = Math.sin(dLa / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLo / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(x));
+}
+function bearing(a, b) {
+  const r = Math.PI / 180, y = Math.sin((b.lng - a.lng) * r) * Math.cos(b.lat * r);
+  const x = Math.cos(a.lat * r) * Math.sin(b.lat * r) - Math.sin(a.lat * r) * Math.cos(b.lat * r) * Math.cos((b.lng - a.lng) * r);
+  return (Math.atan2(y, x) / r + 360) % 360;
+}
+const fmtDist = m => m == null ? '-' : m < 1000 ? Math.round(m) + ' ม.' : (m / 1000).toFixed(m < 10000 ? 2 : 1) + ' กม.';
+const DIR8 = ['เหนือ', 'ตอ.เฉียงเหนือ', 'ตะวันออก', 'ตอ.เฉียงใต้', 'ใต้', 'ตต.เฉียงใต้', 'ตะวันตก', 'ตต.เฉียงเหนือ'];
+const DIR8E = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+const dirTxt = d => DIR8[Math.round(d / 45) % 8];
+const dirE = d => DIR8E[Math.round(d / 45) % 8];
+function dms(v, pos, neg) {
+  const a = Math.abs(v), d = Math.floor(a), m = Math.floor((a - d) * 60), s = ((a - d) * 60 - m) * 60;
+  return `${d}°${pad(m)}'${s.toFixed(1)}"${v >= 0 ? pos : neg}`;
+}
+
+/* ============ storage (IndexedDB key-value) ============ */
+const DB = (() => {
+  let dbp;
+  const open = () => dbp || (dbp = new Promise((res, rej) => {
+    const r = indexedDB.open('pranpla', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('kv');
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  }));
+  const tx = async (mode, fn) => {
+    const db = await open();
+    return new Promise((res, rej) => {
+      const t = db.transaction('kv', mode), rq = fn(t.objectStore('kv'));
+      t.oncomplete = () => res(rq.result); t.onerror = () => rej(t.error);
+    });
+  };
+  return { get: k => tx('readonly', s => s.get(k)), set: (k, v) => tx('readwrite', s => s.put(v, k)) };
+})();
+
+/* ============ state ============ */
+const S = {
+  spots: [], catches: [], track: { on: false, pts: [], started: null },
+  pos: null, heading: null, target: null, follow: true,
+  wx: null, fcLoc: null, layer: ls.get('layer', 'map'), firstFix: false
+};
+const save = k => DB.set(k, S[k]).catch(() => toast('บันทึกข้อมูลไม่สำเร็จ'));
+
+/* ============ map ============ */
+const map = L.map('map', { zoomControl: false }).setView(ls.get('view', [18.79, 98.98]), ls.get('zoom', 13));
+const LAYERS = {
+  map: { name: 'แผนที่', l: L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, className: 'dark-tiles', attribution: '© OpenStreetMap' }) },
+  sat: { name: 'ดาวเทียม', l: L.layerGroup([
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, maxNativeZoom: 18, attribution: 'Esri, Maxar' }),
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, maxNativeZoom: 18 })]) },
+  topo: { name: 'ภูมิประเทศ', l: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17, subdomains: 'abc', attribution: '© OpenTopoMap' }) }
+};
+function setLayer(k) {
+  Object.values(LAYERS).forEach(o => map.removeLayer(o.l));
+  LAYERS[k].l.addTo(map); S.layer = k; ls.set('layer', k); $('#layerName').textContent = LAYERS[k].name;
+}
+setLayer(LAYERS[S.layer] ? S.layer : 'map');
+const gSpots = L.layerGroup().addTo(map), gWater = L.layerGroup().addTo(map);
+const trackLine = L.polyline([], { color: '#ef4444', weight: 4, opacity: .85 }).addTo(map);
+const targetLine = L.polyline([], { color: '#f59e0b', weight: 3, dashArray: '8 8' }).addTo(map);
+let meMarker = null, accCircle = null;
+
+map.on('moveend', () => { const c = map.getCenter(); ls.set('view', [c.lat, c.lng]); ls.set('zoom', map.getZoom()); });
+map.on('dragstart', () => { S.follow = false; $('#btnLocate').classList.remove('follow'); });
+map.on('contextmenu', e => spotForm({ lat: e.latlng.lat, lng: e.latlng.lng }));   // กดค้าง = ปักหมุด
+map.on('click', () => $('#searchResults').classList.add('hidden'));
+
+function spotIcon(type) {
+  const t = SPOT_TYPES[type] || SPOT_TYPES.other;
+  return L.divIcon({ className: '', html: `<div class="mk" style="background:${t.color}"><span>${t.icon}</span></div>`, iconSize: [34, 34], iconAnchor: [17, 34] });
+}
+function renderSpots() {
+  gSpots.clearLayers();
+  S.spots.forEach(s => L.marker([s.lat, s.lng], { icon: spotIcon(s.type) }).on('click', () => spotSheet(s.id)).addTo(gSpots));
+}
+function updateMe() {
+  if (!S.pos) return;
+  const ll = [S.pos.lat, S.pos.lng];
+  const html = `<div class="me">${S.heading != null ? `<div class="cone" style="transform:rotate(${S.heading}deg)"></div>` : ''}<div class="dot"></div></div>`;
+  const icon = L.divIcon({ className: '', html, iconSize: [22, 22], iconAnchor: [11, 11] });
+  if (!meMarker) {
+    meMarker = L.marker(ll, { icon, zIndexOffset: 1000, interactive: false }).addTo(map);
+    accCircle = L.circle(ll, { radius: S.pos.acc || 0, color: '#3b82f6', weight: 1, fillOpacity: .08, interactive: false }).addTo(map);
+  } else { meMarker.setLatLng(ll).setIcon(icon); accCircle.setLatLng(ll).setRadius(S.pos.acc || 0); }
+  targetLine.setLatLngs(S.target ? [ll, [S.target.lat, S.target.lng]] : []);
+}
+
+/* ============ GPS ============ */
+function onPos(p) {
+  S.pos = { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy, alt: p.coords.altitude, spd: p.coords.speed, t: p.timestamp };
+  $('#coordBar').textContent = `${S.pos.lat.toFixed(5)}, ${S.pos.lng.toFixed(5)} ±${Math.round(S.pos.acc)}ม.`;
+  if (!S.firstFix) {
+    S.firstFix = true; map.setView([S.pos.lat, S.pos.lng], Math.max(map.getZoom(), 14));
+    $('#btnLocate').classList.add('follow');
+    if (!S.fcLoc || S.fcLoc.auto) loadForecast({ lat: S.pos.lat, lng: S.pos.lng, name: 'ตำแหน่งของฉัน', auto: true });
+  } else if (S.follow) map.panTo([S.pos.lat, S.pos.lng], { animate: true });
+  if (S.track.on && S.pos.acc < 40) {
+    const last = S.track.pts[S.track.pts.length - 1];
+    if (!last || dist({ lat: last[0], lng: last[1] }, S.pos) > 8) {
+      S.track.pts.push([+S.pos.lat.toFixed(6), +S.pos.lng.toFixed(6), Date.now()]);
+      trackLine.addLatLng([S.pos.lat, S.pos.lng]);
+      if (S.track.pts.length % 5 === 0) save('track');
+    }
+  }
+  updateMe(); renderTools();
+}
+function startGeo() {
+  if (!navigator.geolocation) { $('#coordBar').textContent = 'เครื่องนี้ไม่มี GPS'; return; }
+  navigator.geolocation.watchPosition(onPos, e => {
+    $('#coordBar').textContent = e.code === 1 ? 'ยังไม่ได้อนุญาตตำแหน่ง – เปิดสิทธิ์ตำแหน่งให้แอปนี้' : 'ยังจับสัญญาณ GPS ไม่ได้…';
+  }, { enableHighAccuracy: true, maximumAge: 4000, timeout: 30000 });
+}
+$('#btnLocate').onclick = () => {
+  if (!S.pos) { toast('ยังไม่ได้ตำแหน่ง GPS'); startGeo(); return; }
+  S.follow = true; $('#btnLocate').classList.add('follow'); map.setView([S.pos.lat, S.pos.lng], Math.max(map.getZoom(), 15));
+};
+$('#btnLayer').onclick = () => { const ks = Object.keys(LAYERS); setLayer(ks[(ks.indexOf(S.layer) + 1) % ks.length]); toast('ชั้นแผนที่: ' + LAYERS[S.layer].name); };
+
+/* ============ compass ============ */
+function onOrient(e) {
+  let h = null;
+  if (typeof e.webkitCompassHeading === 'number') h = e.webkitCompassHeading;
+  else if (e.absolute && e.alpha != null) h = 360 - e.alpha;
+  if (h == null) return;
+  h = (h + (screen.orientation?.angle || 0) + 360) % 360;
+  if (S.heading != null && Math.abs(h - S.heading) < 2) return;
+  S.heading = h; updateMe(); renderCompass();
+}
+function startCompass() {
+  window.addEventListener('deviceorientationabsolute', onOrient, true);
+  window.addEventListener('deviceorientation', onOrient, true);
+}
+if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+  $('#compassPerm').classList.remove('hidden');
+  $('#compassPerm').onclick = () => DeviceOrientationEvent.requestPermission().then(r => { if (r === 'granted') { startCompass(); $('#compassPerm').classList.add('hidden'); } });
+} else startCompass();
+(function ticks() {
+  let h = '';
+  for (let a = 0; a < 360; a += 15) h += `<line class="${a % 90 === 0 ? 'maj' : ''}" x1="100" y1="6" x2="100" y2="${a % 45 === 0 ? 18 : 12}" transform="rotate(${a} 100 100)"/>`;
+  $('#ticks').innerHTML = h;
+})();
+function renderCompass() {
+  const h = S.heading;
+  $('#compassDial').style.transform = `rotate(${h == null ? 0 : -h}deg)`;
+  $('#headingDeg').textContent = h == null ? '---°' : Math.round(h) + '°';
+  $('#headingTxt').textContent = h == null ? 'ไม่มีเซนเซอร์เข็มทิศ' : dirTxt(h);
+  const ta = $('#targetArrow');
+  if (S.target && S.pos) {
+    const b = bearing(S.pos, S.target);
+    ta.classList.remove('hidden'); ta.style.transform = `rotate(${b - (h || 0)}deg)`;
+    $('#targetDist').textContent = fmtDist(dist(S.pos, S.target));
+    $('#targetBear').textContent = Math.round(b) + '° ' + dirE(b);
+  } else ta.classList.add('hidden');
+}
+function setTarget(t) {
+  S.target = t; $('#targetBox').classList.toggle('hidden', !t);
+  if (t) { $('#targetName').textContent = t.name; toast('นำทางไป: ' + t.name + ' — ลูกศรสีส้มชี้ทาง'); }
+  updateMe(); renderCompass();
+}
+$('#targetClear').onclick = () => setTarget(null);
+
+/* ============ sheets ============ */
+function openSheet(html) {
+  $('#sheet').innerHTML = '<div class="grab"></div>' + html;
+  $('#sheet').classList.add('open'); $('#sheetBg').classList.remove('hidden'); $('#sheet').scrollTop = 0;
+}
+function closeSheet() { $('#sheet').classList.remove('open'); $('#sheetBg').classList.add('hidden'); $('#crosshair').classList.add('hidden'); }
+$('#sheetBg').onclick = closeSheet;
+function compressImage(file, max = 1100, q = .72) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => {
+      const s = Math.min(1, max / Math.max(img.width, img.height)), c = document.createElement('canvas');
+      c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(img.src);
+      res(c.toDataURL('image/jpeg', q));
+    };
+    img.onerror = rej; img.src = URL.createObjectURL(file);
+  });
+}
+function bindPhoto(root, holder) {
+  $('[name=photo]', root).onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    try { holder.photo = await compressImage(f); $('.photo-prev', root).src = holder.photo; $('.photo-prev', root).classList.remove('hidden'); }
+    catch { toast('อ่านรูปไม่ได้'); }
+  };
+}
+
+/* ---- FAB menu ---- */
+$('#fab').onclick = () => openSheet(`
+  <h3>อยากทำอะไร?</h3>
+  <button class="menu-item" data-act="new-catch"><span class="mi">🐟</span><span><b>บันทึกปลาที่จับได้</b><span class="sub">ชนิด ขนาด เหยื่อ รูป พร้อมสภาพอากาศตอนนั้น</span></span></button>
+  <button class="menu-item" data-act="new-spot-here"><span class="mi">📍</span><span><b>ปักหมุดตรงที่ฉันยืน</b><span class="sub">จุดตกปลา ที่จอดรถ แคมป์ จุดอันตราย</span></span></button>
+  <button class="menu-item" data-act="new-spot-center"><span class="mi">🎯</span><span><b>ปักหมุดกลางแผนที่</b><span class="sub">เลื่อนแผนที่ให้กากบาทตรงจุด หรือกดค้างบนแผนที่</span></span></button>
+  <button class="menu-item" data-act="toggle-track"><span class="mi">👣</span><span><b>${S.track.on ? 'หยุดบันทึกเส้นทาง' : 'เริ่มบันทึกเส้นทางเดิน'}</b><span class="sub">ไว้เดินย้อนกลับจุดเริ่มต้น</span></span></button>
+  <button class="menu-item" data-act="find-water"><span class="mi">💧</span><span><b>หาแหล่งน้ำรอบแผนที่</b><span class="sub">หนอง บึง อ่าง แม่น้ำ จากฐานข้อมูล OpenStreetMap</span></span></button>`);
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const a = b.dataset.act, id = b.dataset.id;
+  if (a === 'new-catch') catchForm();
+  else if (a === 'new-spot-here') { if (!S.pos) return toast('ยังไม่ได้ตำแหน่ง GPS ลองปักหมุดกลางแผนที่แทน'); spotForm({ lat: S.pos.lat, lng: S.pos.lng }); }
+  else if (a === 'new-spot-center') { closeSheet(); showTab('map'); const c = map.getCenter(); spotForm({ lat: c.lat, lng: c.lng }); $('#crosshair').classList.remove('hidden'); }
+  else if (a === 'toggle-track') { closeSheet(); toggleTrack(); }
+  else if (a === 'find-water') { closeSheet(); showTab('map'); findWater(); }
+  else if (a === 'close') closeSheet();
+  else if (a === 'spot') spotSheet(id);
+  else if (a === 'catch') catchSheet(id);
+});
+
+/* ---- spots ---- */
+function spotForm(init) {
+  const ex = init.id ? S.spots.find(s => s.id === init.id) : null;
+  const d = ex ? { ...ex } : { id: uid(), type: 'fish', name: '', note: '', fish: '', photo: null, created: Date.now(), ...init };
+  openSheet(`<h3>${ex ? 'แก้ไขหมุด' : 'ปักหมุดใหม่'}</h3>
+  <div class="sub mono">${d.lat.toFixed(5)}, ${d.lng.toFixed(5)}</div>
+  <div class="form">
+    <label>ประเภท</label>
+    <div class="types">${Object.entries(SPOT_TYPES).map(([k, t]) => `<button type="button" data-type="${k}" class="${k === d.type ? 'sel' : ''}">${t.icon} ${t.label}</button>`).join('')}</div>
+    <label>ชื่อจุด</label><input name="name" value="${esc(d.name)}" placeholder="เช่น หนองบัว ฝั่งตอไม้">
+    <label>ปลาที่เจอ</label><input name="fish" value="${esc(d.fish)}" placeholder="ช่อน ชะโด นิล…">
+    <label>โน้ต</label><textarea name="note" placeholder="ทางเข้า ความลึก เหยื่อที่ได้ผล ข้อควรระวัง">${esc(d.note)}</textarea>
+    <label>รูป</label><input name="photo" type="file" accept="image/*">
+    <img class="photo-prev ${d.photo ? '' : 'hidden'}" src="${d.photo || ''}">
+    <div class="row"><button class="btn block acc" id="spSave">บันทึกหมุด</button></div>
+  </div>`);
+  const r = $('#sheet');
+  $$('.types button', r).forEach(b => b.onclick = () => { d.type = b.dataset.type; $$('.types button', r).forEach(x => x.classList.toggle('sel', x === b)); });
+  bindPhoto(r, d);
+  $('#spSave').onclick = () => {
+    d.name = $('[name=name]', r).value.trim() || SPOT_TYPES[d.type].label;
+    d.fish = $('[name=fish]', r).value.trim(); d.note = $('[name=note]', r).value.trim();
+    const i = S.spots.findIndex(s => s.id === d.id);
+    if (i >= 0) S.spots[i] = d; else S.spots.push(d);
+    save('spots'); renderSpots(); renderLog(); closeSheet(); toast('บันทึกหมุดแล้ว');
+  };
+}
+function gmaps(p) { return `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}`; }
+function spotSheet(id) {
+  const s = S.spots.find(x => x.id === id); if (!s) return;
+  const t = SPOT_TYPES[s.type] || SPOT_TYPES.other, n = S.catches.filter(c => c.spotId === id).length;
+  openSheet(`<h3>${t.icon} ${esc(s.name)}</h3>
+  <div class="sub">${t.label}${S.pos ? ' · ห่าง ' + fmtDist(dist(S.pos, s)) : ''}</div>
+  ${s.photo ? `<img class="photo-prev" src="${s.photo}">` : ''}
+  <div class="kv"><span>พิกัด</span><b class="mono">${s.lat.toFixed(5)}, ${s.lng.toFixed(5)}</b>
+    ${s.fish ? `<span>ปลา</span><b>${esc(s.fish)}</b>` : ''}${s.note ? `<span>โน้ต</span><b>${esc(s.note)}</b>` : ''}
+    <span>ปลาที่บันทึก</span><b>${n} ตัว</b></div>
+  <div class="row">
+    <button class="btn acc" id="spNav">🧭 นำทางด้วยเข็มทิศ</button>
+    <a class="btn ghost" href="${gmaps(s)}" target="_blank" rel="noopener">Google Maps</a>
+    <button class="btn ghost" id="spFc">🌤️ พยากรณ์ที่นี่</button>
+    <button class="btn ghost" id="spCatch">🐟 บันทึกปลาที่นี่</button>
+    <button class="btn ghost" id="spEdit">แก้ไข</button>
+    <button class="btn danger" id="spDel">ลบ</button>
+  </div>`);
+  $('#spNav').onclick = () => { setTarget({ lat: s.lat, lng: s.lng, name: s.name }); closeSheet(); showTab('tools'); };
+  $('#spFc').onclick = () => { closeSheet(); loadForecast({ lat: s.lat, lng: s.lng, name: s.name }); showTab('forecast'); };
+  $('#spCatch').onclick = () => catchForm({ spotId: s.id });
+  $('#spEdit').onclick = () => spotForm({ id: s.id });
+  let armed = false;
+  $('#spDel').onclick = e => {
+    if (!armed) { armed = true; e.target.textContent = 'แตะอีกครั้งเพื่อลบ'; return; }
+    S.spots = S.spots.filter(x => x.id !== id); save('spots'); renderSpots(); renderLog(); closeSheet(); toast('ลบหมุดแล้ว');
+  };
+  map.panTo([s.lat, s.lng]);
+}
+
+/* ---- catches ---- */
+function wxSnap() {
+  const w = S.wx; if (!w || !w.now) return null;
+  return { temp: w.now.temp, pres: w.now.pres, wind: w.now.wind, code: w.now.code, score: w.now.score, place: S.fcLoc?.name };
+}
+function catchForm(init = {}) {
+  const d = { id: uid(), t: Date.now(), species: '', len: '', wt: '', bait: '', note: '', photo: null, released: false, spotId: '', ...init };
+  const now = new Date(d.t - new Date().getTimezoneOffset() * 6e4).toISOString().slice(0, 16);
+  openSheet(`<h3>บันทึกปลาที่จับได้</h3>
+  <div class="form">
+    <label>ชนิดปลา</label><input name="species" list="fishList" placeholder="เช่น ปลาช่อน" value="${esc(d.species)}">
+    <datalist id="fishList">${FISH.map(f => `<option value="${f.n}">`).join('')}</datalist>
+    <div class="two"><div><label>ยาว (ซม.)</label><input name="len" type="number" inputmode="decimal" step="0.1"></div>
+    <div><label>หนัก (กก.)</label><input name="wt" type="number" inputmode="decimal" step="0.01"></div></div>
+    <label>เหยื่อ / วิธีตก</label><input name="bait" placeholder="กบยาง, ไส้เดือน, ตกทุ่น…">
+    <label>จุดที่ได้</label><select name="spot"><option value="">ตำแหน่งปัจจุบัน (GPS)</option>${S.spots.map(s => `<option value="${s.id}" ${s.id === d.spotId ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select>
+    <label>เวลา</label><input name="t" type="datetime-local" value="${now}">
+    <label>รูปปลา</label><input name="photo" type="file" accept="image/*">
+    <img class="photo-prev hidden">
+    <label>โน้ต</label><textarea name="note"></textarea>
+    <label style="display:flex;gap:8px;align-items:center;color:var(--tx)"><input name="rel" type="checkbox" style="width:auto"> ปล่อยคืนน้ำ</label>
+    <div class="row"><button class="btn block acc" id="ctSave">บันทึก</button></div>
+  </div>`);
+  const r = $('#sheet'); bindPhoto(r, d);
+  $('#ctSave').onclick = () => {
+    const v = n => $(`[name=${n}]`, r).value.trim();
+    d.species = v('species') || 'ไม่ระบุชนิด'; d.len = parseFloat(v('len')) || null; d.wt = parseFloat(v('wt')) || null;
+    d.bait = v('bait'); d.note = v('note'); d.released = $('[name=rel]', r).checked; d.spotId = v('spot');
+    d.t = v('t') ? new Date(v('t')).getTime() : Date.now();
+    const sp = S.spots.find(s => s.id === d.spotId);
+    if (sp) { d.lat = sp.lat; d.lng = sp.lng; } else if (S.pos) { d.lat = S.pos.lat; d.lng = S.pos.lng; }
+    if (Math.abs(Date.now() - d.t) < 2 * 36e5) d.wx = wxSnap();
+    d.moon = SunCalc.getMoonIllumination(new Date(d.t)).phase;
+    S.catches.unshift(d); save('catches'); renderLog(); closeSheet(); toast('บันทึกปลาแล้ว 🎣');
+  };
+}
+function catchSheet(id) {
+  const c = S.catches.find(x => x.id === id); if (!c) return;
+  const sp = S.spots.find(s => s.id === c.spotId), dt = new Date(c.t);
+  openSheet(`<h3>🐟 ${esc(c.species)}</h3>
+  <div class="sub">${dt.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })} ${hm(dt)}${c.released ? ' · ปล่อยคืนน้ำ' : ''}</div>
+  ${c.photo ? `<img class="photo-prev" src="${c.photo}">` : ''}
+  <div class="kv">
+    ${c.len ? `<span>ยาว</span><b>${c.len} ซม.</b>` : ''}${c.wt ? `<span>หนัก</span><b>${c.wt} กก.</b>` : ''}
+    ${c.bait ? `<span>เหยื่อ</span><b>${esc(c.bait)}</b>` : ''}
+    <span>จุด</span><b>${sp ? esc(sp.name) : c.lat ? `<span class="mono">${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}</span>` : '-'}</b>
+    ${c.wx ? `<span>อากาศ</span><b>${Math.round(c.wx.temp)}° · ${Math.round(c.wx.pres)} hPa · ลม ${Math.round(c.wx.wind)} กม./ชม. · คะแนน ${c.wx.score}</b>` : ''}
+    <span>ดวงจันทร์</span><b>${moonName(c.moon ?? 0)}</b>
+    ${c.note ? `<span>โน้ต</span><b>${esc(c.note)}</b>` : ''}
+  </div>
+  <div class="row"><button class="btn danger" id="ctDel">ลบรายการนี้</button></div>`);
+  let armed = false;
+  $('#ctDel').onclick = e => {
+    if (!armed) { armed = true; e.target.textContent = 'แตะอีกครั้งเพื่อลบ'; return; }
+    S.catches = S.catches.filter(x => x.id !== id); save('catches'); renderLog(); closeSheet();
+  };
+}
+
+/* ============ track ============ */
+let wakeLock = null;
+async function toggleTrack() {
+  S.track.on = !S.track.on;
+  if (S.track.on) {
+    S.track.pts = []; S.track.started = Date.now(); trackLine.setLatLngs([]);
+    if (S.pos) { S.track.pts.push([S.pos.lat, S.pos.lng, Date.now()]); trackLine.addLatLng([S.pos.lat, S.pos.lng]); }
+    try { wakeLock = await navigator.wakeLock?.request('screen'); } catch {}
+    toast('เริ่มบันทึกเส้นทาง — เปิดจอแอปค้างไว้ระหว่างเดิน', 4000);
+  } else { try { await wakeLock?.release(); } catch {} wakeLock = null; toast('หยุดบันทึกเส้นทาง ' + fmtDist(trackLen())); }
+  save('track'); renderTrackUI();
+}
+function trackLen() { let d = 0; const p = S.track.pts; for (let i = 1; i < p.length; i++) d += dist({ lat: p[i - 1][0], lng: p[i - 1][1] }, { lat: p[i][0], lng: p[i][1] }); return d; }
+function renderTrackUI() {
+  $('#btnTrack').classList.toggle('on', S.track.on); $('#trackLabel').textContent = S.track.on ? 'กำลังอัด' : 'เส้นทาง';
+  const p = S.track.pts;
+  $('#trackInfo').innerHTML = p.length ? `<div class="kv"><span>สถานะ</span><b>${S.track.on ? '🔴 กำลังบันทึก' : 'หยุดแล้ว'}</b><span>ระยะทาง</span><b>${fmtDist(trackLen())}</b><span>จุดเริ่ม</span><b class="mono">${p[0][0].toFixed(5)}, ${p[0][1].toFixed(5)}</b></div>
+    <div class="row"><button class="btn small acc" id="trkBack">↩️ นำทางกลับจุดเริ่ม</button><button class="btn small ghost" id="trkToggle">${S.track.on ? 'หยุด' : 'เริ่มใหม่'}</button></div>`
+    : `<div class="sub">ยังไม่มีเส้นทาง กดปุ่ม 👣 บนแผนที่ก่อนเดินเข้าป่า/ริมน้ำ แอปจะลากเส้นทางที่เดิน ไว้ย้อนกลับได้</div><div class="row"><button class="btn small" id="trkToggle">เริ่มบันทึกเส้นทาง</button></div>`;
+  $('#trkToggle').onclick = toggleTrack;
+  if ($('#trkBack')) $('#trkBack').onclick = returnToStart;
+}
+function returnToStart() {
+  const p = S.track.pts; if (!p.length) return toast('ยังไม่มีเส้นทางที่บันทึก');
+  setTarget({ lat: p[0][0], lng: p[0][1], name: 'จุดเริ่มต้นเส้นทาง' }); showTab('tools');
+}
+$('#btnTrack').onclick = toggleTrack;
+$('#tReturn').onclick = returnToStart;
+
+/* ============ water bodies (Overpass) ============ */
+const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+async function findWater() {
+  const c = map.getCenter(), b = map.getBounds();
+  const r = Math.round(clamp(dist({ lat: c.lat, lng: c.lng }, { lat: b.getNorth(), lng: c.lng }) * 1.3, 800, 9000));
+  const ar = `(around:${r},${c.lat.toFixed(5)},${c.lng.toFixed(5)})`;
+  const q = `[out:json][timeout:25];(nwr["natural"="water"]${ar};nwr["landuse"="reservoir"]${ar};nwr["leisure"="fishing"]${ar};nwr["waterway"~"^(river|canal|stream)$"]["name"]${ar};);out center tags 400;`;
+  toast('กำลังค้นหาแหล่งน้ำในรัศมี ' + fmtDist(r) + '…', 8000);
+  let data = null;
+  for (const u of OVERPASS) {
+    try { const res = await fetch(u, { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }); if (res.ok) { data = await res.json(); break; } } catch {}
+  }
+  if (!data) return toast('ค้นหาไม่ได้ ต้องต่อเน็ต หรือเซิร์ฟเวอร์แผนที่ไม่ว่าง ลองใหม่อีกครั้ง');
+  const seen = new Set(), out = [];
+  for (const e of data.elements || []) {
+    const lat = e.lat ?? e.center?.lat, lng = e.lon ?? e.center?.lon; if (lat == null) continue;
+    const tg = e.tags || {}, name = tg['name:th'] || tg.name || '';
+    const kind = tg.leisure === 'fishing' ? 'บ่อ/จุดตกปลา' : tg.waterway ? ({ river: 'แม่น้ำ', canal: 'คลอง', stream: 'ลำห้วย' }[tg.waterway]) : ({ reservoir: 'อ่างเก็บน้ำ', pond: 'บ่อ/สระ', lake: 'ทะเลสาบ/หนอง', river: 'แม่น้ำ', canal: 'คลอง', basin: 'แก้มลิง' }[tg.water] || 'แหล่งน้ำ');
+    if (['swimming_pool', 'wastewater', 'fountain', 'reflecting_pool'].includes(tg.water)) continue;
+    const key = name ? name + (tg.waterway ? '' : '|' + lat.toFixed(2) + lng.toFixed(2)) : lat.toFixed(4) + lng.toFixed(4);
+    if (seen.has(key)) continue; seen.add(key);
+    out.push({ lat, lng, name, kind, fishing: tg.leisure === 'fishing', d: dist({ lat: c.lat, lng: c.lng }, { lat, lng }) });
+  }
+  out.sort((a, b) => (b.fishing - a.fishing) || (!!b.name - !!a.name) || a.d - b.d);
+  const list = out.slice(0, 120);
+  gWater.clearLayers();
+  list.forEach(w => L.marker([w.lat, w.lng], {
+    icon: L.divIcon({ className: '', html: `<div class="wmk"><i style="${w.fishing ? 'background:#f59e0b' : ''}">${w.fishing ? '🎣' : '💧'}</i>${w.name ? `<b>${esc(w.name)}</b>` : ''}</div>`, iconSize: [120, 44], iconAnchor: [60, 14] })
+  }).on('click', () => waterSheet(w)).addTo(gWater));
+  toast(list.length ? `เจอแหล่งน้ำ ${list.length} แห่ง แตะหมุดเพื่อดูรายละเอียด` : 'ไม่พบแหล่งน้ำในบริเวณนี้ ลองซูมออกแล้วค้นใหม่');
+}
+function waterSheet(w) {
+  const nm = w.name || w.kind + ' (ไม่มีชื่อ)';
+  openSheet(`<h3>💧 ${esc(nm)}</h3><div class="sub">${w.kind}${S.pos ? ' · ห่าง ' + fmtDist(dist(S.pos, w)) : ''}</div>
+  <div class="kv"><span>พิกัด</span><b class="mono">${w.lat.toFixed(5)}, ${w.lng.toFixed(5)}</b></div>
+  <div class="warn">ข้อมูลจากแผนที่ชุมชน OSM ยังไม่ยืนยันว่าตกปลาได้ ตรวจสอบว่าเป็นที่สาธารณะหรือขออนุญาตเจ้าของก่อน</div>
+  <div class="row">
+    <button class="btn acc" id="wSave">📍 บันทึกเป็นจุดของฉัน</button>
+    <button class="btn ghost" id="wFc">🌤️ พยากรณ์ที่นี่</button>
+    <button class="btn ghost" id="wNav">🧭 นำทางด้วยเข็มทิศ</button>
+    <a class="btn ghost" href="${gmaps(w)}" target="_blank" rel="noopener">Google Maps</a>
+  </div>`);
+  $('#wSave').onclick = () => spotForm({ lat: w.lat, lng: w.lng, name: w.name || '', type: 'fish' });
+  $('#wFc').onclick = () => { closeSheet(); loadForecast({ lat: w.lat, lng: w.lng, name: nm }); showTab('forecast'); };
+  $('#wNav').onclick = () => { setTarget({ lat: w.lat, lng: w.lng, name: nm }); closeSheet(); showTab('tools'); };
+}
+$('#btnWater').onclick = findWater;
+
+/* ============ place search (Nominatim) ============ */
+$('#searchForm').onsubmit = async e => {
+  e.preventDefault(); const q = $('#searchInput').value.trim(), box = $('#searchResults'); if (!q) return;
+  const m = q.match(/^\s*(-?\d+(?:\.\d+)?)\s*[, ]\s*(-?\d+(?:\.\d+)?)\s*$/);
+  if (m) { map.setView([+m[1], +m[2]], 15); return; }
+  box.classList.remove('hidden'); box.innerHTML = '<div class="empty">กำลังค้นหา…</div>';
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=8&accept-language=th&countrycodes=th&q=${encodeURIComponent(q)}`);
+    const js = await res.json();
+    box.innerHTML = js.length ? js.map((p, i) => `<button data-i="${i}">${esc(p.display_name)}</button>`).join('') : '<div class="empty">ไม่พบสถานที่</div>';
+    $$('button', box).forEach(b => b.onclick = () => { const p = js[b.dataset.i]; S.follow = false; $('#btnLocate').classList.remove('follow'); map.setView([+p.lat, +p.lon], 14); box.classList.add('hidden'); $('#searchInput').blur(); });
+  } catch { box.innerHTML = '<div class="empty">ค้นหาไม่ได้ (ต้องต่อเน็ต)</div>'; }
+};
+
+/* ============ forecast & fish score ============ */
+const wmo = (c, night) => { const w = WMO[c] || WMO[[0, 1, 2, 3, 45, 51, 61, 80, 95].reduce((a, b) => Math.abs(b - c) < Math.abs(a - c) ? b : a)]; return { txt: w[0], ico: night ? w[2] : w[1] }; };
+const scoreColor = s => s >= 76 ? '#f59e0b' : s >= 68 ? '#d4c24a' : s >= 60 ? '#a8c256' : s >= 50 ? '#5fc47a' : s >= 40 ? '#2bb8a3' : '#64748b';
+const scoreLabel = s => s >= 85 ? 'ปลากินกระจาย' : s >= 76 ? 'ปลากินดี' : s >= 62 ? 'ปลาเริ่มกิน' : s >= 50 ? 'พอมีลุ้น' : s >= 40 ? 'ปลากินน้อย' : 'ปลาไม่ค่อยกิน';
+function moonName(p) {
+  const age = p * 29.53, ico = ['🌑', '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘'][Math.round(p * 8) % 8];
+  const txt = p < 0.5 ? `ขึ้น ${clamp(Math.round(age), 1, 15)} ค่ำ` : `แรม ${clamp(Math.round(age - 14.77), 1, 15)} ค่ำ`;
+  return `${ico} ${txt} (โดยประมาณ)`;
+}
+function moonEvents(t0, t1, lat, lng) {
+  const ev = []; let p2 = null, p1 = null;
+  for (let t = t0 - 9e5; t <= t1 + 9e5; t += 9e5) {
+    const a = SunCalc.getMoonPosition(new Date(t), lat, lng).altitude;
+    if (p1 && p2) {
+      if (p1.a > p2.a && p1.a > a) ev.push({ t: p1.t, type: 'major', label: 'จันทร์ตรงหัว' });
+      if (p1.a < p2.a && p1.a < a) ev.push({ t: p1.t, type: 'major', label: 'จันทร์ใต้เท้า' });
+      if ((p1.a < 0) !== (a < 0)) ev.push({ t, type: 'minor', label: a > 0 ? 'จันทร์ขึ้น' : 'จันทร์ตก' });
+    }
+    p2 = p1; p1 = { t, a };
+  }
+  return ev;
+}
+function buildWx(d, lat, lng) {
+  const h = d.hourly, T = h.time.map(t => new Date(t)), n = T.length;
+  const ev = moonEvents(T[0].getTime(), T[n - 1].getTime(), lat, lng);
+  const sunCache = {};
+  const sun = t => { const k = t.toDateString(); return sunCache[k] || (sunCache[k] = SunCalc.getTimes(new Date(t.getFullYear(), t.getMonth(), t.getDate(), 12), lat, lng)); };
+  const H = [];
+  for (let i = 0; i < n; i++) {
+    const t = T[i], ms = t.getTime(), st = sun(t);
+    const p = h.pressure_msl[i], dp = p - h.pressure_msl[Math.max(0, i - 3)];
+    const w = h.wind_speed_10m[i], r = h.precipitation[i] || 0, code = h.weather_code[i], cl = h.cloud_cover[i], tmp = h.temperature_2m[i];
+    let s = 48;
+    if (dp <= -0.4 && dp >= -2.5) s += 12; else if (Math.abs(dp) < 0.4) s += 6; else if (dp < -2.5) s -= 4; else if (dp > 2) s -= 8; else s += 1;
+    if (w >= 3 && w <= 15) s += 8; else if (w < 3) s += 3; else if (w > 25) s -= 12;
+    if (code >= 95) s -= 18; else if (r > 5) s -= 10; else if (r > 0.1) s += 4;
+    const mid = ms + 18e5, dSun = Math.min(Math.abs(mid - st.sunrise), Math.abs(mid - st.sunset)) / 36e5;
+    if (dSun <= 1.2) s += 15; else if (dSun <= 2.2) s += 8;
+    const day = mid > st.sunrise && mid < st.sunset;
+    if (day) { if (Math.abs(mid - st.solarNoon) / 36e5 < 2) s += cl > 60 ? 2 : -6; } else s += 2;
+    if (ev.some(e => e.type === 'major' && Math.abs(e.t - mid) <= 75 * 6e4)) s += 12;
+    else if (ev.some(e => e.type === 'minor' && Math.abs(e.t - mid) <= 45 * 6e4)) s += 6;
+    const ill = SunCalc.getMoonIllumination(t).fraction; if (ill < .08 || ill > .92) s += 5;
+    if (tmp < 14 || tmp > 37) s -= 6; else if (tmp >= 20 && tmp <= 33) s += 3;
+    H.push({ t, temp: tmp, pres: p, sp: h.surface_pressure[i], dp, wind: w, wdir: h.wind_direction_10m[i], rain: r, pop: h.precipitation_probability?.[i], code, cloud: cl, hum: h.relative_humidity_2m[i], day, score: clamp(Math.round(s), 5, 98) });
+  }
+  const nowMs = Date.now(); let ni = H.findIndex(x => x.t.getTime() + 36e5 > nowMs); if (ni < 0) ni = 0;
+  const days = d.daily.time.map((ds, i) => {
+    const all = H.filter(x => x.t.toDateString() === new Date(ds + 'T12:00').toDateString() && x.t.getHours() >= 4 && x.t.getHours() <= 22).map(x => x.score).sort((a, b) => b - a);
+    const avg = v => v.reduce((a, b) => a + b, 0) / v.length;   // เฉลี่ยทั้งวัน ถ่วงน้ำหนักช่วงพีค
+    return { date: new Date(ds + 'T12:00'), code: d.daily.weather_code[i], max: d.daily.temperature_2m_max[i], min: d.daily.temperature_2m_min[i], pop: d.daily.precipitation_probability_max?.[i], score: all.length ? Math.round(avg(all.slice(0, 4)) * .45 + avg(all) * .55) : 0 };
+  }).filter(x => x.date.getTime() > nowMs - 18 * 36e5);
+  const next = H.slice(ni, ni + 24); let bi = 0;
+  for (let i = 0; i < next.length - 1; i++) if (next[i].score + next[i + 1].score > next[bi].score + next[bi + 1].score) bi = i;
+  return { H, ni, next, bi, days, ev: ev.filter(e => e.t > nowMs - 36e5 && e.t < nowMs + 26 * 36e5), now: H[ni], lat, lng, fetched: d._fetched || Date.now() };
+}
+async function loadForecast(loc) {
+  if (loc) S.fcLoc = loc; loc = S.fcLoc; if (!loc) return;
+  $('#fcPlace').textContent = loc.name;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${loc.lat.toFixed(4)}&longitude=${loc.lng.toFixed(4)}&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,precipitation,weather_code,pressure_msl,surface_pressure,cloud_cover,wind_speed_10m,wind_direction_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=14&past_days=1`;
+  let d = null, stale = false;
+  try { const r = await fetch(url); if (!r.ok) throw 0; d = await r.json(); d._fetched = Date.now(); ls.set('wx', { loc, d }); }
+  catch { const c = ls.get('wx'); if (c && dist(c.loc, loc) < 30000) { d = c.d; stale = true; } }
+  if (!d) { $('#fcBody').innerHTML = '<div class="empty">โหลดพยากรณ์ไม่ได้ ต้องต่อเน็ตอย่างน้อยครั้งแรก<br><br><button class="btn" onclick="loadForecast()">ลองใหม่</button></div>'; return; }
+  try { S.wx = buildWx(d, loc.lat, loc.lng); S.wx.stale = stale; } catch (e) { console.error(e); $('#fcBody').innerHTML = '<div class="empty">ข้อมูลพยากรณ์ผิดรูปแบบ</div>'; return; }
+  renderForecast(); renderTools();
+}
+window.loadForecast = loadForecast;
+function season(d = new Date()) { const m = d.getMonth() + 1; return SEASONS.find(s => s.m.includes(m)) || SEASONS[0]; }
+function renderForecast() {
+  const W = S.wx, n = W.now, wm = wmo(n.code, !n.day), sn = season(), mo = new Date().getMonth() + 1;
+  const best = W.next[W.bi], best2 = W.next[W.bi + 1] || best;
+  const bestTxt = `${DAYS[best.t.getDay()]} ${pad(best.t.getHours())}:00 – ${pad((best2.t.getHours() + 1) % 24)}:00`;
+  const C = 2 * Math.PI * 40, sun = SunCalc.getTimes(new Date(), W.lat, W.lng), mp = SunCalc.getMoonIllumination(new Date()).phase;
+  const maxDay = Math.max(...W.days.map(x => x.score));
+  const trend = n.dp < -0.4 ? '↘ กำลังลด' : n.dp > 0.4 ? '↗ กำลังเพิ่ม' : '→ คงที่';
+  const fishNow = FISH.filter(f => f.m.includes(mo)).slice(0, 8);
+  $('#wxPillTemp').textContent = `${wm.ico} ${Math.round(n.temp)}°C`;
+  $('#wxPillScore').textContent = n.score; $('#wxPillScore').style.background = scoreColor(n.score);
+  $('#seasonPillText').textContent = `${sn.icon} ${sn.name}`;
+  $('#fcBody').innerHTML = `
+  ${W.stale ? `<div class="warn">ออฟไลน์อยู่ – แสดงข้อมูลที่โหลดไว้ล่าสุด ${new Date(W.fetched).toLocaleString('th-TH', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })}</div>` : ''}
+  <div class="card">
+    <div class="fc-now"><div><div class="sub">ตอนนี้</div><div class="fc-temp">${Math.round(n.temp)}°C</div><div class="sub">${wm.txt}</div></div><div class="fc-ico">${wm.ico}</div></div>
+    <div class="score-row">
+      <div class="ring"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="none" stroke="#22342d" stroke-width="9"/><circle cx="50" cy="50" r="40" fill="none" stroke="${scoreColor(n.score)}" stroke-width="9" stroke-linecap="round" stroke-dasharray="${C * n.score / 100} ${C}"/></svg><b>${n.score}</b></div>
+      <div><div class="score-label">${scoreLabel(n.score)}</div><div class="sub">🔥 ช่วงดีที่สุด: ${bestTxt}</div></div>
+    </div>
+    <div class="bars">${W.next.map((x, i) => `<div class="${i === 0 ? 'now' : ''} ${i === W.bi || i === W.bi + 1 ? 'best' : ''}" style="height:${clamp(x.score, 8, 100)}%;background:${scoreColor(x.score)}"></div>`).join('')}</div>
+    <div class="bar-axis"><span>ตอนนี้</span>${[6, 12, 18].map(k => `<span>${pad(W.next[k]?.t.getHours() ?? 0)}</span>`).join('')}<span>+24ชม.</span></div>
+  </div>
+  <div class="card"><div class="card-h">🌙 ช่วงปลากินตามดวงจันทร์ (24 ชม.)</div>
+    <div class="solunar">${W.ev.length ? W.ev.map(e => `<span class="chip ${e.type}">${e.type === 'major' ? '★ ' : ''}${hm(new Date(e.t))} ${e.label}</span>`).join('') : '<span class="sub">-</span>'}</div>
+    <div class="sub" style="margin-top:8px">★ = ช่วงหลัก (ราว ±1 ชม.) · ${moonName(mp)}</div></div>
+  <div class="card"><div class="card-h">รายชั่วโมง</div><div class="hours">${W.next.map(x => { const m = wmo(x.code, !x.day); return `<div class="h"><div class="t">${pad(x.t.getHours())}</div><div class="e">${m.ico}</div><div>${Math.round(x.temp)}°</div><div class="sub">${Math.round(x.wind)} กม.</div><div class="sub">${x.pop ?? 0}%💧</div><div class="s" style="background:${scoreColor(x.score)}">${x.score}</div></div>`; }).join('')}</div></div>
+  <div class="card"><div class="card-h">พยากรณ์ ${W.days.length} วัน</div><div class="days">${W.days.map((x, i) => `<div class="d ${i === 0 ? 'today' : ''}"><span class="dn">${i === 0 ? 'วันนี้' : DAYS[x.date.getDay()] + ' ' + x.date.getDate()}</span><span>${wmo(x.code).ico}</span><span class="track"><i style="width:${x.score}%;background:${scoreColor(x.score)}"></i></span><span class="sc ${x.score === maxDay ? 'top' : ''}" style="${x.score === maxDay ? '' : 'color:' + scoreColor(x.score)}">${x.score}</span><span class="tt">${Math.round(x.max)}° <span>${Math.round(x.min)}°</span></span></div>`).join('')}</div></div>
+  <div class="card-h" style="margin:16px 2px 8px">สภาพแวดล้อม</div>
+  <div class="env">
+    <div><div class="sub">💨 ลม</div><div class="v">${Math.round(n.wind)} <small>กม./ชม.</small></div><div class="sub">จากทิศ${dirTxt(n.wdir)}</div></div>
+    <div><div class="sub">⏱ ความกดอากาศ</div><div class="v">${Math.round(n.pres)} <small>hPa</small></div><div class="sub">${trend} · ที่พื้น ${Math.round(n.sp)}</div></div>
+    <div><div class="sub">💧 ความชื้น / ฝน</div><div class="v">${Math.round(n.hum)}<small>%</small></div><div class="sub">โอกาสฝน ${n.pop ?? 0}%</div></div>
+    <div><div class="sub">🌅 พระอาทิตย์</div><div class="v">${hm(sun.sunrise)}</div><div class="sub">ตก ${hm(sun.sunset)}</div></div>
+  </div>
+  <div class="card" style="margin-top:12px"><div class="card-h">${sn.icon} ${sn.name}</div><div class="sub" style="color:var(--tx)">${sn.tip}</div>
+    ${sn.law ? `<div class="warn" style="margin:10px 0 0">${sn.law}</div>` : ''}
+    <div class="card-h" style="margin-top:12px;font-size:15px">น่าตกช่วงนี้</div>
+    <div class="fishrow">${fishNow.map(f => `<div class="fish"><b>${f.n}</b><p>🪱 ${f.bait}</p><p>📍 ${f.where}</p></div>`).join('')}</div></div>
+  <div class="row"><button class="btn ghost small" id="fcMine">📍 ดูที่ตำแหน่งของฉัน</button><button class="btn ghost small" id="fcCenter">🎯 ดูที่กลางแผนที่</button></div>
+  <div class="foot sub">คะแนน 0–100 คำนวณในเครื่องจาก แนวโน้มความกดอากาศ ลม ฝน ช่วงแสงเช้า-เย็น และตำแหน่งดวงจันทร์</div>`;
+  $('#fcMine').onclick = () => S.pos ? loadForecast({ lat: S.pos.lat, lng: S.pos.lng, name: 'ตำแหน่งของฉัน', auto: true }) : toast('ยังไม่ได้ตำแหน่ง GPS');
+  $('#fcCenter').onclick = () => { const c = map.getCenter(); loadForecast({ lat: c.lat, lng: c.lng, name: `กลางแผนที่ (${c.lat.toFixed(3)}, ${c.lng.toFixed(3)})` }); };
+}
+$('#fcRefresh').onclick = () => { toast('กำลังรีเฟรช…'); loadForecast(); };
+$('#wxPill').onclick = () => showTab('forecast');
+$('#seasonPill').onclick = () => { showTab('forecast'); setTimeout(() => $('#view-forecast').scrollTo({ top: 99999, behavior: 'smooth' }), 80); };
+
+/* ============ survival tools ============ */
+function renderTools() {
+  if (S.pos) {
+    $('#myCoords').textContent = `${S.pos.lat.toFixed(6)}, ${S.pos.lng.toFixed(6)}`;
+    $('#myCoordsDms').textContent = `${dms(S.pos.lat, 'N', 'S')}  ${dms(S.pos.lng, 'E', 'W')}`;
+    $('#myAcc').textContent = `แม่นยำ ±${Math.round(S.pos.acc)} ม.${S.pos.alt != null ? ` · สูง ${Math.round(S.pos.alt)} ม.` : ''}${S.pos.spd ? ` · ${(S.pos.spd * 3.6).toFixed(1)} กม./ชม.` : ''}`;
+  }
+  const c = S.pos || (() => { const m = map.getCenter(); return { lat: m.lat, lng: m.lng }; })();
+  const now = new Date(), st = SunCalc.getTimes(now, c.lat, c.lng), mt = SunCalc.getMoonTimes(now, c.lat, c.lng);
+  let left;
+  if (now < st.sunrise) left = ['อีก ' + durTxt(st.sunrise - now), 'จะสว่าง'];
+  else if (now < st.dusk) left = [durTxt(Math.max(0, st.sunset - now)), now < st.sunset ? 'เหลือแสงก่อนตะวันตก' : 'ตะวันตกแล้ว มืดสนิท ' + hm(st.dusk)];
+  else left = ['มืดแล้ว', 'ใช้ไฟฉาย เดินระวัง'];
+  $('#sunBox').innerHTML = `<div><span class="sub">${left[1]}</span><b style="color:var(--acc)">${left[0]}</b></div>
+    <div><span class="sub">ขึ้น / ตก</span><b>${hm(st.sunrise)} / ${hm(st.sunset)}</b></div>
+    <div><span class="sub">สว่างพอมองเห็น</span><b>${hm(st.dawn)} – ${hm(st.dusk)}</b></div>
+    <div><span class="sub">จันทร์ขึ้น / ตก</span><b>${hm(mt.rise)} / ${hm(mt.set)}</b></div>`;
+  renderCompass();
+}
+const durTxt = ms => { const m = Math.round(ms / 6e4); return (m >= 60 ? Math.floor(m / 60) + ' ชม. ' : '') + (m % 60) + ' นาที'; };
+function coordText() { return S.pos ? `${S.pos.lat.toFixed(6)}, ${S.pos.lng.toFixed(6)}` : ''; }
+async function copy(txt, ok) { try { await navigator.clipboard.writeText(txt); toast(ok); } catch { toast(txt, 6000); } }
+$('#copyCoords').onclick = () => S.pos ? copy(coordText(), 'คัดลอกพิกัดแล้ว') : toast('ยังไม่ได้ตำแหน่ง GPS');
+$('#shareLoc').onclick = async () => {
+  if (!S.pos) return toast('ยังไม่ได้ตำแหน่ง GPS');
+  const text = `🆘 ต้องการความช่วยเหลือ\nตำแหน่งของฉัน: ${coordText()} (±${Math.round(S.pos.acc)} ม.)\nhttps://maps.google.com/?q=${S.pos.lat.toFixed(6)},${S.pos.lng.toFixed(6)}\nเวลา ${new Date().toLocaleString('th-TH')}`;
+  if (navigator.share) { try { await navigator.share({ text }); return; } catch (e) { if (e.name === 'AbortError') return; } }
+  copy(text, 'คัดลอกข้อความแล้ว นำไปวางใน LINE/SMS');
+};
+
+/* torch / SOS / whistle / screen light */
+let torchTrack = null, sosTimer = null, sosOn = false, actx = null, whistleTimer = null;
+async function setTorch(on) {
+  try {
+    if (!torchTrack) { if (!on) return true; const st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } }); torchTrack = st.getVideoTracks()[0]; }
+    if (!torchTrack.getCapabilities?.().torch) throw 0;
+    await torchTrack.applyConstraints({ advanced: [{ torch: on }] }); return true;
+  } catch { return false; }
+}
+function releaseTorch() { if (torchTrack) { torchTrack.stop(); torchTrack = null; } }
+$('#tTorch').onclick = async e => {
+  const b = e.currentTarget, on = !b.classList.contains('on');
+  if (on) { if (await setTorch(true)) b.classList.add('on'); else { releaseTorch(); toast('เครื่อง/เบราว์เซอร์นี้สั่งไฟฉายไม่ได้ ใช้ "ไฟจอขาว" แทน'); } }
+  else { await setTorch(false); releaseTorch(); b.classList.remove('on'); }
+};
+function showFlash(cls, label) {
+  const f = $('#flash'); f.className = 'flash ' + cls; f.textContent = label + ' · แตะเพื่อปิด';
+  f.onclick = () => { f.classList.add('hidden'); stopSOS(); };
+}
+$('#tScreen').onclick = () => showFlash('', 'ไฟจอขาว');
+$('#tRed').onclick = () => showFlash('red', 'ไฟแดง (ถนอมสายตากลางคืน)');
+function stopSOS() { sosOn = false; clearTimeout(sosTimer); $('#tSOS').classList.remove('on'); setTorch(false).then(releaseTorch); $('#tTorch').classList.remove('on'); }
+$('#tSOS').onclick = async () => {
+  if (sosOn) { stopSOS(); $('#flash').classList.add('hidden'); return; }
+  sosOn = true; $('#tSOS').classList.add('on'); await setTorch(false);
+  const U = 220, seq = []; // ··· ─── ···
+  [[1, 1, 1], [3, 3, 3], [1, 1, 1]].forEach((g, gi) => g.forEach((n, i) => { seq.push([true, n * U]); seq.push([false, (i === 2 ? (gi === 2 ? 7 : 3) : 1) * U]); }));
+  let i = 0; showFlash('off', 'SOS');
+  const step = () => {
+    if (!sosOn) return; const [on, ms] = seq[i % seq.length]; i++;
+    $('#flash').classList.toggle('off', !on); setTorch(on); sosTimer = setTimeout(step, ms);
+  };
+  step();
+};
+$('#tWhistle').onclick = e => {
+  const b = e.currentTarget;
+  if (whistleTimer) { clearInterval(whistleTimer); whistleTimer = null; b.classList.remove('on'); return; }
+  actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume(); b.classList.add('on');
+  const blast = () => [0, .9, 1.8].forEach(o => {
+    const osc = actx.createOscillator(), g = actx.createGain(), t = actx.currentTime + o;
+    osc.type = 'square'; osc.frequency.setValueAtTime(3100, t); osc.frequency.linearRampToValueAtTime(3400, t + .6);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.9, t + .03); g.gain.setValueAtTime(.9, t + .6); g.gain.linearRampToValueAtTime(0, t + .65);
+    osc.connect(g).connect(actx.destination); osc.start(t); osc.stop(t + .7);
+  });
+  blast(); whistleTimer = setInterval(blast, 5000);
+};
+function renderChecklist() {
+  const st = ls.get('check', {});
+  $('#checklist').innerHTML = CHECKLIST.map((c, i) => `<label class="check ${st[i] ? 'done' : ''}"><input type="checkbox" data-i="${i}" ${st[i] ? 'checked' : ''}><span>${c}</span></label>`).join('');
+  $$('#checklist input').forEach(x => x.onchange = () => { const s = ls.get('check', {}); s[x.dataset.i] = x.checked; ls.set('check', s); renderChecklist(); });
+}
+$('#checkReset').onclick = () => { ls.set('check', {}); renderChecklist(); };
+
+/* ============ log ============ */
+function renderLog() {
+  const sp = new Set(S.catches.map(c => c.species)), big = S.catches.reduce((m, c) => Math.max(m, c.wt || 0), 0);
+  $('#stats').innerHTML = `<div><b>${S.catches.length}</b><span>ปลาที่จับได้</span></div><div><b>${sp.size}</b><span>ชนิดปลา</span></div><div><b>${S.spots.length}</b><span>หมุด</span></div><div><b>${big || '-'}</b><span>กก. ใหญ่สุด</span></div>`;
+  $('#catchList').innerHTML = S.catches.length ? S.catches.map(c => {
+    const d = new Date(c.t), s = S.spots.find(x => x.id === c.spotId);
+    return `<div class="item" data-act="catch" data-id="${c.id}"><div class="th" ${c.photo ? `style="background-image:url(${c.photo})"` : ''}>${c.photo ? '' : '🐟'}</div><div class="mid"><b>${esc(c.species)}</b><div class="sub">${[c.len && c.len + ' ซม.', c.wt && c.wt + ' กก.', c.bait && esc(c.bait)].filter(Boolean).join(' · ') || '-'}</div><div class="sub">${d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })} ${hm(d)}${s ? ' · ' + esc(s.name) : ''}</div></div></div>`;
+  }).join('') : '<div class="empty">ยังไม่มีปลาในสมุด กด ＋ เพื่อบันทึกตัวแรก</div>';
+  $('#spotList').innerHTML = S.spots.length ? S.spots.map(s => {
+    const t = SPOT_TYPES[s.type] || SPOT_TYPES.other;
+    return `<div class="item" data-act="spot" data-id="${s.id}"><div class="th" ${s.photo ? `style="background-image:url(${s.photo})"` : `style="background:${t.color}33"`}>${s.photo ? '' : t.icon}</div><div class="mid"><b>${esc(s.name)}</b><div class="sub">${t.label}${S.pos ? ' · ' + fmtDist(dist(S.pos, s)) : ''}</div>${s.note ? `<div class="sub">${esc(s.note)}</div>` : ''}</div></div>`;
+  }).join('') : '<div class="empty">ยังไม่มีหมุด กดค้างบนแผนที่เพื่อปักหมุด</div>';
+  renderTrackUI();
+}
+$('#exportBtn').onclick = () => {
+  const blob = new Blob([JSON.stringify({ app: 'pranpla', v: 1, exported: new Date().toISOString(), spots: S.spots, catches: S.catches, track: S.track })], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `pranpla-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); toast('ส่งออกไฟล์สำรองแล้ว');
+};
+$('#importFile').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    const d = JSON.parse(await f.text()); if (d.app !== 'pranpla') throw 0;
+    const merge = (cur, inc) => { const ids = new Set(cur.map(x => x.id)); return cur.concat((inc || []).filter(x => x && x.id && !ids.has(x.id))); };
+    S.spots = merge(S.spots, d.spots); S.catches = merge(S.catches, d.catches).sort((a, b) => b.t - a.t);
+    await save('spots'); await save('catches'); renderSpots(); renderLog(); toast('นำเข้าข้อมูลแล้ว');
+  } catch { toast('ไฟล์นี้ไม่ใช่ไฟล์สำรองของพรานปลา'); }
+  e.target.value = '';
+};
+
+/* ============ tabs ============ */
+function showTab(t) {
+  $$('.view').forEach(v => v.classList.toggle('show', v.id === 'view-' + t));
+  $$('.tabbar [data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
+  if (t === 'map') setTimeout(() => map.invalidateSize(), 50);
+  if (t === 'tools') renderTools();
+  if (t === 'log') renderLog();
+  if (t === 'forecast' && S.wx && Date.now() - S.wx.fetched > 30 * 6e4) loadForecast();
+}
+$$('.tabbar [data-tab]').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+
+/* ============ boot ============ */
+(async function boot() {
+  try {
+    S.spots = (await DB.get('spots')) || []; S.catches = (await DB.get('catches')) || [];
+    const tr = await DB.get('track'); if (tr) { S.track = tr; S.track.on = false; trackLine.setLatLngs(tr.pts.map(p => [p[0], p[1]])); }
+  } catch { toast('เปิดที่เก็บข้อมูลในเครื่องไม่ได้ ข้อมูลจะไม่ถูกบันทึก'); }
+  renderSpots(); renderLog(); renderChecklist(); renderTools();
+  const sn = season(); $('#seasonPillText').textContent = `${sn.icon} ${sn.name}`;
+  startGeo();
+  setTimeout(() => { if (!S.fcLoc) { const c = map.getCenter(); loadForecast({ lat: c.lat, lng: c.lng, name: 'กลางแผนที่ (ยังไม่มี GPS)', auto: true }); } }, 3500);
+  setInterval(() => { if ($('#view-tools').classList.contains('show')) renderTools(); }, 30000);
+  navigator.storage?.persist?.();
+  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+})();

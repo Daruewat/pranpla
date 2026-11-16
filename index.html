@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1210">
+<title>พรานปลา – แผนที่ตกปลา & เอาชีวิตรอด</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lib/leaflet.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ===== MAP ===== -->
+  <div id="map"></div>
+
+  <div class="topbar">
+    <form id="searchForm" class="search" autocomplete="off">
+      <span class="ico">🔍</span>
+      <input id="searchInput" type="search" placeholder="ค้นหาสถานที่ อ่าง หนอง เขื่อน…">
+    </form>
+    <div id="searchResults" class="search-results hidden"></div>
+    <div class="pills">
+      <button id="wxPill" class="pill"><span id="wxPillTemp">--°</span><span id="wxPillScore" class="score-dot">--</span></button>
+      <button id="seasonPill" class="pill"><span id="seasonPillText">ฤดูกาล</span> ›</button>
+    </div>
+  </div>
+
+  <div class="mapctl">
+    <button id="btnLayer" title="ชั้นแผนที่"><span>🗺️</span><small id="layerName">แผนที่</small></button>
+    <button id="btnWater" title="หาแหล่งน้ำใกล้ๆ"><span>💧</span><small>แหล่งน้ำ</small></button>
+    <button id="btnTrack" title="บันทึกเส้นทาง"><span>👣</span><small id="trackLabel">เส้นทาง</small></button>
+    <button id="btnLocate" class="primary" title="ตำแหน่งของฉัน"><span>◎</span></button>
+  </div>
+
+  <div id="coordBar" class="coordbar mono">กำลังหาตำแหน่ง GPS…</div>
+  <div id="crosshair" class="crosshair hidden">＋</div>
+
+  <!-- ===== FORECAST ===== -->
+  <section id="view-forecast" class="view">
+    <header class="vhead">
+      <div>
+        <h1>พยากรณ์</h1>
+        <div id="fcPlace" class="sub">ตำแหน่งของฉัน</div>
+      </div>
+      <button id="fcRefresh" class="iconbtn" title="รีเฟรช">⟳</button>
+    </header>
+    <div id="fcBody"><div class="empty">กำลังโหลดพยากรณ์…</div></div>
+  </section>
+
+  <!-- ===== SURVIVAL TOOLS ===== -->
+  <section id="view-tools" class="view">
+    <header class="vhead">
+      <div><h1>เอาชีวิตรอด</h1><div class="sub">เครื่องมือภาคสนาม ใช้ได้แม้ไม่มีเน็ต</div></div>
+    </header>
+
+    <div class="card compass-card">
+      <div class="compass-wrap">
+        <svg id="compassDial" viewBox="0 0 200 200" class="dial">
+          <circle cx="100" cy="100" r="96" class="ring"/>
+          <g id="ticks"></g>
+          <text x="100" y="26" class="cdir n">N</text>
+          <text x="178" y="106" class="cdir">E</text>
+          <text x="100" y="186" class="cdir">S</text>
+          <text x="22" y="106" class="cdir">W</text>
+        </svg>
+        <svg id="targetArrow" viewBox="0 0 200 200" class="tarrow hidden">
+          <path d="M100 30 L116 78 L100 70 L84 78 Z" />
+        </svg>
+        <div class="needle"></div>
+        <div class="compass-center">
+          <div id="headingDeg" class="mono big">---°</div>
+          <div id="headingTxt" class="sub">เข็มทิศ</div>
+        </div>
+      </div>
+      <button id="compassPerm" class="btn ghost small hidden">เปิดเข็มทิศ</button>
+      <div id="targetBox" class="target-box hidden">
+        <div><span class="sub">นำทางไป</span> <b id="targetName">-</b></div>
+        <div class="tgrid">
+          <div><div class="mono big" id="targetDist">-</div><div class="sub">ระยะทาง</div></div>
+          <div><div class="mono big" id="targetBear">-</div><div class="sub">ทิศ</div></div>
+        </div>
+        <button id="targetClear" class="btn ghost small">ยกเลิกนำทาง</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h">📡 พิกัดของฉัน</div>
+      <div id="myCoords" class="mono coords">รอสัญญาณ GPS…</div>
+      <div id="myCoordsDms" class="mono sub"></div>
+      <div id="myAcc" class="sub"></div>
+      <div class="row">
+        <button id="copyCoords" class="btn small">คัดลอกพิกัด</button>
+        <button id="shareLoc" class="btn small danger">📤 ส่งตำแหน่งขอความช่วยเหลือ</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h">🌅 แสงสว่าง</div>
+      <div id="sunBox" class="sungrid"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-h">🔦 ไฟและสัญญาณ</div>
+      <div class="toolgrid">
+        <button id="tTorch" class="tool"><span>🔦</span>ไฟฉาย</button>
+        <button id="tSOS" class="tool"><span>🆘</span>SOS กะพริบ</button>
+        <button id="tWhistle" class="tool"><span>📢</span>นกหวีด</button>
+        <button id="tScreen" class="tool"><span>⬜</span>ไฟจอขาว</button>
+        <button id="tRed" class="tool"><span>🟥</span>ไฟจอแดง</button>
+        <button id="tReturn" class="tool"><span>↩️</span>กลับจุดเริ่ม</button>
+      </div>
+      <div class="sub" style="margin-top:8px">SOS = ··· ─── ··· ทั้งไฟฉายและหน้าจอ · นกหวีดเป่า 3 ครั้งซ้ำ (สัญญาณขอความช่วยเหลือสากล)</div>
+    </div>
+
+    <div class="card">
+      <div class="card-h">☎️ เบอร์ฉุกเฉิน (ไทย)</div>
+      <div class="sos-list">
+        <a href="tel:1669" class="sos"><b>1669</b> เจ็บป่วยฉุกเฉิน</a>
+        <a href="tel:191" class="sos"><b>191</b> ตำรวจ</a>
+        <a href="tel:199" class="sos"><b>199</b> ดับเพลิง</a>
+        <a href="tel:1784" class="sos"><b>1784</b> ปภ. สาธารณภัย</a>
+        <a href="tel:1155" class="sos"><b>1155</b> ตำรวจท่องเที่ยว</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h">🎒 เช็กลิสต์ก่อนออกไปตกปลา</div>
+      <div id="checklist"></div>
+      <button id="checkReset" class="btn ghost small">ล้างเช็กลิสต์</button>
+    </div>
+  </section>
+
+  <!-- ===== LOG ===== -->
+  <section id="view-log" class="view">
+    <header class="vhead">
+      <div><h1>สมุดบันทึก</h1><div class="sub">ข้อมูลเก็บในเครื่องนี้</div></div>
+    </header>
+    <div id="stats" class="stats"></div>
+    <div class="sect-h"><h2>ปลาที่จับได้</h2><button class="link" data-act="new-catch">+ บันทึกปลา</button></div>
+    <div id="catchList"></div>
+    <div class="sect-h"><h2>จุดของฉัน</h2><button class="link" data-act="new-spot-here">+ ปักหมุดตรงนี้</button></div>
+    <div id="spotList"></div>
+    <div class="sect-h"><h2>เส้นทาง</h2></div>
+    <div id="trackInfo" class="card"></div>
+    <div class="sect-h"><h2>สำรองข้อมูล</h2></div>
+    <div class="card">
+      <div class="sub">ข้อมูลอยู่ในมือถือเครื่องนี้เท่านั้น ส่งออกไว้เป็นไฟล์บ้างเผื่อเปลี่ยนเครื่อง</div>
+      <div class="row">
+        <button id="exportBtn" class="btn small">⬇️ ส่งออก (.json)</button>
+        <label class="btn small ghost">⬆️ นำเข้า<input id="importFile" type="file" accept="application/json,.json" hidden></label>
+      </div>
+    </div>
+    <div class="foot sub">พรานปลา v1.0 · แผนที่ © OpenStreetMap, Esri · อากาศ Open-Meteo · แหล่งน้ำจาก OSM Overpass<br>คะแนนปลากินเป็นการประมาณจากอากาศ ความกดอากาศ ลม แสง และดวงจันทร์ ไม่ใช่การันตี</div>
+  </section>
+
+  <!-- ===== NAV ===== -->
+  <nav class="tabbar">
+    <button data-tab="map" class="active"><svg viewBox="0 0 24 24"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Zm0 0v14m6-12v14"/></svg>แผนที่</button>
+    <button data-tab="forecast"><svg viewBox="0 0 24 24"><path d="M4 16a8 8 0 1 1 16 0M12 16l4-5M3 20h18"/></svg>พยากรณ์</button>
+    <button id="fab" class="fab" aria-label="เพิ่ม">＋</button>
+    <button data-tab="tools"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5 5-2Z"/></svg>เอาตัวรอด</button>
+    <button data-tab="log"><svg viewBox="0 0 24 24"><path d="M5 3h12a2 2 0 0 1 2 2v16H7a2 2 0 0 1-2-2V3Zm4 5h6m-6 4h6"/></svg>บันทึก</button>
+  </nav>
+
+  <div id="sheetBg" class="sheet-bg hidden"></div>
+  <div id="sheet" class="sheet"></div>
+  <div id="toast" class="toast"></div>
+  <div id="flash" class="flash hidden"></div>
+</div>
+
+<script src="lib/leaflet.js"></script>
+<script src="lib/suncalc.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
