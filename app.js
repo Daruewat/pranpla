@@ -621,25 +621,37 @@ let searchDeb; $('#searchInput').oninput = e => {
 };
 
 /* ============ ชื่อสถานที่จากพิกัด (reverse geocode) ============ */
-const placeCache = ls.get('places3', {});
+const placeCache = ls.get('places4', {});
+let tambonP = null;
+const loadTambons = () => tambonP || (tambonP = fetch('tambon.json').then(r => r.json()).catch(() => { tambonP = null; return null; }));
+const cutAdm = s => s && s.replace(/^(ตำบล|อำเภอ|จังหวัด|เขต|แขวง)\s*/, '');
+// ตำบล: ใช้จุดกึ่งกลางตำบลที่ใกล้ที่สุด (ภายในอำเภอเดียวกันถ้ารู้อำเภอ) เพราะข้อมูลตำบลใน OSM เชื่อไม่ได้ — ใกล้เส้นแบ่งตำบลอาจคลาดได้
+async function nearestTambon(lat, lng, amphoe) {
+  const T = await loadTambons(); if (!T) return null;
+  const best = list => { let b = null, bd = 1e12; for (const t of list) { const d = dist({ lat, lng }, { lat: t[0], lng: t[1] }); if (d < bd) { bd = d; b = t; } } return b && bd < 20000 ? { tambon: b[2], amphoe: b[3] } : null; };
+  const box = T.filter(t => Math.abs(t[0] - lat) < .25 && Math.abs(t[1] - lng) < .25), same = amphoe ? box.filter(t => t[3] === amphoe) : [];
+  return best(same.length ? same : box);
+}
 async function placeName(lat, lng) {
   const k = lat.toFixed(2) + ',' + lng.toFixed(2);
   if (placeCache[k]) return placeCache[k];
+  let small = '', mid = '', big = '';
   try {
     const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=14&accept-language=th&lat=${lat.toFixed(5)}&lon=${lng.toFixed(5)}`);
     const ad = (await r.json()).address || {};
-    const cut = s => s && s.replace(/^(ตำบล|อำเภอ|จังหวัด|เขต)\s*/, '');
-    // ข้อมูลตำบลใน OSM ของไทยยังไม่ครบ/ผิดบ่อย จึงใช้ หมู่บ้าน + อำเภอ ซึ่งเชื่อได้กว่า
-    const small = ad.hamlet || ad.village || ad.neighbourhood || ad.quarter || ad.suburb, mid = cut(ad.county || ad.city_district || ad.district || ad.city), big = cut(ad.province || ad.state);
-    const out = { short: mid || small || big || '', full: [small, mid || big].filter(Boolean).join(' · ') || big || '' };
-    if (out.short) { placeCache[k] = out; const ks = Object.keys(placeCache); if (ks.length > 60) delete placeCache[ks[0]]; ls.set('places3', placeCache); }
-    return out;
-  } catch { return null; }
+    small = ad.hamlet || ad.village || ad.neighbourhood || ''; mid = cutAdm(ad.county || ad.city_district || ad.district || '') || ''; big = cutAdm(ad.province || ad.state || '') || '';
+  } catch {}
+  const tb = await nearestTambon(lat, lng, mid);
+  const tambon = tb?.tambon || '', amphoe = mid || tb?.amphoe || '';
+  const out = { short: tambon || amphoe || small || big, full: [tambon, amphoe || big].filter(Boolean).join(' · ') || small || big, village: small };
+  if (!out.short) return null;
+  placeCache[k] = out; const ks = Object.keys(placeCache); if (ks.length > 60) delete placeCache[ks[0]]; ls.set('places4', placeCache);
+  return out;
 }
 
 /* ============ forecast & fish score ============ */
 const wmo = (c, night) => { const w = WMO[c] || WMO[[0, 1, 2, 3, 45, 51, 61, 80, 95].reduce((a, b) => Math.abs(b - c) < Math.abs(a - c) ? b : a)]; return { txt: w[0], ico: night ? w[2] : w[1] }; };
-const scoreColor = s => s >= 76 ? '#f59e0b' : s >= 68 ? '#d4c24a' : s >= 60 ? '#a8c256' : s >= 50 ? '#5fc47a' : s >= 40 ? '#2bb8a3' : '#64748b';
+const scoreColor = s => s >= 76 ? '#22c55e' : s >= 68 ? '#84cc16' : s >= 60 ? '#facc15' : s >= 50 ? '#f59e0b' : s >= 40 ? '#f97316' : '#ef4444';   // แดง=ไม่กิน → เหลือง → เขียว=กินดี
 const scoreLabel = s => s >= 85 ? 'ปลากินกระจาย' : s >= 76 ? 'ปลากินดี' : s >= 62 ? 'ปลาเริ่มกิน' : s >= 50 ? 'พอมีลุ้น' : s >= 40 ? 'ปลากินน้อย' : 'ปลาไม่ค่อยกิน';
 function moonName(p) {
   const age = p * 29.53, ico = ['🌑', '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘'][Math.round(p * 8) % 8];
@@ -755,6 +767,7 @@ function renderForecast() {
       <div><div class="score-label">${scoreLabel(n.score)}</div><div class="sub">🔥 ช่วงดีที่สุด: ${bestTxt}</div></div>
     </div>
     <div class="bars">${W.next.map((x, i) => `<div class="${i === 0 ? 'now' : ''} ${i === W.bi || i === W.bi + 1 ? 'best' : ''}" style="height:${clamp(x.score, 8, 100)}%;background:${scoreColor(x.score)}"></div>`).join('')}</div>
+    <div class="scale"><i style="background:#ef4444"></i>ไม่กิน<i style="background:#f59e0b"></i>พอลุ้น<i style="background:#facc15"></i>เริ่มกิน<i style="background:#22c55e"></i>กินดี</div>
     <div class="bar-axis"><span>ตอนนี้</span>${[6, 12, 18].map(k => `<span>${pad(W.next[k]?.t.getHours() ?? 0)}</span>`).join('')}<span>+24ชม.</span></div>
   </div>
   ${(() => { const m = renderAlert() || []; return m.length ? `<div class="warn alert-in">${m.map(x => `<div>${x}</div>`).join('')}</div>` : ''; })()}
