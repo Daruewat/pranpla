@@ -78,6 +78,7 @@ function setLayer(k) {
   LAYERS[k].l.addTo(map); S.layer = k; ls.set('layer', k); $('#layerName').textContent = LAYERS[k].name;
 }
 setLayer(LAYERS[S.layer] ? S.layer : 'light');
+const searchPin = L.marker([0, 0], { icon: L.divIcon({ className: '', html: '<div class="mk" style="background:#e11d48"><span>🔎</span></div>', iconSize: [34, 34], iconAnchor: [17, 34] }) });
 const gSpots = L.layerGroup().addTo(map), gWater = L.layerGroup().addTo(map);
 const trackLine = L.polyline([], { color: '#ef4444', weight: 4, opacity: .85 }).addTo(map);
 const targetLine = L.polyline([], { color: '#f59e0b', weight: 3, dashArray: '8 8' }).addTo(map);
@@ -86,7 +87,7 @@ let meMarker = null, accCircle = null;
 map.on('moveend', () => { const c = map.getCenter(); ls.set('view', [c.lat, c.lng]); ls.set('zoom', map.getZoom()); });
 map.on('dragstart', () => { S.follow = false; $('#btnLocate').classList.remove('follow'); });
 map.on('contextmenu', e => spotForm({ lat: e.latlng.lat, lng: e.latlng.lng }));   // กดค้าง = ปักหมุด
-map.on('click', () => closeSearch());
+map.on('click', () => { closeSearch(); map.removeLayer(searchPin); });
 
 function spotIcon(type) {
   const t = SPOT_TYPES[type] || SPOT_TYPES.other;
@@ -439,7 +440,7 @@ const KIND_TH = { water: 'แหล่งน้ำ', reservoir: 'อ่างเ
 const norm = s => String(s || '').toLowerCase().replace(/\s+/g, '');
 function closeSearch() { $('#searchResults').classList.add('hidden'); $('.pills').classList.remove('hidden'); }
 let searchSeq = 0;
-async function doSearch(q) {
+async function doSearch(q, typing) {
   const box = $('#searchResults'), seq = ++searchSeq, c = map.getCenter(), ctr = { lat: c.lat, lng: c.lng };
   const m = q.match(/^\s*(-?\d+(?:\.\d+)?)\s*[, ]\s*(-?\d+(?:\.\d+)?)\s*$/);
   if (m) { closeSearch(); S.follow = false; $('#btnLocate').classList.remove('follow'); map.setView([+m[1], +m[2]], 15); return; }
@@ -472,17 +473,17 @@ async function doSearch(q) {
     const p = f.properties || {}, g = f.geometry?.coordinates; if (!g || !p.name || (p.countrycode && p.countrycode !== 'TH')) return;
     res.push({ lat: g[1], lng: g[0], name: p.name, sub: [KIND_TH[p.osm_value] || KIND_TH[p.osm_key], p.district || p.city || p.county, p.state].filter(Boolean).join(' · '), pri: 2 });
   })).catch(() => {});
-  let left = 3; const done = () => render(--left > 0);
+  let left = typing ? 1 : 3; const done = () => render(--left > 0);
+  photon.then(done);                                   // สะกดไม่เป๊ะก็เจอ ใช้ตอนพิมพ์ได้
+  if (typing) return;                                  // Nominatim ห้ามยิงทุกตัวอักษร: ใช้เฉพาะตอนกดค้นหา
   nomi(`&viewbox=${vb}&bounded=1`).then(done);        // ใกล้แผนที่ก่อน (~100 กม.)
-  nomi(`&viewbox=${vb}`).then(done);                   // ทั่วประเทศ
-  photon.then(done);                                   // สะกดไม่เป๊ะก็เจอ
+  nomi(`&viewbox=${vb}`).then(done);                   // ทั่วประเทศ                                   // สะกดไม่เป๊ะก็เจอ
 }
-const searchPin = L.marker([0, 0], { icon: L.divIcon({ className: '', html: '<div class="mk" style="background:#e11d48"><span>🔎</span></div>', iconSize: [34, 34], iconAnchor: [17, 34] }) });
-$('#searchForm').onsubmit = e => { e.preventDefault(); const q = $('#searchInput').value.trim(); if (q) doSearch(q); };
+$('#searchForm').onsubmit = e => { e.preventDefault(); clearTimeout(searchDeb); const q = $('#searchInput').value.trim(); if (q) doSearch(q); };
 let searchDeb; $('#searchInput').oninput = e => {
   clearTimeout(searchDeb); const q = e.target.value.trim();
   if (!q) { searchSeq++; closeSearch(); return; }
-  if (q.length >= 3) searchDeb = setTimeout(() => doSearch(q), 900);
+  if (q.length >= 3) searchDeb = setTimeout(() => doSearch(q, true), 700);
 };
 
 /* ============ ชื่อสถานที่จากพิกัด (reverse geocode) ============ */
