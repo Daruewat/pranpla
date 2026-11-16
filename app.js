@@ -192,7 +192,7 @@ async function offlineSheet() {
     if (OFF.running) { OFF.cancel = true; return; }
     OFF.running = true; OFF.cancel = false; e.target.textContent = 'หยุด'; $('#offProg').classList.remove('hidden');
     const cache = await caches.open('pranpla-offline'), q = p.urls.slice(); let done = 0, fail = 0;
-    const worker = async () => { while (q.length && !OFF.cancel) { const u = q.shift(); try { if (!(await cache.match(u))) { const r = await fetch(u); if (!r.ok) throw 0; await cache.put(u, r); } } catch { fail++; } done++; const bar = $('#offProg i'); if (bar) { bar.style.width = (done / p.urls.length * 100) + '%'; $('#offMsg').textContent = `${done}/${p.urls.length} แผ่น${fail ? ` · พลาด ${fail}` : ''}`; } } };
+    const worker = async () => { while (q.length && !OFF.cancel) { const u = q.shift(); try { if (!(await cache.match(u))) { const r = await fetch(u + '#dl'); if (!r.ok) throw 0; await cache.put(u, r); } } catch { fail++; } done++; const bar = $('#offProg i'); if (bar) { bar.style.width = (done / p.urls.length * 100) + '%'; $('#offMsg').textContent = `${done}/${p.urls.length} แผ่น${fail ? ` · พลาด ${fail}` : ''}`; } } };
     await Promise.all([worker(), worker(), worker(), worker()]);
     OFF.running = false; const n = await offlineCount();
     if ($('#offMsg')) { $('#offMsg').textContent = OFF.cancel ? `หยุดแล้ว เก็บได้ ${done - fail} แผ่น` : fail ? `เสร็จ แต่พลาด ${fail} แผ่น กดดาวน์โหลดอีกครั้งเพื่อเก็บส่วนที่ขาด` : '✅ เก็บครบแล้ว บริเวณนี้เปิดได้โดยไม่ต้องมีเน็ต'; $('#offHave').textContent = n + ' แผ่น'; $('#offGo').textContent = 'ดาวน์โหลดบริเวณนี้'; }
