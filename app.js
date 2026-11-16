@@ -487,7 +487,7 @@ let searchDeb; $('#searchInput').oninput = e => {
 };
 
 /* ============ ชื่อสถานที่จากพิกัด (reverse geocode) ============ */
-const placeCache = ls.get('places', {});
+const placeCache = ls.get('places2', {});
 async function placeName(lat, lng) {
   const k = lat.toFixed(2) + ',' + lng.toFixed(2);
   if (placeCache[k]) return placeCache[k];
@@ -495,11 +495,12 @@ async function placeName(lat, lng) {
     const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=14&accept-language=th&lat=${lat.toFixed(5)}&lon=${lng.toFixed(5)}`);
     const ad = (await r.json()).address || {};
     const cut = s => s && s.replace(/^(ตำบล|อำเภอ|จังหวัด|เทศบาลตำบล|เทศบาลเมือง|เทศบาลนคร)\s*/, '');
-    const small = cut(ad.suburb || ad.quarter || ad.village || ad.hamlet || ad.neighbourhood || ad.municipality || ad.town);
+    // ตำบลก่อน (OSM ไทยเก็บตำบลเป็น subdistrict/municipality/town) หมู่บ้านเป็นตัวสำรอง
+    const small = cut(ad.subdistrict || ad.municipality || ad.town || ad.city || ad.suburb || ad.quarter || ad.village || ad.hamlet || ad.neighbourhood);
     const mid = cut(ad.county || ad.city_district || ad.district || ad.city), big = cut(ad.state || ad.province);
     const parts = [...new Set([small, mid].filter(Boolean))];
     const out = { short: parts[0] || big || '', full: (parts.length ? parts : [big]).concat(parts.length < 2 && big && !parts.includes(big) ? [big] : []).filter(Boolean).join(' · ') };
-    if (out.short) { placeCache[k] = out; const ks = Object.keys(placeCache); if (ks.length > 60) delete placeCache[ks[0]]; ls.set('places', placeCache); }
+    if (out.short) { placeCache[k] = out; const ks = Object.keys(placeCache); if (ks.length > 60) delete placeCache[ks[0]]; ls.set('places2', placeCache); }
     return out;
   } catch { return null; }
 }
