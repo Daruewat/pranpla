@@ -377,21 +377,22 @@ function wxSnap() {
   return { dp: w.now.dp, rain: w.now.rain, temp: w.now.temp, pres: w.now.pres, wind: w.now.wind, code: w.now.code, score: w.now.score, place: S.fcLoc?.name };
 }
 function catchForm(init = {}) {
+  const editing = !!init.id;
   const d = { id: uid(), t: Date.now(), species: '', len: '', wt: '', bait: '', note: '', photo: null, released: false, spotId: '', ...init };
   const now = new Date(d.t - new Date().getTimezoneOffset() * 6e4).toISOString().slice(0, 16);
-  openSheet(`<h3>บันทึกปลาที่จับได้</h3>
+  openSheet(`<h3>${editing ? 'แก้ไขบันทึกปลา' : 'บันทึกปลาที่จับได้'}</h3>
   <div class="form">
     <label>ชนิดปลา</label><input name="species" list="fishList" placeholder="เช่น ปลาช่อน" value="${esc(d.species)}">
     <datalist id="fishList">${FISH.map(f => `<option value="${f.n}">`).join('')}</datalist>
-    <div class="two"><div><label>ยาว (ซม.)</label><input name="len" type="number" inputmode="decimal" step="0.1"></div>
-    <div><label>หนัก (กก.)</label><input name="wt" type="number" inputmode="decimal" step="0.01"></div></div>
-    <label>เหยื่อ / วิธีตก</label><input name="bait" placeholder="กบยาง, ไส้เดือน, ตกทุ่น…">
+    <div class="two"><div><label>ยาว (ซม.)</label><input name="len" type="number" inputmode="decimal" step="0.1" value="${d.len ?? ''}"></div>
+    <div><label>หนัก (กก.)</label><input name="wt" type="number" inputmode="decimal" step="0.01" value="${d.wt ?? ''}"></div></div>
+    <label>เหยื่อ / วิธีตก</label><input name="bait" placeholder="กบยาง, ไส้เดือน, ตกทุ่น…" value="${esc(d.bait)}">
     <label>จุดที่ได้</label><select name="spot"><option value="">ตำแหน่งปัจจุบัน (GPS)</option>${S.spots.map(s => `<option value="${s.id}" ${s.id === d.spotId ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select>
     <label>เวลา</label><input name="t" type="datetime-local" value="${now}">
     <label>รูปปลา</label><input name="photo" type="file" accept="image/*">
-    <img class="photo-prev hidden">
-    <label>โน้ต</label><textarea name="note"></textarea>
-    <label style="display:flex;gap:8px;align-items:center;color:var(--tx)"><input name="rel" type="checkbox" style="width:auto"> ปล่อยคืนน้ำ</label>
+    <img class="photo-prev ${d.photo ? '' : 'hidden'}" src="${d.photo || ''}">
+    <label>โน้ต</label><textarea name="note">${esc(d.note)}</textarea>
+    <label style="display:flex;gap:8px;align-items:center;color:var(--tx)"><input name="rel" type="checkbox" style="width:auto" ${d.released ? 'checked' : ''}> ปล่อยคืนน้ำ</label>
     <div class="row"><button class="btn block acc" id="ctSave">บันทึก</button></div>
   </div>`);
   const r = $('#sheet'); bindPhoto(r, d);
@@ -401,8 +402,9 @@ function catchForm(init = {}) {
     d.bait = v('bait'); d.note = v('note'); d.released = $('[name=rel]', r).checked; d.spotId = v('spot');
     d.t = v('t') ? new Date(v('t')).getTime() : Date.now();
     const sp = S.spots.find(s => s.id === d.spotId);
-    if (sp) { d.lat = sp.lat; d.lng = sp.lng; } else if (S.pos) { d.lat = S.pos.lat; d.lng = S.pos.lng; }
-    if (Math.abs(Date.now() - d.t) < 2 * 36e5) d.wx = wxSnap();
+    if (sp) { d.lat = sp.lat; d.lng = sp.lng; } else if (S.pos && !editing) { d.lat = S.pos.lat; d.lng = S.pos.lng; }
+    if (editing) { const i = S.catches.findIndex(x => x.id === d.id); if (i >= 0) S.catches[i] = d; S.catches.sort((x, y) => y.t - x.t); save('catches'); renderLog(); closeSheet(); toast('แก้ไขแล้ว'); return; }
+    if (Math.abs(Date.now() - d.t) < 2 * 36e5 && S.fcLoc && (d.lat == null || dist(S.fcLoc, d) < 25000)) d.wx = wxSnap();
     d.moon = SunCalc.getMoonIllumination(new Date(d.t)).phase;
     S.catches.unshift(d); save('catches'); renderLog(); closeSheet(); toast('บันทึกปลาแล้ว 🎣');
   };
@@ -421,7 +423,8 @@ function catchSheet(id) {
     <span>ดวงจันทร์</span><b>${moonName(c.moon ?? 0)}</b>
     ${c.note ? `<span>โน้ต</span><b>${esc(c.note)}</b>` : ''}
   </div>
-  <div class="row"><button class="btn danger" id="ctDel">ลบรายการนี้</button></div>`);
+  <div class="row"><button class="btn ghost" id="ctEdit">แก้ไข</button><button class="btn danger" id="ctDel">ลบรายการนี้</button></div>`);
+  $('#ctEdit').onclick = () => catchForm({ ...c });
   let armed = false;
   $('#ctDel').onclick = e => {
     if (!armed) { armed = true; e.target.textContent = 'แตะอีกครั้งเพื่อลบ'; return; }
@@ -441,6 +444,7 @@ async function toggleTrack() {
   } else { try { await wakeLock?.release(); } catch {} wakeLock = null; toast('หยุดบันทึกเส้นทาง ' + fmtDist(trackLen())); }
   save('track'); renderTrackUI();
 }
+document.addEventListener('visibilitychange', async () => { if (document.visibilityState === 'visible' && S.track.on) { try { wakeLock = await navigator.wakeLock?.request('screen'); } catch {} } });
 function trackLen() { let d = 0; const p = S.track.pts; for (let i = 1; i < p.length; i++) d += dist({ lat: p[i - 1][0], lng: p[i - 1][1] }, { lat: p[i][0], lng: p[i][1] }); return d; }
 function renderTrackUI() {
   $('#btnTrack').classList.toggle('on', S.track.on); $('#trackLabel').textContent = S.track.on ? 'กำลังอัด' : 'เส้นทาง';
@@ -459,7 +463,7 @@ $('#btnTrack').onclick = toggleTrack;
 $('#tReturn').onclick = returnToStart;
 
 /* ============ water bodies (Overpass) ============ */
-const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
 async function findWater() {
   const c = map.getCenter(), b = map.getBounds();
   const r = Math.round(clamp(dist({ lat: c.lat, lng: c.lng }, { lat: b.getNorth(), lng: c.lng }) * 1.3, 800, 9000));
@@ -468,9 +472,11 @@ async function findWater() {
   toast('กำลังค้นหาแหล่งน้ำในรัศมี ' + fmtDist(r) + '…', 8000);
   let data = null;
   for (const u of OVERPASS) {
-    try { const res = await fetch(u, { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }); if (res.ok) { data = await res.json(); break; } } catch {}
+    try { const res = await fetch(u, { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }); if (res.ok) { data = JSON.parse(await res.text()); break; } } catch {}
   }
-  if (!data) return toast('ค้นหาไม่ได้ ต้องต่อเน็ต หรือเซิร์ฟเวอร์แผนที่ไม่ว่าง ลองใหม่อีกครั้ง');
+  gWater.clearLayers();
+  loadDams().then(D => { if (!D) return; D.list.filter(x => dist({ lat: c.lat, lng: c.lng }, x) <= r * 1.5).forEach(x => L.marker([x.lat, x.lng], { zIndexOffset: 500, icon: L.divIcon({ className: '', html: `<div class="wmk"><i style="background:${damColor(x.pct)};width:38px;height:38px;font-size:11px;font-weight:700;color:#fff">${x.pct.toFixed(0)}%</i><b>${esc(x.n)}</b></div>`, iconSize: [140, 56], iconAnchor: [70, 19] }) }).on('click', () => waterSheet({ lat: x.lat, lng: x.lng, name: x.n, kind: x.type === 'L' ? 'เขื่อนขนาดใหญ่' : x.type === 'M' ? 'อ่างเก็บน้ำขนาดกลาง' : 'อ่างเก็บน้ำขนาดเล็ก' })).addTo(gWater)); });
+  if (!data) return toast('เซิร์ฟเวอร์แหล่งน้ำไม่ว่างหรือไม่มีเน็ต แสดงได้เฉพาะเขื่อน/อ่างที่มีระดับน้ำ ลองกดอีกครั้งภายหลัง', 4500);
   const seen = new Set(), out = [];
   for (const e of data.elements || []) {
     const lat = e.lat ?? e.center?.lat, lng = e.lon ?? e.center?.lon; if (lat == null) continue;
@@ -483,11 +489,9 @@ async function findWater() {
   }
   out.sort((a, b) => (b.fishing - a.fishing) || (!!b.name - !!a.name) || a.d - b.d);
   const list = out.slice(0, 120); S.water = list;
-  gWater.clearLayers();
   list.forEach(w => L.marker([w.lat, w.lng], {
     icon: L.divIcon({ className: '', html: `<div class="wmk"><i style="${w.fishing ? 'background:#f59e0b' : ''}">${w.fishing ? '🎣' : '💧'}</i>${w.name ? `<b>${esc(w.name)}</b>` : ''}</div>`, iconSize: [120, 44], iconAnchor: [60, 14] })
   }).on('click', () => waterSheet(w)).addTo(gWater));
-  loadDams().then(D => { if (!D) return; D.list.filter(x => dist({ lat: c.lat, lng: c.lng }, x) <= r * 1.5).forEach(x => L.marker([x.lat, x.lng], { zIndexOffset: 500, icon: L.divIcon({ className: '', html: `<div class="wmk"><i style="background:${damColor(x.pct)};width:38px;height:38px;font-size:11px;font-weight:700;color:#fff">${x.pct.toFixed(0)}%</i><b>${esc(x.n)}</b></div>`, iconSize: [140, 56], iconAnchor: [70, 19] }) }).on('click', () => waterSheet({ lat: x.lat, lng: x.lng, name: x.n, kind: x.type === 'L' ? 'เขื่อนขนาดใหญ่' : x.type === 'M' ? 'อ่างเก็บน้ำขนาดกลาง' : 'อ่างเก็บน้ำขนาดเล็ก' })).addTo(gWater)); });
   toast(list.length ? `เจอแหล่งน้ำ ${list.length} แห่ง แตะหมุดเพื่อดูรายละเอียด` : 'ไม่พบแหล่งน้ำในบริเวณนี้ ลองซูมออกแล้วค้นใหม่');
 }
 function waterSheet(w) {
@@ -714,7 +718,7 @@ function buildWx(d, lat, lng) {
     const all = H.filter(x => x.t.toDateString() === new Date(ds + 'T12:00').toDateString() && x.t.getHours() >= 4 && x.t.getHours() <= 22).map(x => x.score).sort((a, b) => b - a);
     const avg = v => v.reduce((a, b) => a + b, 0) / v.length;   // เฉลี่ยทั้งวัน ถ่วงน้ำหนักช่วงพีค
     return { date: new Date(ds + 'T12:00'), code: d.daily.weather_code[i], max: d.daily.temperature_2m_max[i], min: d.daily.temperature_2m_min[i], pop: d.daily.precipitation_probability_max?.[i], score: all.length ? Math.round(avg(all.slice(0, 4)) * .45 + avg(all) * .55) : 0 };
-  }).filter(x => x.date.getTime() > nowMs - 18 * 36e5);
+  }).filter(x => x.date.getTime() >= new Date().setHours(0, 0, 0, 0));
   const next = H.slice(ni, ni + 24); let bi = 0;
   for (let i = 0; i < next.length - 1; i++) if (next[i].score + next[i + 1].score > next[bi].score + next[bi + 1].score) bi = i;
   return { H, ni, next, bi, days, ev: ev.filter(e => e.t > nowMs - 36e5 && e.t < nowMs + 26 * 36e5), now: H[ni], lat, lng, fetched: d._fetched || Date.now() };
@@ -771,6 +775,7 @@ function renderForecast() {
   $('#wxPillTemp').textContent = `${wm.ico} ${Math.round(n.temp)}°C`;
   $('#wxPillScore').textContent = n.score; $('#wxPillScore').style.background = scoreColor(n.score);
   $('#seasonPillText').textContent = `${sn.icon} ${sn.name}`;
+  const keepScroll = $('#view-forecast').scrollTop;
   $('#fcBody').innerHTML = `
   ${W.stale ? `<div class="warn">ออฟไลน์อยู่ – แสดงข้อมูลที่โหลดไว้ล่าสุด ${new Date(W.fetched).toLocaleString('th-TH', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })}</div>` : ''}
   <div class="card">
@@ -804,7 +809,7 @@ function renderForecast() {
     <div class="fishrow">${fishNow.map(f => `<div class="fish"><b>${f.n}</b><p>🪱 ${f.bait}</p><p>📍 ${f.where}</p></div>`).join('')}</div></div>
   <div class="row"><button class="btn ghost small" id="fcMine">📍 ดูที่ตำแหน่งของฉัน</button><button class="btn ghost small" id="fcCenter">🎯 ดูที่กลางแผนที่</button></div>
   <div class="foot sub">คะแนน 0–100 คำนวณในเครื่องจาก แนวโน้มความกดอากาศ ลม ฝน ช่วงแสงเช้า-เย็น และตำแหน่งดวงจันทร์${S.catches.length >= MIN_PERSONAL ? ' · ปรับตามสถิติการจับปลาของคุณแล้ว' : ''}</div>`;
-  showPlace(); renderAlert(); renderDamCard();
+  showPlace(); renderAlert(); renderDamCard(); $('#view-forecast').scrollTop = keepScroll;
   $('#fcRainMap').onclick = () => { showTab('map'); map.setView([W.lat, W.lng], Math.min(map.getZoom(), 11)); setRain(true); };
   $('#fcMine').onclick = () => S.pos ? loadForecast({ lat: S.pos.lat, lng: S.pos.lng, name: 'ตำแหน่งของฉัน', auto: true }) : toast('ยังไม่ได้ตำแหน่ง GPS');
   $('#fcCenter').onclick = () => { const c = map.getCenter(); loadForecast({ lat: c.lat, lng: c.lng, name: `กลางแผนที่ (${c.lat.toFixed(3)}, ${c.lng.toFixed(3)})` }); };
