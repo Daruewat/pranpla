@@ -13,8 +13,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="lib/leaflet.css?v=26">
-<link rel="stylesheet" href="style.css?v=26">
+<link rel="stylesheet" href="lib/leaflet.css?v=27">
+<link rel="stylesheet" href="style.css?v=27">
 </head>
 <body>
 <div id="app">
@@ -68,7 +68,7 @@
     <div class="rain-legend"><i style="background:#60a5fa"></i>มีโอกาส<i style="background:#2563eb"></i>ฝนเบา<i style="background:#f59e0b"></i>ฝนหนัก<i style="background:#dc2626"></i>หนักมาก</div>
   </div>
   <div id="coordBar" class="coordbar mono">กำลังหาตำแหน่ง GPS…</div>
-  <div id="crosshair" class="crosshair hidden"><svg viewBox="0 0 48 48"><path d="M24 4v14M24 30v14M4 24h14M30 24h14"/><circle cx="24" cy="24" r="2.5"/></svg><button id="crossLbl" class="crosslbl"></button><a id="crossSV" class="crosslbl crosssv" href="https://www.google.com/maps" target="_blank" rel="noopener">🚶 ดูภาพถนนตรงนี้</a></div>
+  <div id="crosshair" class="crosshair hidden"><svg viewBox="0 0 48 48"><path d="M24 4v14M24 30v14M4 24h14M30 24h14"/><circle cx="24" cy="24" r="2.5"/></svg><div class="crossrow"><button id="crossLbl" class="crosslbl"></button><a id="crossSV" class="crosssv" href="https://www.google.com/maps" target="_blank" rel="noopener" aria-label="ดูภาพถนนตรงนี้" title="ดูภาพถนนตรงนี้">🚶</a></div></div>
 
   <!-- ===== FORECAST ===== -->
   <section id="view-forecast" class="view">
@@ -85,7 +85,7 @@
   <!-- ===== SURVIVAL TOOLS ===== -->
   <section id="view-tools" class="view">
     <header class="vhead">
-      <div><h1>เอาชีวิตรอด</h1><div class="sub">เครื่องมือภาคสนาม ใช้ได้แม้ไม่มีเน็ต</div></div>
+      <div><h1>เอาชีวิตรอด</h1></div>
     </header>
 
     <div class="card compass-card">
@@ -144,7 +144,6 @@
         <button id="tRed" class="tool"><span>🟥</span>ไฟจอแดง</button>
         <button id="tReturn" class="tool"><span>↩️</span>กลับจุดเริ่ม</button>
       </div>
-      <div class="sub" style="margin-top:8px">SOS = ··· ─── ··· ทั้งไฟฉายและหน้าจอ · นกหวีดเป่า 3 ครั้งซ้ำ (สัญญาณขอความช่วยเหลือสากล)</div>
     </div>
 
     <div class="card">
@@ -168,7 +167,7 @@
   <!-- ===== LOG ===== -->
   <section id="view-log" class="view">
     <header class="vhead">
-      <div><h1>สมุดบันทึก</h1><div class="sub">ข้อมูลเก็บในเครื่องนี้</div></div>
+      <div><h1>สมุดบันทึก</h1></div>
     </header>
     <div id="stats" class="stats"></div>
     <div class="sect-h"><h2>ปลาที่จับได้</h2><button class="link" data-act="new-catch">+ บันทึกปลา</button></div>
@@ -182,17 +181,16 @@
     <div class="sect-h"><h2>หน้าตาแอป</h2></div>
     <div class="card">
       <div id="themeSeg" class="seg"><button data-theme="dark">🌙 มืด</button><button data-theme="light">☀️ สว่าง</button><button data-theme="auto">📱 ตามเครื่อง</button></div>
-      <div class="sub" style="margin-top:8px">โหมดมืดถนอมสายตาตอนกลางคืนและประหยัดแบต โหมดสว่างอ่านง่ายกลางแดด</div>
     </div>
     <div class="sect-h"><h2>สำรองข้อมูล</h2></div>
     <div class="card">
-      <div class="sub">ข้อมูลอยู่ในมือถือเครื่องนี้เท่านั้น ส่งออกไว้เป็นไฟล์บ้างเผื่อเปลี่ยนเครื่อง</div>
+      <div class="sub">ข้อมูลอยู่ในเครื่องนี้เท่านั้น ส่งออกเก็บไว้บ้าง</div>
       <div class="row">
         <button id="exportBtn" class="btn small">⬇️ ส่งออก (.json)</button>
         <label class="btn small ghost">⬆️ นำเข้า<input id="importFile" type="file" accept="application/json,.json" hidden></label>
       </div>
     </div>
-    <div class="foot sub">พรานปลา v1.0 · แผนที่ © OpenStreetMap, Esri · อากาศ Open-Meteo · แหล่งน้ำจาก OSM Overpass<br>คะแนนปลากินเป็นการประมาณจากอากาศ ความกดอากาศ ลม แสง และดวงจันทร์ ไม่ใช่การันตี</div>
+    <div class="foot sub">พรานปลา · ข้อมูล © OpenStreetMap, Esri, Open-Meteo, thaiwater.net</div>
   </section>
 
   <!-- ===== NAV ===== -->
@@ -210,10 +208,10 @@
   <div id="flash" class="flash hidden"></div>
 </div>
 
-<script src="lib/leaflet.js?v=26"></script>
-<script src="lib/suncalc.js?v=26"></script>
-<script src="data.js?v=26"></script>
-<script src="icons.js?v=26"></script>
-<script src="app.js?v=26"></script>
+<script src="lib/leaflet.js?v=27"></script>
+<script src="lib/suncalc.js?v=27"></script>
+<script src="data.js?v=27"></script>
+<script src="icons.js?v=27"></script>
+<script src="app.js?v=27"></script>
 </body>
 </html>

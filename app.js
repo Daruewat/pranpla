@@ -63,7 +63,7 @@ const S = {
 const save = k => DB.set(k, S[k]).catch(() => toast('บันทึกข้อมูลไม่สำเร็จ'));
 
 /* ============ map ============ */
-const map = L.map('map', { zoomControl: false }).setView(ls.get('view', [18.79, 98.98]), ls.get('zoom', 13));
+const map = L.map('map', { zoomControl: false, attributionControl: false }).setView(ls.get('view', [18.79, 98.98]), ls.get('zoom', 13));
 const OSM = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/';
 const TL = (u, o) => L.tileLayer(u, { crossOrigin: true, maxZoom: 19, ...o });
 const LAYERS = {
@@ -95,6 +95,7 @@ async function setLayer(k) {
 }
 setLayer(LAYERS[S.layer] ? S.layer : 'light');
 const searchPin = L.marker([0, 0], { icon: L.divIcon({ className: '', html: '<div class="mk" style="background:#e11d48"><span>🔎</span></div>', iconSize: [34, 34], iconAnchor: [17, 34] }) });
+L.control.attribution({ prefix: false, position: 'bottomleft' }).addTo(map);
 const gSpots = L.layerGroup().addTo(map), gWater = L.layerGroup().addTo(map);
 const trackLine = L.polyline([], { color: '#ef4444', weight: 4, opacity: .85 }).addTo(map);
 const targetLine = L.polyline([], { color: '#f59e0b', weight: 3, dashArray: '8 8' }).addTo(map);
@@ -121,7 +122,7 @@ function renderSpots() {
   if (OPT.water) { if (!map.hasLayer(gWater)) gWater.addTo(map); } else map.removeLayer(gWater);
 }
 function updateCoordBar() {
-  const el = $('#coordBar'); updateCross();
+  const el = $('#coordBar'); updateCross(); el.classList.toggle('hidden', !$('#crosshair').classList.contains('hidden'));
   if (S.pos) el.textContent = `${S.pos.lat.toFixed(5)}, ${S.pos.lng.toFixed(5)} ±${Math.round(S.pos.acc)}ม.`;
 }
 function updateCross() {
@@ -175,18 +176,18 @@ $('#btnLocate').onclick = () => {
   S.follow = true; $('#btnLocate').classList.add('follow'); map.setView([S.pos.lat, S.pos.lng], Math.max(map.getZoom(), 15));
 };
 function mapOptSheet() {
-  const sw = (k, ico, title, sub) => `<label class="optrow"><span class="oi">${ico}</span><span class="ot"><b>${title}</b><small>${sub}</small></span><input type="checkbox" class="switch" data-opt="${k}" ${OPT[k] ? 'checked' : ''}></label>`;
+  const sw = (k, ico, title, sub) => `<label class="optrow"><span class="oi">${ico}</span><span class="ot"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</span><input type="checkbox" class="switch" data-opt="${k}" ${OPT[k] ? 'checked' : ''}></label>`;
   openSheet(`<h3>ตัวเลือกแผนที่</h3>
   <div class="card-h" style="font-size:15px;margin-top:6px">รูปแบบแผนที่</div>
   <div class="stylegrid">${Object.entries(LAYERS).map(([k, o]) => `<button data-layer="${k}" class="${k === S.layer ? 'sel' : ''}"><span>${o.ico}</span>${o.short || o.name}</button>`).join('')}</div>
-  <div class="card-h" style="font-size:15px;margin-top:14px">กรองหมุด <span class="sub" style="font-weight:400">แตะเพื่อซ่อน/แสดงแต่ละประเภท</span></div>
+  <div class="card-h" style="font-size:15px;margin-top:14px">กรองหมุด</div>
   <div class="types" id="optTypes">${Object.entries(SPOT_TYPES).map(([k, t]) => `<button type="button" data-type="${k}" class="${!OPT.types || OPT.types.includes(k) ? 'sel' : ''}">${t.icon} ${t.label}</button>`).join('')}</div>
-  ${sw('catches', '🐟', 'ปลาที่ฉันจับได้', 'แสดงจุดที่ได้ปลาแต่ละตัวบนแผนที่')}
-  ${sw('heat', '🔥', 'ฮีตแมปของฉัน', 'ระบายสีบริเวณที่ได้ปลาบ่อย จากสมุดบันทึกของคุณเอง')}
-  ${sw('water', '💧', 'แหล่งน้ำและระดับน้ำ', 'หมุดจากปุ่มแหล่งน้ำ และ % ของเขื่อน/อ่าง')}
-  ${sw('cross', '🎯', 'เส้นเล็ง', 'กากบาทกลางจอ บอกพิกัดและระยะจากตัวคุณ')}
-  <button class="menu-item" id="offOpen"><span class="mi">⬇️</span><span><b>เตรียมออฟไลน์สำหรับบริเวณนี้</b><span class="sub">เก็บแผนที่ แหล่งน้ำ ระดับน้ำ และพยากรณ์ ไว้ใช้ตอนไม่มีสัญญาณ</span></span></button>
-  <button class="menu-item" data-act="toggle-track"><span class="mi">👣</span><span><b>${S.track.on ? 'หยุดโหมดเดินทาง' : 'โหมดเดินทาง'}</b><span class="sub">บันทึกเส้นทางที่เดิน เปิดจอค้าง ไว้นำทางกลับจุดเริ่ม</span></span></button>`);
+  ${sw('catches', '🐟', 'ปลาที่ฉันจับได้', '')}
+  ${sw('heat', '🔥', 'ฮีตแมปของฉัน', 'จากสมุดบันทึกของคุณ')}
+  ${sw('water', '💧', 'แหล่งน้ำและระดับน้ำ', '')}
+  ${sw('cross', '🎯', 'เส้นเล็ง', '')}
+  <button class="menu-item" id="offOpen"><span class="mi">⬇️</span><span><b>เตรียมออฟไลน์สำหรับบริเวณนี้</b><span class="sub">แผนที่ แหล่งน้ำ พยากรณ์</span></span></button>
+  <button class="menu-item" data-act="toggle-track"><span class="mi">👣</span><span><b>${S.track.on ? 'หยุดโหมดเดินทาง' : 'โหมดเดินทาง'}</b></span></button>`);
   $('#offOpen').onclick = offlineSheet;
   $$('#sheet [data-layer]').forEach(b => b.onclick = () => { setLayer(b.dataset.layer); $$('#sheet [data-layer]').forEach(x => x.classList.toggle('sel', x === b)); });
   $$('#optTypes button').forEach(b => b.onclick = () => {
@@ -360,11 +361,11 @@ function bindPhoto(root, holder) {
 /* ---- FAB menu ---- */
 $('#fab').onclick = () => openSheet(`
   <h3>อยากทำอะไร?</h3>
-  <button class="menu-item" data-act="new-catch"><span class="mi">🐟</span><span><b>บันทึกปลาที่จับได้</b><span class="sub">ชนิด ขนาด เหยื่อ รูป พร้อมสภาพอากาศตอนนั้น</span></span></button>
-  <button class="menu-item" data-act="new-spot-here"><span class="mi">📍</span><span><b>ปักหมุดตรงที่ฉันยืน</b><span class="sub">จุดตกปลา ที่จอดรถ แคมป์ จุดอันตราย</span></span></button>
-  <button class="menu-item" data-act="new-spot-center"><span class="mi">🎯</span><span><b>ปักหมุดกลางแผนที่</b><span class="sub">เลื่อนแผนที่ให้กากบาทตรงจุด หรือกดค้างบนแผนที่</span></span></button>
-  <button class="menu-item" data-act="toggle-track"><span class="mi">👣</span><span><b>${S.track.on ? 'หยุดบันทึกเส้นทาง' : 'เริ่มบันทึกเส้นทางเดิน'}</b><span class="sub">ไว้เดินย้อนกลับจุดเริ่มต้น</span></span></button>
-  <button class="menu-item" data-act="find-water"><span class="mi">💧</span><span><b>หาแหล่งน้ำรอบแผนที่</b><span class="sub">หนอง บึง อ่าง แม่น้ำ จากฐานข้อมูล OpenStreetMap</span></span></button>`);
+  <button class="menu-item" data-act="new-catch"><span class="mi">🐟</span><span><b>บันทึกปลาที่จับได้</b></span></button>
+  <button class="menu-item" data-act="new-spot-here"><span class="mi">📍</span><span><b>ปักหมุดตรงที่ฉันยืน</b></span></button>
+  <button class="menu-item" data-act="new-spot-center"><span class="mi">🎯</span><span><b>ปักหมุดกลางแผนที่</b></span></button>
+  <button class="menu-item" data-act="toggle-track"><span class="mi">👣</span><span><b>${S.track.on ? 'หยุดบันทึกเส้นทาง' : 'เริ่มบันทึกเส้นทางเดิน'}</b></span></button>
+  <button class="menu-item" data-act="find-water"><span class="mi">💧</span><span><b>หาแหล่งน้ำรอบแผนที่</b></span></button>`);
 
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return;
@@ -541,7 +542,7 @@ function renderTrackUI() {
   const p = S.track.pts || [];
   $('#trackInfo').innerHTML = (S.track.on ? `<div class="kv"><span>สถานะ</span><b>🔴 กำลังบันทึก</b><span>ระยะทาง</span><b>${fmtDist(trackLen())}</b>${p.length ? `<span>จุดเริ่ม</span><b class="mono">${p[0][0].toFixed(5)}, ${p[0][1].toFixed(5)}</b>` : ''}</div>
     <div class="row"><button class="btn small acc" id="trkBack">↩️ นำทางกลับจุดเริ่ม</button><button class="btn small ghost" id="trkToggle">หยุดและเก็บ</button></div>`
-    : `<div class="sub">กดปุ่มเส้นทางบนแผนที่ก่อนเดินเข้าป่า/ริมน้ำ แอปจะลากเส้นที่เดิน พอกดหยุดจะเก็บเข้าประวัติด้านล่าง เปิดดูหรือเดินต่อได้</div><div class="row"><button class="btn small" id="trkToggle">เริ่มเส้นทางใหม่</button></div>`)
+    : `<div class="sub">อัดทางที่เดินไว้ใช้นำทางกลับ</div><div class="row"><button class="btn small" id="trkToggle">เริ่มเส้นทางใหม่</button></div>`)
     + (S.tracks.length ? `<div class="card-h" style="margin-top:14px;font-size:15px">ประวัติเส้นทาง (${S.tracks.length})</div>` + S.tracks.map(t => `<div class="trk" data-trk="${t.id}"><div><b>${esc(t.name)}</b><div class="sub">${trkDate(t.started)} · ${fmtDist(t.len)} · ${durTxt(Math.max(0, (t.ended || t.started) - t.started))}</div></div><span>›</span></div>`).join('') : '');
   $('#trkToggle').onclick = () => toggleTrack();
   if ($('#trkBack')) $('#trkBack').onclick = returnToStart;
@@ -688,7 +689,7 @@ async function renderDamCard() {
   if (!D) { el.innerHTML = '<div class="card-h">🌊 ระดับน้ำเขื่อน/อ่างใกล้ที่นี่</div><div class="sub">โหลดข้อมูลระดับน้ำไม่ได้ (ต้องต่อเน็ต)</div>'; return; }
   const near = D.list.map(d => ({ ...d, d: dist(loc, d) })).filter(d => d.d < 60000).sort((a, b) => a.d - b.d).slice(0, 5);
   $('#damCard').innerHTML = `<div class="card-h">🌊 ระดับน้ำเขื่อน/อ่างใกล้ที่นี่</div>${near.length ? near.map(x => damRow(x, loc)).join('') : '<div class="sub">ไม่มีเขื่อนหรืออ่างที่มีการรายงานระดับน้ำในรัศมี 60 กม.</div>'}
-    <div class="sub" style="margin-top:8px">% ของความจุปกติ · หลักทั่วไป: น้ำขึ้นเร็วปลามักกระจายเข้าชายตื้นและน้ำใหม่ น้ำลดปลามักรวมตัวตามร่องน้ำลึก · ข้อมูล: คลังข้อมูลน้ำแห่งชาติ (thaiwater.net) รายงานวันละครั้ง${ls.get('damPrev') ? '' : ' · แนวโน้มขึ้น/ลงจะแสดงเมื่อเปิดแอปข้ามวัน'}</div>`;
+    <div class="sub" style="margin-top:8px">% ของความจุ · ข้อมูลรายวันจาก thaiwater.net</div>`;
 }
 
 /* ============ แชร์หมุด / รับหมุดจากลิงก์ ============ */
@@ -945,7 +946,7 @@ function renderForecast() {
   ${(() => { const r = rainOutlook(W.next); return `<div class="card rain-card ${r.ok ? 'dry' : 'wet'}"><div class="card-h">${r.ok ? '🌂' : '🌧️'} ฝนที่จุดนี้</div><div>${r.txt}</div><div class="row"><button class="btn ghost small" id="fcRainMap">🗺️ ดูฝนบนแผนที่</button></div></div>`; })()}
   <div class="card"><div class="card-h">🌙 ช่วงปลากินตามดวงจันทร์ (24 ชม.)</div>
     <div class="solunar">${W.ev.length ? W.ev.map(e => `<span class="chip ${e.type}">${e.type === 'major' ? '★ ' : ''}${hm(new Date(e.t))} ${e.label}</span>`).join('') : '<span class="sub">-</span>'}</div>
-    <div class="sub" style="margin-top:8px">★ = ช่วงหลัก (ราว ±1 ชม.) · ${moonName(mp)}</div></div>
+    <div class="sub" style="margin-top:8px">${moonName(mp)}</div></div>
   <div class="card"><div class="card-h">รายชั่วโมง</div><div class="hours">${W.next.map(x => { const m = wmo(x.code, !x.day); return `<div class="h"><div class="t">${pad(x.t.getHours())}</div><div class="e">${m.ico}</div><div>${Math.round(x.temp)}°</div><div class="sub">${Math.round(x.wind)} กม.</div><div class="sub">${x.pop ?? 0}%💧</div><div class="s" style="background:${scoreColor(x.score)}">${x.score}</div></div>`; }).join('')}</div></div>
   <div class="card"><div class="card-h">พยากรณ์ ${W.days.length} วัน</div><div class="days">${W.days.map((x, i) => `<div class="d ${i === 0 ? 'today' : ''}"><span class="dn">${i === 0 ? 'วันนี้' : DAYS[x.date.getDay()] + ' ' + x.date.getDate()}</span><span>${wmo(x.code).ico}</span><span class="track"><i style="width:${x.score}%;background:${scoreColor(x.score)}"></i></span><span class="sc ${x.score === maxDay ? 'top' : ''}" style="${x.score === maxDay ? '' : 'color:' + scoreColor(x.score)}">${x.score}</span><span class="tt">${Math.round(x.max)}° <span>${Math.round(x.min)}°</span></span></div>`).join('')}</div></div>
   <div class="card-h" style="margin:16px 2px 8px">สภาพแวดล้อม</div>
@@ -960,8 +961,7 @@ function renderForecast() {
     ${sn.law ? `<div class="warn" style="margin:10px 0 0">${sn.law}</div>` : ''}
     <div class="card-h" style="margin-top:12px;font-size:15px">น่าตกช่วงนี้</div>
     <div class="fishrow">${fishNow.map(f => `<div class="fish"><b>${f.n}</b><p>🪱 ${f.bait}</p><p>📍 ${f.where}</p></div>`).join('')}</div></div>
-  <div class="row"><button class="btn ghost small" id="fcMine">📍 ดูที่ตำแหน่งของฉัน</button><button class="btn ghost small" id="fcCenter">🎯 ดูที่กลางแผนที่</button></div>
-  <div class="foot sub">คะแนน 0–100 คำนวณในเครื่องจาก แนวโน้มความกดอากาศ ลม ฝน ช่วงแสงเช้า-เย็น และตำแหน่งดวงจันทร์${S.catches.length >= MIN_PERSONAL ? ' · ปรับตามสถิติการจับปลาของคุณแล้ว' : ''}</div>`;
+  <div class="row"><button class="btn ghost small" id="fcMine">📍 ดูที่ตำแหน่งของฉัน</button><button class="btn ghost small" id="fcCenter">🎯 ดูที่กลางแผนที่</button></div>`;
   showPlace(); renderAlert(); renderDamCard(); $('#view-forecast').scrollTop = keepScroll;
   $('#fcRainMap').onclick = () => { showTab('map'); map.setView([W.lat, W.lng], Math.min(map.getZoom(), 11)); setRain(true); };
   $('#fcMine').onclick = () => S.pos ? loadForecast({ lat: S.pos.lat, lng: S.pos.lng, name: 'ตำแหน่งของฉัน', auto: true }) : toast('ยังไม่ได้ตำแหน่ง GPS');
@@ -1122,7 +1122,7 @@ function personalAdj(hour) {   // ±คะแนนจากสัดส่ว�
 function topOf(arr, k = 3) { const m = {}; arr.filter(Boolean).forEach(x => m[x] = (m[x] || 0) + 1); return Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, k); }
 function renderStats() {
   const C = S.catches, n = C.length, el = $('#myStats');
-  if (n < 3) { el.innerHTML = `<div class="sub">บันทึกปลาอย่างน้อย 3 ตัว แล้วตรงนี้จะสรุปว่าคุณได้ปลาช่วงไหน เหยื่ออะไร อากาศแบบไหน (ตอนนี้ ${n} ตัว) · ครบ ${MIN_PERSONAL} ตัว แอปจะปรับคะแนนปลากินให้เข้ากับคุณ</div>`; return; }
+  if (n < 3) { el.innerHTML = `<div class="sub">บันทึกปลาครบ 3 ตัวเพื่อดูสถิติ (ตอนนี้ ${n})</div>`; return; }
   const bc = BUCKETS.map((b, i) => C.filter(c => bucketOf(new Date(c.t).getHours()) === i).length), mx = Math.max(...bc);
   const wx = C.filter(c => c.wx), avg = f => wx.length ? wx.reduce((s, c) => s + f(c.wx), 0) / wx.length : null;
   const moon = [['ข้างขึ้น', c => c.moon < .5], ['ข้างแรม', c => c.moon >= .5], ['ใกล้เดือนมืด/เดือนเพ็ญ', c => c.moon < .1 || c.moon > .9 || Math.abs(c.moon - .5) < .1]].map(([l, f]) => `${l} ${C.filter(c => c.moon != null && f(c)).length}`).join(' · ');
