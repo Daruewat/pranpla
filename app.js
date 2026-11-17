@@ -131,6 +131,7 @@ function updateCross() {
   $('#crossLbl').innerHTML = `<b>${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}</b>${d != null && d > 15 ? `<small>ห่าง ${fmtDist(d)} · ทิศ ${Math.round(bearing(S.pos, { lat: c.lat, lng: c.lng }))}° ${dirE(bearing(S.pos, { lat: c.lat, lng: c.lng }))}</small>` : ''}`;
 }
 map.on('move', () => { if (OPT.cross) updateCoordBar(); updateCross(); });
+$('#crossSV').addEventListener('click', e => { const c = map.getCenter(); e.currentTarget.href = svUrl({ lat: c.lat, lng: c.lng }); });   // ตั้งลิงก์ตอนแตะ กันกรณีลิงก์ยังไม่ถูกตั้ง
 $('#crossLbl').onclick = () => { const c = map.getCenter(); copy(`${c.lat.toFixed(6)}, ${c.lng.toFixed(6)}`, 'คัดลอกพิกัดที่เล็งแล้ว'); };
 function updateMe() {
   if (!S.pos) return;

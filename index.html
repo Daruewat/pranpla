@@ -13,8 +13,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="lib/leaflet.css">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="lib/leaflet.css?v=24">
+<link rel="stylesheet" href="style.css?v=24">
 </head>
 <body>
 <div id="app">
@@ -68,7 +68,7 @@
     <div class="rain-legend"><i style="background:#60a5fa"></i>มีโอกาส<i style="background:#2563eb"></i>ฝนเบา<i style="background:#f59e0b"></i>ฝนหนัก<i style="background:#dc2626"></i>หนักมาก</div>
   </div>
   <div id="coordBar" class="coordbar mono">กำลังหาตำแหน่ง GPS…</div>
-  <div id="crosshair" class="crosshair hidden"><svg viewBox="0 0 48 48"><path d="M24 4v14M24 30v14M4 24h14M30 24h14"/><circle cx="24" cy="24" r="2.5"/></svg><button id="crossLbl" class="crosslbl"></button><a id="crossSV" class="crosslbl crosssv" target="_blank" rel="noopener">🚶 ดูภาพถนนตรงนี้</a></div>
+  <div id="crosshair" class="crosshair hidden"><svg viewBox="0 0 48 48"><path d="M24 4v14M24 30v14M4 24h14M30 24h14"/><circle cx="24" cy="24" r="2.5"/></svg><button id="crossLbl" class="crosslbl"></button><a id="crossSV" class="crosslbl crosssv" href="https://www.google.com/maps" target="_blank" rel="noopener">🚶 ดูภาพถนนตรงนี้</a></div>
 
   <!-- ===== FORECAST ===== -->
   <section id="view-forecast" class="view">
@@ -210,10 +210,10 @@
   <div id="flash" class="flash hidden"></div>
 </div>
 
-<script src="lib/leaflet.js"></script>
-<script src="lib/suncalc.js"></script>
-<script src="data.js"></script>
-<script src="icons.js"></script>
-<script src="app.js"></script>
+<script src="lib/leaflet.js?v=24"></script>
+<script src="lib/suncalc.js?v=24"></script>
+<script src="data.js?v=24"></script>
+<script src="icons.js?v=24"></script>
+<script src="app.js?v=24"></script>
 </body>
 </html>

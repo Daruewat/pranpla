@@ -1,5 +1,5 @@
 /* พรานปลา service worker: ตัวแอปใช้ออฟไลน์ได้ + เก็บแผนที่ที่เคยเปิดดู + แผนที่ที่ดาวน์โหลดไว้ */
-const V = 'pranpla-v23', TILES = 'pranpla-tiles2', OFFLINE = 'pranpla-offline', FONTS = 'pranpla-fonts';
+const V = 'pranpla-v24', TILES = 'pranpla-tiles2', OFFLINE = 'pranpla-offline', FONTS = 'pranpla-fonts';
 const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'data.js', 'icons.js', 'vecstyle.js', 'tambon.json', 'lib/leaflet.js', 'lib/maplibre-gl.js', 'lib/maplibre-gl.css', 'lib/leaflet-maplibre-gl.js', 'lib/leaflet.css', 'lib/suncalc.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
 const TILE_HOSTS = ['tile.openstreetmap.org', 'server.arcgisonline.com', 'tile.opentopomap.org'];
 const TILE_MAX = 5000;
@@ -33,6 +33,6 @@ self.addEventListener('fetch', e => {
     return;
   }
   if (url.origin === location.origin) {
-    e.respondWith(fetch(req).then(r => { if (r.ok) { const cp = r.clone(); caches.open(V).then(c => c.put(req, cp)); } return r; }).catch(() => caches.match(req, { ignoreSearch: true }).then(r => r || caches.match('index.html'))));
+    e.respondWith(fetch(req.url, { cache: 'no-cache' }).then(r => { if (r.ok) { const cp = r.clone(); caches.open(V).then(c => c.put(req, cp)); } return r; })   // ถามเซิร์ฟเวอร์ทุกครั้งว่ามีเวอร์ชันใหม่ไหม.catch(() => caches.match(req, { ignoreSearch: true }).then(r => r || caches.match('index.html'))));
   }
 });
