@@ -121,11 +121,16 @@ function renderSpots() {
   if (OPT.water) { if (!map.hasLayer(gWater)) gWater.addTo(map); } else map.removeLayer(gWater);
 }
 function updateCoordBar() {
-  const el = $('#coordBar');
-  if (OPT.cross) { const c = map.getCenter(); el.textContent = `🎯 ${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}${S.pos ? ' · ห่าง ' + fmtDist(dist(S.pos, { lat: c.lat, lng: c.lng })) : ''}`; }
-  else if (S.pos) el.textContent = `${S.pos.lat.toFixed(5)}, ${S.pos.lng.toFixed(5)} ±${Math.round(S.pos.acc)}ม.`;
+  const el = $('#coordBar'); updateCross();
+  if (S.pos) el.textContent = `${S.pos.lat.toFixed(5)}, ${S.pos.lng.toFixed(5)} ±${Math.round(S.pos.acc)}ม.`;
 }
-map.on('move', () => { if (OPT.cross) updateCoordBar(); });
+function updateCross() {
+  if ($('#crosshair').classList.contains('hidden')) return;
+  const c = map.getCenter(), d = S.pos ? dist(S.pos, { lat: c.lat, lng: c.lng }) : null;
+  $('#crossLbl').innerHTML = `<b>${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}</b>${d != null && d > 15 ? `<small>ห่าง ${fmtDist(d)} · ทิศ ${Math.round(bearing(S.pos, { lat: c.lat, lng: c.lng }))}° ${dirE(bearing(S.pos, { lat: c.lat, lng: c.lng }))}</small>` : ''}`;
+}
+map.on('move', () => { if (OPT.cross) updateCoordBar(); updateCross(); });
+$('#crossLbl').onclick = () => { const c = map.getCenter(); copy(`${c.lat.toFixed(6)}, ${c.lng.toFixed(6)}`, 'คัดลอกพิกัดที่เล็งแล้ว'); };
 function updateMe() {
   if (!S.pos) return;
   const ll = [S.pos.lat, S.pos.lng];
@@ -354,7 +359,7 @@ document.addEventListener('click', e => {
   const a = b.dataset.act, id = b.dataset.id;
   if (a === 'new-catch') catchForm();
   else if (a === 'new-spot-here') { if (!S.pos) return toast('ยังไม่ได้ตำแหน่ง GPS ลองปักหมุดกลางแผนที่แทน'); spotForm({ lat: S.pos.lat, lng: S.pos.lng }); }
-  else if (a === 'new-spot-center') { closeSheet(); showTab('map'); const c = map.getCenter(); spotForm({ lat: c.lat, lng: c.lng }); $('#crosshair').classList.remove('hidden'); }
+  else if (a === 'new-spot-center') { closeSheet(); showTab('map'); const c = map.getCenter(); spotForm({ lat: c.lat, lng: c.lng }); $('#crosshair').classList.remove('hidden'); updateCross(); }
   else if (a === 'toggle-track') { closeSheet(); toggleTrack(); }
   else if (a === 'find-water') { closeSheet(); showTab('map'); findWater(); }
   else if (a === 'close') closeSheet();
