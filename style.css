@@ -1858,7 +1858,7 @@ html {
   transform: translate(-50%, -24px);
   text-shadow: none;
 }
-.crosshair svg {
+.crosshair > svg {
   width: 48px;
   height: 48px;
   fill: none;
@@ -1867,7 +1867,7 @@ html {
   stroke-linecap: round;
   filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9));
 }
-.crosshair circle {
+.crosshair > svg circle {
   fill: var(--blue);
   stroke: #fff;
   stroke-width: 1.5;
@@ -1924,3 +1924,5 @@ html {
 .pills{flex-wrap:wrap}
 
 .crosssv{margin-top:6px;font-size:12.5px;font-weight:500;text-decoration:none;color:var(--link);display:inline-flex;align-items:center;gap:5px;padding:5px 11px}
+.crosssv .i{width:16px;height:16px;flex:none}
+.crosssv .i svg{width:100%;height:100%;stroke:currentColor;filter:none}
