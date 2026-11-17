@@ -1,6 +1,6 @@
 /* พรานปลา service worker: ตัวแอปใช้ออฟไลน์ได้ + เก็บแผนที่ที่เคยเปิดดู + แผนที่ที่ดาวน์โหลดไว้ */
-const V = 'pranpla-v17', TILES = 'pranpla-tiles2', OFFLINE = 'pranpla-offline', FONTS = 'pranpla-fonts';
-const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'data.js', 'vecstyle.js', 'tambon.json', 'lib/leaflet.js', 'lib/maplibre-gl.js', 'lib/maplibre-gl.css', 'lib/leaflet-maplibre-gl.js', 'lib/leaflet.css', 'lib/suncalc.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
+const V = 'pranpla-v18', TILES = 'pranpla-tiles2', OFFLINE = 'pranpla-offline', FONTS = 'pranpla-fonts';
+const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'data.js', 'icons.js', 'vecstyle.js', 'tambon.json', 'lib/leaflet.js', 'lib/maplibre-gl.js', 'lib/maplibre-gl.css', 'lib/leaflet-maplibre-gl.js', 'lib/leaflet.css', 'lib/suncalc.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
 const TILE_HOSTS = ['tile.openstreetmap.org', 'server.arcgisonline.com', 'tile.opentopomap.org'];
 const TILE_MAX = 5000;
 

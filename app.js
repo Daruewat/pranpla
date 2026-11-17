@@ -1075,7 +1075,7 @@ const mqLight = window.matchMedia('(prefers-color-scheme: light)');
 function applyTheme() {
   const pref = ls.get('theme', 'dark'), t = pref === 'auto' ? (mqLight.matches ? 'light' : 'dark') : pref;
   document.documentElement.dataset.theme = t;
-  $('meta[name=theme-color]').content = t === 'light' ? '#f3f5f1' : '#0b1210';
+  $('meta[name=theme-color]').content = t === 'light' ? '#f3f6fb' : '#0a1220';
   $('meta[name=color-scheme]').content = t;
   $$('#themeSeg button').forEach(b => b.classList.toggle('sel', b.dataset.theme === pref));
 }
