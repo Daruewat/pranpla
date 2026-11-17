@@ -1919,3 +1919,6 @@ html {
 .mk .i svg {
   stroke-width: 2.2;
 }
+
+.offpill{background:#b45309;color:#fff;padding:6px 14px;font-size:14px}
+.pills{flex-wrap:wrap}

@@ -27,7 +27,7 @@ function bearing(a, b) {
   return (Math.atan2(y, x) / r + 360) % 360;
 }
 const fmtDist = m => m == null ? '-' : m < 1000 ? Math.round(m) + ' ม.' : (m / 1000).toFixed(m < 10000 ? 2 : 1) + ' กม.';
-const DIR8 = ['เหนือ', 'ตอ.เฉียงเหนือ', 'ตะวันออก', 'ตอ.เฉียงใต้', 'ใต้', 'ตต.เฉียงใต้', 'ตะวันตก', 'ตต.เฉียงเหนือ'];
+const DIR8 = ['เหนือ', 'ตะวันออกเฉียงเหนือ', 'ตะวันออก', 'ตะวันออกเฉียงใต้', 'ใต้', 'ตะวันตกเฉียงใต้', 'ตะวันตก', 'ตะวันตกเฉียงเหนือ'];
 const DIR8E = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 const dirTxt = d => DIR8[Math.round(d / 45) % 8];
 const dirE = d => DIR8E[Math.round(d / 45) % 8];
@@ -165,7 +165,7 @@ function onPos(p) {
 function startGeo() {
   if (!navigator.geolocation) { $('#coordBar').textContent = 'เครื่องนี้ไม่มี GPS'; return; }
   navigator.geolocation.watchPosition(onPos, e => {
-    $('#coordBar').textContent = e.code === 1 ? 'ยังไม่ได้อนุญาตตำแหน่ง – เปิดสิทธิ์ตำแหน่งให้แอปนี้' : 'ยังจับสัญญาณ GPS ไม่ได้…';
+    $('#coordBar').textContent = e.code === 1 ? 'ยังไม่ได้อนุญาตตำแหน่ง – เปิดสิทธิ์ตำแหน่งให้แอปนี้' : 'ยังจับ GPS ไม่ได้ – ออกไปที่โล่ง รอ 1–2 นาที';
   }, { enableHighAccuracy: true, maximumAge: 4000, timeout: 30000 });
 }
 $('#btnLocate').onclick = () => {
@@ -183,7 +183,7 @@ function mapOptSheet() {
   ${sw('heat', '🔥', 'ฮีตแมปของฉัน', 'ระบายสีบริเวณที่ได้ปลาบ่อย จากสมุดบันทึกของคุณเอง')}
   ${sw('water', '💧', 'แหล่งน้ำและระดับน้ำ', 'หมุดจากปุ่มแหล่งน้ำ และ % ของเขื่อน/อ่าง')}
   ${sw('cross', '🎯', 'เส้นเล็ง', 'กากบาทกลางจอ บอกพิกัดและระยะจากตัวคุณ')}
-  <button class="menu-item" id="offOpen"><span class="mi">⬇️</span><span><b>ดาวน์โหลดไว้ใช้ออฟไลน์</b><span class="sub">เก็บบริเวณที่เห็นอยู่ ไว้เปิดตอนไม่มีสัญญาณ</span></span></button>
+  <button class="menu-item" id="offOpen"><span class="mi">⬇️</span><span><b>เตรียมออฟไลน์สำหรับบริเวณนี้</b><span class="sub">เก็บแผนที่ แหล่งน้ำ ระดับน้ำ และพยากรณ์ ไว้ใช้ตอนไม่มีสัญญาณ</span></span></button>
   <button class="menu-item" data-act="toggle-track"><span class="mi">👣</span><span><b>${S.track.on ? 'หยุดโหมดเดินทาง' : 'โหมดเดินทาง'}</b><span class="sub">บันทึกเส้นทางที่เดิน เปิดจอค้าง ไว้นำทางกลับจุดเริ่ม</span></span></button>`);
   $('#offOpen').onclick = offlineSheet;
   $$('#sheet [data-layer]').forEach(b => b.onclick = () => { setLayer(b.dataset.layer); $$('#sheet [data-layer]').forEach(x => x.classList.toggle('sel', x === b)); });
@@ -211,6 +211,7 @@ function offlinePlan() {
   const list = z1 => { const out = []; for (let z = Math.max(z0 - 3, 5); z <= z1; z++) { const x0 = lon2x(b.getWest(), z), x1 = lon2x(b.getEast(), z), y0 = lat2y(b.getNorth(), z), y1 = lat2y(b.getSouth(), z); for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) ly.urls.forEach(u => out.push(u.replace('{z}', z).replace('{x}', x).replace('{y}', y))); } return out; };
   let z1 = Math.min(z0 + 3, ly.maxZ), urls = list(z1);
   while (urls.length > OFF.cap && z1 > z0) urls = list(--z1);
+  if (S.layer === 'vec') ['Noto Sans Regular', 'Noto Sans Bold', 'Noto Sans Italic'].forEach(f => ['0-255', '3584-3839', '8192-8447'].forEach(g => urls.push(`https://tiles.openfreemap.org/fonts/${encodeURIComponent(f)}/${g}.pbf`)));   // ตัวอักษรไทย/อังกฤษของแผนที่
   return { urls, z0, z1, ly, tooBig: urls.length > OFF.cap };
 }
 async function offlineCount() { try { return (await (await caches.open('pranpla-offline')).keys()).length; } catch { return 0; } }
@@ -224,7 +225,7 @@ async function offlineSheet() {
   <span>ความละเอียด</span><b>${S.layer === 'vec' && p.z1 >= 14 ? 'เต็ม (เวกเตอร์ซูมได้ทุกระดับ)' : 'ซูมได้ถึงระดับ ' + p.z1}${S.layer === 'vec' ? '' : p.z1 >= 16 ? ' (เห็นถนนเล็ก ทางเดิน)' : p.z1 >= 14 ? ' (เห็นถนนและแหล่งน้ำ)' : ' (ภาพรวม)'}</b>
   <span>ขนาด</span><b>${p.urls.length} แผ่น ~${(p.urls.length * p.ly.kb / 1024).toFixed(1)} MB</b><span>เก็บไว้แล้ว</span><b id="offHave">${have} แผ่น</b></div>
   ${p.tooBig ? '<div class="warn">พื้นที่กว้างเกินไป ซูมเข้าให้แคบลงก่อนแล้วลองใหม่</div>' : p.z1 < Math.min(15, p.ly.maxZ) ? '<div class="warn">พื้นที่กว้าง เลยเก็บได้แค่ระดับภาพรวม ถ้าอยากเห็นละเอียด ให้ซูมเข้าไปที่จุดตกปลาแล้วกดเก็บอีกรอบ</div>' : ''}
-  <div class="prog hidden" id="offProg"><i></i></div><div class="sub" id="offMsg">เก็บทีละบริเวณ เก็บได้หลายรอบและหลายชั้นแผนที่ ควรทำตอนต่อ Wi-Fi</div>
+  <div class="prog hidden" id="offProg"><i></i></div><div class="sub" id="offMsg">เก็บแผนที่ แหล่งน้ำ ระดับน้ำ และพยากรณ์ 14 วันของบริเวณนี้ในครั้งเดียว เก็บได้หลายรอบ ควรทำตอนต่อ Wi-Fi<span id="offUse"></span></div>
   <div class="row"><button class="btn acc" id="offGo" ${p.tooBig ? 'disabled' : ''}>ดาวน์โหลดบริเวณนี้</button><button class="btn ghost" id="offDel">ลบแผนที่ออฟไลน์ทั้งหมด</button></div>`);
   $('#offGo').onclick = async e => {
     if (OFF.running) { OFF.cancel = true; return; }
@@ -232,10 +233,18 @@ async function offlineSheet() {
     const cache = await caches.open('pranpla-offline'), q = p.urls.slice(); let done = 0, fail = 0;
     const worker = async () => { while (q.length && !OFF.cancel) { const u = q.shift(); try { if (!(await cache.match(u))) { const r = await fetch(u + '#dl'); if (!r.ok) throw 0; await cache.put(u, r); } } catch { fail++; } done++; const bar = $('#offProg i'); if (bar) { bar.style.width = (done / p.urls.length * 100) + '%'; $('#offMsg').textContent = `${done}/${p.urls.length} แผ่น${fail ? ` · พลาด ${fail}` : ''}`; } } };
     await Promise.all([worker(), worker(), worker(), worker()]);
+    let extra = '';
+    if (!OFF.cancel) {   // เก็บข้อมูลอื่นของบริเวณนี้ไว้ด้วย: แหล่งน้ำ ระดับน้ำ พยากรณ์ของกลางจอและหมุดในจอ
+      if ($('#offMsg')) $('#offMsg').textContent = 'กำลังเก็บแหล่งน้ำ ระดับน้ำ และพยากรณ์…';
+      const bb = map.getBounds(), c = bb.getCenter(), pts = [{ lat: c.lat, lng: c.lng }].concat(S.spots.filter(s => bb.contains([s.lat, s.lng])).slice(0, 8));
+      const [, D, ...fx] = await Promise.all([findWater(true), loadDams(), ...pts.map(wxPrefetch)]);
+      extra = ` · แหล่งน้ำ ${(S.water || []).length} แห่ง · พยากรณ์ 14 วัน ${fx.filter(Boolean).length}/${pts.length} จุด${D ? ' · ระดับน้ำ' : ''}`;
+    }
     OFF.running = false; const n = await offlineCount();
-    if ($('#offMsg')) { $('#offMsg').textContent = OFF.cancel ? `หยุดแล้ว เก็บได้ ${done - fail} แผ่น` : fail ? `เสร็จ แต่พลาด ${fail} แผ่น กดดาวน์โหลดอีกครั้งเพื่อเก็บส่วนที่ขาด` : '✅ เก็บครบแล้ว บริเวณนี้เปิดได้โดยไม่ต้องมีเน็ต'; $('#offHave').textContent = n + ' แผ่น'; $('#offGo').textContent = 'ดาวน์โหลดบริเวณนี้'; }
+    if ($('#offMsg')) { $('#offMsg').textContent = OFF.cancel ? `หยุดแล้ว เก็บได้ ${done - fail} แผ่น` : fail ? `แผนที่พลาด ${fail} แผ่น กดดาวน์โหลดอีกครั้งเพื่อเก็บส่วนที่ขาด${extra}` : '✅ เก็บครบแล้ว บริเวณนี้เปิดได้โดยไม่ต้องมีเน็ต' + extra; $('#offHave').textContent = n + ' แผ่น'; $('#offGo').textContent = 'ดาวน์โหลดบริเวณนี้'; }
     else toast(fail ? `เก็บแผนที่เสร็จ พลาด ${fail} แผ่น` : 'เก็บแผนที่ออฟไลน์ครบแล้ว ✅');
   };
+  navigator.storage?.estimate?.().then(e => { const el = $('#offUse'); if (el && e.usage) el.textContent = ` · ใช้พื้นที่ในเครื่อง ${(e.usage / 1048576).toFixed(0)} MB`; });
   let armed = false;
   $('#offDel').onclick = async e => { if (!armed) { armed = true; e.target.textContent = 'แตะอีกครั้งเพื่อลบ'; return; } await caches.delete('pranpla-offline'); $('#offHave').textContent = '0 แผ่น'; e.target.textContent = 'ลบแล้ว'; };
 }
@@ -289,6 +298,7 @@ if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEve
 function renderCompass() {
   const h = S.heading;
   $('#mcRose').style.transform = `rotate(${h == null ? 0 : -h}deg)`;
+  $$('#compassDial .cdir, #mcRose .mc-t').forEach(t => t.setAttribute('transform', `rotate(${h || 0} ${t.getAttribute('x')} ${t.getAttribute('y') - (t.classList.contains('mc-t') ? 4 : 6)})`));   // ตัวอักษรทิศตั้งตรงเสมอ
   $('#mcDeg').textContent = h == null ? 'เข็มทิศ' : Math.round(h) + '° ' + dirE(h);
   const mt = $('#mcTarget');
   if (S.target && S.pos) { mt.classList.remove('hidden'); mt.style.transform = `rotate(${bearing(S.pos, S.target) - (h || 0)}deg)`; } else mt.classList.add('hidden');
@@ -567,19 +577,37 @@ $('#tReturn').onclick = returnToStart;
 
 /* ============ water bodies (Overpass) ============ */
 const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
-async function findWater() {
+let waterC = null;
+async function waterAll() { if (!waterC) { try { waterC = (await DB.get('water')) || []; } catch { waterC = []; } } return waterC; }
+async function waterKeep(list) {
+  const all = await waterAll(), key = w => (w.name || '') + '|' + w.lat.toFixed(4) + ',' + w.lng.toFixed(4), have = new Set(all.map(key));
+  list.forEach(w => { if (!have.has(key(w))) all.push({ lat: w.lat, lng: w.lng, name: w.name, kind: w.kind, fishing: w.fishing }); });
+  if (all.length > 3000) all.splice(0, all.length - 3000);
+  DB.set('water', all).catch(() => {});
+}
+function drawWater(list) {
+  list.forEach(w => L.marker([w.lat, w.lng], {
+    icon: L.divIcon({ className: '', html: `<div class="wmk"><i style="${w.fishing ? 'background:#f59e0b' : ''}">${w.fishing ? '🎣' : '💧'}</i>${w.name ? `<b>${esc(w.name)}</b>` : ''}</div>`, iconSize: [120, 44], iconAnchor: [60, 14] })
+  }).on('click', () => waterSheet(w)).addTo(gWater));
+}
+async function findWater(silent) {
+  silent = silent === true;
   const c = map.getCenter(), b = map.getBounds();
   const r = Math.round(clamp(dist({ lat: c.lat, lng: c.lng }, { lat: b.getNorth(), lng: c.lng }) * 1.3, 800, 9000));
   const ar = `(around:${r},${c.lat.toFixed(5)},${c.lng.toFixed(5)})`;
   const q = `[out:json][timeout:25];(nwr["natural"="water"]${ar};nwr["landuse"="reservoir"]${ar};nwr["leisure"="fishing"]${ar};nwr["waterway"~"^(river|canal|stream)$"]["name"]${ar};);out center tags 400;`;
-  toast('กำลังค้นหาแหล่งน้ำในรัศมี ' + fmtDist(r) + '…', 8000);
+  silent || toast('กำลังค้นหาแหล่งน้ำในรัศมี ' + fmtDist(r) + '…', 8000);
   let data = null;
-  for (const u of OVERPASS) {
+  for (const u of navigator.onLine === false ? [] : OVERPASS) {
     try { const res = await fetch(u, { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }); if (res.ok) { data = JSON.parse(await res.text()); break; } } catch {}
   }
   gWater.clearLayers();
   loadDams().then(D => { if (!D) return; D.list.filter(x => dist({ lat: c.lat, lng: c.lng }, x) <= r * 1.5).forEach(x => L.marker([x.lat, x.lng], { zIndexOffset: 500, icon: L.divIcon({ className: '', html: `<div class="wmk"><i style="background:${damColor(x.pct)};width:38px;height:38px;font-size:11px;font-weight:700;color:#fff">${x.pct.toFixed(0)}%</i><b>${esc(x.n)}</b></div>`, iconSize: [140, 56], iconAnchor: [70, 19] }) }).on('click', () => waterSheet({ lat: x.lat, lng: x.lng, name: x.n, kind: x.type === 'L' ? 'เขื่อนขนาดใหญ่' : x.type === 'M' ? 'อ่างเก็บน้ำขนาดกลาง' : 'อ่างเก็บน้ำขนาดเล็ก' })).addTo(gWater)); });
-  if (!data) return toast('เซิร์ฟเวอร์แหล่งน้ำไม่ว่างหรือไม่มีเน็ต แสดงได้เฉพาะเขื่อน/อ่างที่มีระดับน้ำ ลองกดอีกครั้งภายหลัง', 4500);
+  if (!data) {   // ออฟไลน์/เซิร์ฟเวอร์ล่ม: ใช้แหล่งน้ำที่เคยโหลดเก็บไว้
+    const all = await waterAll(), list = all.map(w => ({ ...w, d: dist({ lat: c.lat, lng: c.lng }, w) })).filter(w => w.d <= r * 1.3).sort((p, q) => p.d - q.d).slice(0, 150);
+    S.water = list; drawWater(list);
+    return silent || toast(list.length ? `ออฟไลน์: แสดงแหล่งน้ำที่เก็บไว้ ${list.length} แห่ง` : 'ไม่มีเน็ต และยังไม่เคยโหลดแหล่งน้ำบริเวณนี้ไว้', 4500);
+  }
   const seen = new Set(), out = [];
   for (const e of data.elements || []) {
     const lat = e.lat ?? e.center?.lat, lng = e.lon ?? e.center?.lon; if (lat == null) continue;
@@ -592,10 +620,8 @@ async function findWater() {
   }
   out.sort((a, b) => (b.fishing - a.fishing) || (!!b.name - !!a.name) || a.d - b.d);
   const list = out.slice(0, 120); S.water = list;
-  list.forEach(w => L.marker([w.lat, w.lng], {
-    icon: L.divIcon({ className: '', html: `<div class="wmk"><i style="${w.fishing ? 'background:#f59e0b' : ''}">${w.fishing ? '🎣' : '💧'}</i>${w.name ? `<b>${esc(w.name)}</b>` : ''}</div>`, iconSize: [120, 44], iconAnchor: [60, 14] })
-  }).on('click', () => waterSheet(w)).addTo(gWater));
-  toast(list.length ? `เจอแหล่งน้ำ ${list.length} แห่ง แตะหมุดเพื่อดูรายละเอียด` : 'ไม่พบแหล่งน้ำในบริเวณนี้ ลองซูมออกแล้วค้นใหม่');
+  drawWater(list); waterKeep(list);
+  silent || toast(list.length ? `เจอแหล่งน้ำ ${list.length} แห่ง แตะหมุดเพื่อดูรายละเอียด` : 'ไม่พบแหล่งน้ำในบริเวณนี้ ลองซูมออกแล้วค้นใหม่');
 }
 function waterSheet(w) {
   const nm = w.name || w.kind + ' (ไม่มีชื่อ)';
@@ -614,7 +640,7 @@ function waterSheet(w) {
   $('#wFc').onclick = () => { closeSheet(); loadForecast({ lat: w.lat, lng: w.lng, name: nm }); showTab('forecast'); };
   $('#wNav').onclick = () => { setTarget({ lat: w.lat, lng: w.lng, name: nm }); closeSheet(); showTab('tools'); };
 }
-$('#btnWater').onclick = findWater;
+$('#btnWater').onclick = () => findWater();
 
 /* ============ ระดับน้ำเขื่อน/อ่าง (คลังข้อมูลน้ำแห่งชาติ thaiwater.net) ============ */
 let damMem = null, damPromise = null;
@@ -690,7 +716,8 @@ async function doSearch(q, typing) {
   S.spots.filter(s => norm(s.name + s.fish + s.note + (s.rules || '')).includes(nq)).forEach(s => res.push({ lat: s.lat, lng: s.lng, name: s.name, sub: '📍 จุดของฉัน', pri: 0, spotId: s.id }));
   S.catches.filter(k => norm(k.species + (k.bait || '') + (k.note || '')).includes(nq)).slice(0, 12).forEach(k => { const sp = S.spots.find(s => s.id === k.spotId), lat = k.lat ?? sp?.lat, lng = k.lng ?? sp?.lng; if (lat == null) return;
     res.push({ lat, lng, name: k.species + (k.wt ? ` ${k.wt} กก.` : k.len ? ` ${k.len} ซม.` : ''), sub: `🐟 ปลาที่จับได้ · ${new Date(k.t).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}${k.bait ? ' · ' + k.bait : ''}${sp ? ' · ' + sp.name : ''}`, pri: 0, catchId: k.id }); });
-  (S.water || []).filter(w => w.name && norm(w.name).includes(nq)).forEach(w => res.push({ lat: w.lat, lng: w.lng, name: w.name, sub: '💧 ' + w.kind, pri: 1 }));
+  (waterC || S.water || []).filter(w => w.name && norm(w.name).includes(nq)).slice(0, 40).forEach(w => res.push({ lat: w.lat, lng: w.lng, name: w.name, sub: '💧 ' + w.kind, pri: 1 }));
+  loadTambons().then(T => { if (!T || seq !== searchSeq) return; T.filter(t => norm(t[2]).includes(nq) || norm(t[3]) === nq).slice(0, 15).forEach(t => res.push({ lat: t[0], lng: t[1], name: 'ต.' + t[2], sub: 'ตำบล · อ.' + t[3], pri: 3 })); render(left > 0); });
   const render = loading => {
     if (seq !== searchSeq) return;
     const seen = [], list = [];
@@ -707,7 +734,8 @@ async function doSearch(q, typing) {
       else { searchPin.setLatLng([r.lat, r.lng]).addTo(map).bindPopup(`<b>${esc(r.name)}</b><br>กดค้างบนแผนที่เพื่อปักหมุด`).openPopup(); }
     });
   };
-  render(true);
+  let left = typing ? 1 : 3; render(true);
+  if (navigator.onLine === false) { left = 0; render(false); return; }
   const d = .9, vb = `${(c.lng - d).toFixed(3)},${(c.lat + d).toFixed(3)},${(c.lng + d).toFixed(3)},${(c.lat - d).toFixed(3)}`;
   const nomi = extra => fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=12&accept-language=th&countrycodes=th&addressdetails=1&q=${encodeURIComponent(q)}${extra}`).then(r => r.json()).then(js => js.forEach(p => {
     const ad = p.address || {}, area = [ad.village || ad.hamlet || ad.suburb, ad.town || ad.city || ad.municipality || ad.county, ad.state].filter(Boolean).join(' · ');
@@ -717,7 +745,7 @@ async function doSearch(q, typing) {
     const p = f.properties || {}, g = f.geometry?.coordinates; if (!g || !p.name || (p.countrycode && p.countrycode !== 'TH')) return;
     res.push({ lat: g[1], lng: g[0], name: p.name, sub: [KIND_TH[p.osm_value] || KIND_TH[p.osm_key], p.district || p.city || p.county, p.state].filter(Boolean).join(' · '), pri: 2 });
   })).catch(() => {});
-  let left = typing ? 1 : 3; const done = () => render(--left > 0);
+  const done = () => render(--left > 0);
   photon.then(done);                                   // สะกดไม่เป๊ะก็เจอ ใช้ตอนพิมพ์ได้
   if (typing) return;                                  // Nominatim ห้ามยิงทุกตัวอักษร: ใช้เฉพาะตอนกดค้นหา
   nomi(`&viewbox=${vb}&bounded=1`).then(done);        // ใกล้แผนที่ก่อน (~100 กม.)
@@ -829,14 +857,27 @@ function buildWx(d, lat, lng) {
   for (let i = 0; i < next.length - 1; i++) if (next[i].score + next[i + 1].score > next[bi].score + next[bi + 1].score) bi = i;
   return { H, ni, next, bi, days, ev: ev.filter(e => e.t > nowMs - 36e5 && e.t < nowMs + 26 * 36e5), now: H[ni], lat, lng, fetched: d._fetched || Date.now() };
 }
+let wxC = null;   // พยากรณ์ที่เก็บไว้ใช้ออฟไลน์ (หลายจุด)
+async function wxCacheAll() { if (!wxC) { try { wxC = (await DB.get('wxc')) || []; } catch { wxC = []; } } return wxC; }
+async function wxCachePut(loc, d) {
+  const all = await wxCacheAll(), i = all.findIndex(x => dist(x, loc) < 3000);
+  const rec = { lat: loc.lat, lng: loc.lng, t: Date.now(), d }; if (i >= 0) all.splice(i, 1); all.unshift(rec); all.length = Math.min(all.length, 20);
+  DB.set('wxc', all).catch(() => {});
+}
+async function wxCacheGet(loc) {
+  const all = await wxCacheAll(), ok = all.filter(x => Date.now() - x.t < 13 * 864e5).map(x => ({ x, d: dist(x, loc) })).filter(o => o.d < 30000).sort((p, q) => p.d - q.d)[0];
+  return ok ? ok.x.d : null;
+}
+async function wxPrefetch(loc) { try { if ((await wxCacheAll()).some(x => dist(x, loc) < 3000 && Date.now() - x.t < 3 * 36e5)) return true; const r = await fetch(wxUrl(loc)); if (!r.ok) return false; const d = await r.json(); d._fetched = Date.now(); await wxCachePut(loc, d); return true; } catch { return false; } }
+const wxUrl = loc => `https://api.open-meteo.com/v1/forecast?latitude=${loc.lat.toFixed(4)}&longitude=${loc.lng.toFixed(4)}&hourly=wind_gusts_10m,temperature_2m,relative_humidity_2m,precipitation_probability,precipitation,weather_code,pressure_msl,surface_pressure,cloud_cover,wind_speed_10m,wind_direction_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=14&past_days=1`;
 async function loadForecast(loc) {
   if (loc) S.fcLoc = loc; loc = S.fcLoc; if (!loc) return;
   $('#fcPlace').textContent = loc.name;
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${loc.lat.toFixed(4)}&longitude=${loc.lng.toFixed(4)}&hourly=wind_gusts_10m,temperature_2m,relative_humidity_2m,precipitation_probability,precipitation,weather_code,pressure_msl,surface_pressure,cloud_cover,wind_speed_10m,wind_direction_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=14&past_days=1`;
+  const url = wxUrl(loc);
   let d = null, stale = false;
-  try { const r = await fetch(url); if (!r.ok) throw 0; d = await r.json(); d._fetched = Date.now(); ls.set('wx', { loc, d }); }
-  catch { const c = ls.get('wx'); if (c && dist(c.loc, loc) < 30000) { d = c.d; stale = true; } }
-  if (!d) { $('#fcBody').innerHTML = '<div class="empty">โหลดพยากรณ์ไม่ได้ ต้องต่อเน็ตอย่างน้อยครั้งแรก<br><br><button class="btn" onclick="loadForecast()">ลองใหม่</button></div>'; return; }
+  try { const r = await fetch(url); if (!r.ok) throw 0; d = await r.json(); d._fetched = Date.now(); wxCachePut(loc, d); }
+  catch { d = await wxCacheGet(loc); stale = !!d; }
+  if (!d) { $('#fcBody').innerHTML = '<div class="empty">โหลดพยากรณ์ไม่ได้ ยังไม่มีพยากรณ์ของบริเวณนี้เก็บไว้ (ต้องต่อเน็ตสักครั้ง หรือกด “เตรียมออฟไลน์” ไว้ก่อนออกทริป)<br><br><button class="btn" onclick="loadForecast()">ลองใหม่</button></div>'; return; }
   if (!loc.place) placeName(loc.lat, loc.lng).then(p => { if (p && p.short && S.fcLoc === loc) { loc.place = p; showPlace(); } });
   try { S.wx = buildWx(d, loc.lat, loc.lng); S.wx.stale = stale; } catch (e) { console.error(e); $('#fcBody').innerHTML = '<div class="empty">ข้อมูลพยากรณ์ผิดรูปแบบ</div>'; return; }
   renderForecast(); renderTools();
@@ -969,6 +1010,7 @@ function drawRain() {
   $('#rainLabel').innerHTML = `<b>${h === 0 ? 'ตอนนี้' : '+' + h + ' ชม.'} · ${pad(t.getHours())}:00</b> ${wet ? `มีโอกาสฝน ${wet}/${R.grid.length} ช่อง` : 'ไม่มีฝนในบริเวณที่เห็น'}${h === 0 ? (R.radarTime ? ` · เรดาร์ ${hm(R.radarTime)}` : ' · ไม่มีภาพเรดาร์') : ''}`;
 }
 async function setRain(on) {
+  if (on && navigator.onLine === false) return toast('แผนที่ฝนต้องใช้เน็ต · ดูโอกาสฝนรายชั่วโมงที่เก็บไว้ได้ในหน้าพยากรณ์', 4500);
   R.on = on; $('#btnRain').classList.toggle('on', on); $('#rainBar').classList.toggle('hidden', !on);
   if (!on) { gRain.clearLayers(); if (R.radar) map.removeLayer(R.radar); return; }
   R.hour = 0; $('#rainSlider').value = 0; R.key = '';
@@ -1137,6 +1179,15 @@ $$('#themeSeg button').forEach(b => b.onclick = () => {
 mqLight.addEventListener?.('change', applyTheme);
 applyTheme();
 
+/* ============ สถานะออนไลน์/ออฟไลน์ ============ */
+function netState() {
+  const off = navigator.onLine === false; $('#offPill').classList.toggle('hidden', !off);
+  if (!off && S.fcLoc && S.wx?.stale) loadForecast();
+}
+window.addEventListener('online', () => { netState(); toast('กลับมาออนไลน์แล้ว'); });
+window.addEventListener('offline', () => { netState(); toast('ออฟไลน์ — ใช้ข้อมูลที่เก็บไว้ในเครื่อง', 3500); });
+$('#offPill').onclick = () => toast('ออฟไลน์อยู่: แผนที่ที่เก็บไว้ หมุด บันทึก เข็มทิศ พิกัด ไฟฉาย และพยากรณ์ที่โหลดไว้ ยังใช้ได้ · เรดาร์ฝนและการค้นหาสถานที่ใหม่ต้องใช้เน็ต', 7000);
+
 /* ============ tabs ============ */
 function showTab(t) {
   $$('.view').forEach(v => v.classList.toggle('show', v.id === 'view-' + t));
@@ -1157,7 +1208,7 @@ $$('.tabbar [data-tab]').forEach(b => b.onclick = () => showTab(b.dataset.tab));
   } catch { toast('เปิดที่เก็บข้อมูลในเครื่องไม่ได้ ข้อมูลจะไม่ถูกบันทึก'); }
   renderSpots(); renderLog(); renderChecklist(); renderTools(); $('#crosshair').classList.toggle('hidden', !OPT.cross);
   const sn = season(); $('#seasonPillText').textContent = `${sn.icon} ${sn.name}`;
-  importPinFromHash();
+  importPinFromHash(); netState(); waterAll();
   startGeo();
   setTimeout(() => { if (!S.fcLoc) { const c = map.getCenter(); loadForecast({ lat: c.lat, lng: c.lng, name: 'กลางแผนที่ (ยังไม่มี GPS)', auto: true }); } }, 3500);
   setInterval(() => { if ($('#view-tools').classList.contains('show')) renderTools(); }, 30000);
