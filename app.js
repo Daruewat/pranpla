@@ -126,6 +126,7 @@ function updateCoordBar() {
 }
 function updateCross() {
   if ($('#crosshair').classList.contains('hidden')) return;
+  $('#crossSV').href = svUrl({ lat: map.getCenter().lat, lng: map.getCenter().lng });
   const c = map.getCenter(), d = S.pos ? dist(S.pos, { lat: c.lat, lng: c.lng }) : null;
   $('#crossLbl').innerHTML = `<b>${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}</b>${d != null && d > 15 ? `<small>ห่าง ${fmtDist(d)} · ทิศ ${Math.round(bearing(S.pos, { lat: c.lat, lng: c.lng }))}° ${dirE(bearing(S.pos, { lat: c.lat, lng: c.lng }))}</small>` : ''}`;
 }
@@ -408,6 +409,8 @@ function spotForm(init) {
     save('spots'); renderSpots(); renderLog(); closeSheet(); toast('บันทึกหมุดแล้ว');
   };
 }
+const svUrl = p => `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${(+p.lat).toFixed(6)},${(+p.lng).toFixed(6)}`;
+const svBtn = p => `<a class="btn ghost" href="${svUrl(p)}" target="_blank" rel="noopener">🚶 ภาพถนน</a>`;
 function gmaps(p) { return `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}`; }
 function spotSheet(id) {
   const s = S.spots.find(x => x.id === id); if (!s) return;
@@ -423,6 +426,7 @@ function spotSheet(id) {
   <div class="row">
     <button class="btn acc" id="spNav">🧭 นำทางด้วยเข็มทิศ</button>
     <a class="btn ghost" href="${gmaps(s)}" target="_blank" rel="noopener">Google Maps</a>
+    ${svBtn(s)}
     <button class="btn ghost" id="spFc">🌤️ พยากรณ์ที่นี่</button>
     <button class="btn ghost" id="spCatch">🐟 บันทึกปลาที่นี่</button>
     <button class="btn ghost" id="spShare">📤 แชร์หมุด</button>
@@ -634,6 +638,7 @@ function waterSheet(w) {
     <button class="btn ghost" id="wFc">🌤️ พยากรณ์ที่นี่</button>
     <button class="btn ghost" id="wNav">🧭 นำทางด้วยเข็มทิศ</button>
     <a class="btn ghost" href="${gmaps(w)}" target="_blank" rel="noopener">Google Maps</a>
+    ${svBtn(w)}
   </div>`);
   damNear(w, 4000).then(h => { const el = $('#spDam'); if (el && h) el.innerHTML = h; });
   $('#wSave').onclick = () => spotForm({ lat: w.lat, lng: w.lng, name: w.name || '', type: 'fish' });
@@ -731,7 +736,7 @@ async function doSearch(q, typing) {
       S.follow = false; $('#btnLocate').classList.remove('follow'); map.setView([r.lat, r.lng], 15);
       if (r.catchId) catchSheet(r.catchId);
       else if (r.spotId) spotSheet(r.spotId);
-      else { searchPin.setLatLng([r.lat, r.lng]).addTo(map).bindPopup(`<b>${esc(r.name)}</b><br>กดค้างบนแผนที่เพื่อปักหมุด`).openPopup(); }
+      else { searchPin.setLatLng([r.lat, r.lng]).addTo(map).bindPopup(`<b>${esc(r.name)}</b><br>กดค้างบนแผนที่เพื่อปักหมุด<br><a href="${svUrl(r)}" target="_blank" rel="noopener">ดูภาพถนน (Street View)</a>`).openPopup(); }
     });
   };
   let left = typing ? 1 : 3; render(true);
