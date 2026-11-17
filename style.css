@@ -358,3 +358,6 @@ html,body{font-family:Anuphan,system-ui,sans-serif;font-size:15.5px;font-feature
 .crosslbl small{display:block;font-weight:400;font-size:11px;color:var(--tx2)}
 
 .mk .i{transform:none}
+
+.trk{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 0;border-top:1px solid var(--line);cursor:pointer}
+.trk b{font-weight:600}.trk>span{color:var(--tx3);font-size:22px}

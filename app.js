@@ -56,7 +56,7 @@ const DB = (() => {
 
 /* ============ state ============ */
 const S = {
-  spots: [], catches: [], track: { on: false, pts: [], started: null },
+  spots: [], catches: [], tracks: [], track: { on: false, pts: [], started: null },
   pos: null, heading: null, target: null, follow: true,
   wx: null, fcLoc: null, layer: ls.get('layer', 'light'), firstFix: false
 };
@@ -496,32 +496,73 @@ function catchSheet(id) {
 
 /* ============ track ============ */
 let wakeLock = null;
-async function toggleTrack() {
-  S.track.on = !S.track.on;
-  if (S.track.on) {
-    S.track.pts = []; S.track.started = Date.now(); trackLine.setLatLngs([]);
-    if (S.pos) { S.track.pts.push([S.pos.lat, S.pos.lng, Date.now()]); trackLine.addLatLng([S.pos.lat, S.pos.lng]); }
+const ptsLen = p => { let d = 0; for (let i = 1; i < p.length; i++) d += dist({ lat: p[i - 1][0], lng: p[i - 1][1] }, { lat: p[i][0], lng: p[i][1] }); return d; };
+const trackLen = () => ptsLen(S.track.pts);
+const trkDate = t => new Date(t).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) + ' ' + hm(new Date(t));
+function archiveTrack() {   // เก็บเส้นทางปัจจุบันเข้าประวัติ (อัปเดตรายการเดิมถ้าเป็นการเดินต่อ)
+  const t = S.track; if (!t.pts || t.pts.length < 2) return;
+  const rec = { id: t.id || uid(), name: t.name || 'เส้นทาง ' + trkDate(t.started || Date.now()), started: t.started || t.pts[0][2] || Date.now(), ended: Date.now(), pts: t.pts.slice(), len: Math.round(ptsLen(t.pts)) };
+  t.id = rec.id; t.name = rec.name;
+  const i = S.tracks.findIndex(x => x.id === rec.id); if (i >= 0) S.tracks[i] = rec; else S.tracks.unshift(rec);
+  save('tracks');
+}
+async function toggleTrack(resumeId) {
+  if (!S.track.on) {
+    const r = typeof resumeId === 'string' ? S.tracks.find(x => x.id === resumeId) : null;
+    S.track = r ? { on: true, id: r.id, name: r.name, started: r.started, pts: r.pts.slice() } : { on: true, id: uid(), name: '', started: Date.now(), pts: [] };
+    trackLine.setLatLngs(S.track.pts.map(p => [p[0], p[1]]));
+    if (S.pos) { S.track.pts.push([+S.pos.lat.toFixed(6), +S.pos.lng.toFixed(6), Date.now()]); trackLine.addLatLng([S.pos.lat, S.pos.lng]); }
     try { wakeLock = await navigator.wakeLock?.request('screen'); } catch {}
-    toast('เริ่มบันทึกเส้นทาง — เปิดจอแอปค้างไว้ระหว่างเดิน', 4000);
-  } else { try { await wakeLock?.release(); } catch {} wakeLock = null; toast('หยุดบันทึกเส้นทาง ' + fmtDist(trackLen())); }
+    toast((r ? 'เดินต่อจากเส้นทางเดิม' : 'เริ่มบันทึกเส้นทาง') + ' — เปิดจอแอปค้างไว้ระหว่างเดิน', 4000);
+  } else {
+    S.track.on = false; try { await wakeLock?.release(); } catch {} wakeLock = null; archiveTrack();
+    toast(S.track.pts.length < 2 ? 'หยุดแล้ว (สั้นเกินไป ไม่ได้เก็บเข้าประวัติ)' : `หยุดแล้ว ${fmtDist(trackLen())} — เก็บไว้ในประวัติเส้นทางที่แท็บบันทึก`, 4000);
+  }
   save('track'); renderTrackUI();
 }
 document.addEventListener('visibilitychange', async () => { if (document.visibilityState === 'visible' && S.track.on) { try { wakeLock = await navigator.wakeLock?.request('screen'); } catch {} } });
-function trackLen() { let d = 0; const p = S.track.pts; for (let i = 1; i < p.length; i++) d += dist({ lat: p[i - 1][0], lng: p[i - 1][1] }, { lat: p[i][0], lng: p[i][1] }); return d; }
 function renderTrackUI() {
   $('#btnTrack').classList.toggle('on', S.track.on); $('#trackLabel').textContent = S.track.on ? 'กำลังอัด' : 'เส้นทาง';
-  const p = S.track.pts;
-  $('#trackInfo').innerHTML = p.length ? `<div class="kv"><span>สถานะ</span><b>${S.track.on ? '🔴 กำลังบันทึก' : 'หยุดแล้ว'}</b><span>ระยะทาง</span><b>${fmtDist(trackLen())}</b><span>จุดเริ่ม</span><b class="mono">${p[0][0].toFixed(5)}, ${p[0][1].toFixed(5)}</b></div>
-    <div class="row"><button class="btn small acc" id="trkBack">↩️ นำทางกลับจุดเริ่ม</button><button class="btn small ghost" id="trkToggle">${S.track.on ? 'หยุด' : 'เริ่มใหม่'}</button></div>`
-    : `<div class="sub">ยังไม่มีเส้นทาง กดปุ่ม 👣 บนแผนที่ก่อนเดินเข้าป่า/ริมน้ำ แอปจะลากเส้นทางที่เดิน ไว้ย้อนกลับได้</div><div class="row"><button class="btn small" id="trkToggle">เริ่มบันทึกเส้นทาง</button></div>`;
-  $('#trkToggle').onclick = toggleTrack;
+  const p = S.track.pts || [];
+  $('#trackInfo').innerHTML = (S.track.on ? `<div class="kv"><span>สถานะ</span><b>🔴 กำลังบันทึก</b><span>ระยะทาง</span><b>${fmtDist(trackLen())}</b>${p.length ? `<span>จุดเริ่ม</span><b class="mono">${p[0][0].toFixed(5)}, ${p[0][1].toFixed(5)}</b>` : ''}</div>
+    <div class="row"><button class="btn small acc" id="trkBack">↩️ นำทางกลับจุดเริ่ม</button><button class="btn small ghost" id="trkToggle">หยุดและเก็บ</button></div>`
+    : `<div class="sub">กดปุ่มเส้นทางบนแผนที่ก่อนเดินเข้าป่า/ริมน้ำ แอปจะลากเส้นที่เดิน พอกดหยุดจะเก็บเข้าประวัติด้านล่าง เปิดดูหรือเดินต่อได้</div><div class="row"><button class="btn small" id="trkToggle">เริ่มเส้นทางใหม่</button></div>`)
+    + (S.tracks.length ? `<div class="card-h" style="margin-top:14px;font-size:15px">ประวัติเส้นทาง (${S.tracks.length})</div>` + S.tracks.map(t => `<div class="trk" data-trk="${t.id}"><div><b>${esc(t.name)}</b><div class="sub">${trkDate(t.started)} · ${fmtDist(t.len)} · ${durTxt(Math.max(0, (t.ended || t.started) - t.started))}</div></div><span>›</span></div>`).join('') : '');
+  $('#trkToggle').onclick = () => toggleTrack();
   if ($('#trkBack')) $('#trkBack').onclick = returnToStart;
+  $$('#trackInfo [data-trk]').forEach(el => el.onclick = () => trackSheet(el.dataset.trk));
+}
+function showTrackOnMap(t) {
+  trackLine.setLatLngs(t.pts.map(p => [p[0], p[1]])); S.follow = false; $('#btnLocate').classList.remove('follow');
+  showTab('map'); setTimeout(() => { try { map.fitBounds(trackLine.getBounds().pad(.2), { maxZoom: 17 }); } catch {} }, 80);
+}
+function trackSheet(id) {
+  const t = S.tracks.find(x => x.id === id); if (!t) return;
+  const a = t.pts[0], b = t.pts[t.pts.length - 1];
+  openSheet(`<h3>👣 เส้นทาง</h3>
+  <div class="form"><label>ชื่อ</label><input id="trkName" value="${esc(t.name)}"></div>
+  <div class="kv"><span>เริ่ม</span><b>${trkDate(t.started)}</b><span>ระยะทาง</span><b>${fmtDist(t.len)}</b><span>ใช้เวลา</span><b>${durTxt(Math.max(0, (t.ended || t.started) - t.started))}</b>
+  <span>จุดเริ่ม</span><b class="mono">${a[0].toFixed(5)}, ${a[1].toFixed(5)}</b><span>จุดสิ้นสุด</span><b class="mono">${b[0].toFixed(5)}, ${b[1].toFixed(5)}</b>${S.pos ? `<span>ปลายทางห่างฉัน</span><b>${fmtDist(dist(S.pos, { lat: b[0], lng: b[1] }))}</b>` : ''}</div>
+  <div class="row">
+    <button class="btn acc" id="trkShow">🗺️ ดูบนแผนที่</button>
+    <button class="btn ghost" id="trkResume">👣 เดินต่อจากเส้นนี้</button>
+    <button class="btn ghost" id="trkToStart">↩️ นำทางไปจุดเริ่ม</button>
+    <button class="btn ghost" id="trkToEnd">🎯 นำทางไปจุดสิ้นสุด</button>
+    <button class="btn danger" id="trkDel">ลบ</button>
+  </div>`);
+  $('#trkName').onchange = e => { t.name = e.target.value.trim() || t.name; if (S.track.id === t.id) S.track.name = t.name; save('tracks'); renderTrackUI(); };
+  $('#trkShow').onclick = () => { closeSheet(); showTrackOnMap(t); };
+  $('#trkResume').onclick = async () => { if (S.track.on) return toast('กำลังบันทึกอีกเส้นอยู่ กดหยุดก่อน'); closeSheet(); await toggleTrack(t.id); showTrackOnMap(S.track); };
+  $('#trkToStart').onclick = () => { setTarget({ lat: a[0], lng: a[1], name: 'จุดเริ่ม: ' + t.name }); closeSheet(); showTab('tools'); };
+  $('#trkToEnd').onclick = () => { setTarget({ lat: b[0], lng: b[1], name: 'ปลายทาง: ' + t.name }); closeSheet(); showTab('tools'); };
+  let armed = false;
+  $('#trkDel').onclick = e => { if (!armed) { armed = true; e.target.textContent = 'แตะอีกครั้งเพื่อลบ'; return; } S.tracks = S.tracks.filter(x => x.id !== id); save('tracks'); if (S.track.id === id && !S.track.on) { S.track = { on: false, pts: [] }; trackLine.setLatLngs([]); save('track'); } renderTrackUI(); closeSheet(); };
 }
 function returnToStart() {
   const p = S.track.pts; if (!p.length) return toast('ยังไม่มีเส้นทางที่บันทึก');
   setTarget({ lat: p[0][0], lng: p[0][1], name: 'จุดเริ่มต้นเส้นทาง' }); showTab('tools');
 }
-$('#btnTrack').onclick = toggleTrack;
+$('#btnTrack').onclick = () => toggleTrack();
 $('#tReturn').onclick = returnToStart;
 
 /* ============ water bodies (Overpass) ============ */
@@ -1060,7 +1101,7 @@ function renderLog() {
   renderTrackUI(); renderStats();
 }
 $('#exportBtn').onclick = () => {
-  const blob = new Blob([JSON.stringify({ app: 'pranpla', v: 1, exported: new Date().toISOString(), spots: S.spots, catches: S.catches, track: S.track })], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify({ app: 'pranpla', v: 1, exported: new Date().toISOString(), spots: S.spots, catches: S.catches, tracks: S.tracks })], { type: 'application/json' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `pranpla-backup-${new Date().toISOString().slice(0, 10)}.json`;
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); toast('ส่งออกไฟล์สำรองแล้ว');
 };
@@ -1069,7 +1110,7 @@ $('#importFile').onchange = async e => {
   try {
     const d = JSON.parse(await f.text()); if (d.app !== 'pranpla') throw 0;
     const merge = (cur, inc) => { const ids = new Set(cur.map(x => x.id)); return cur.concat((inc || []).filter(x => x && x.id && !ids.has(x.id))); };
-    S.spots = merge(S.spots, d.spots); S.catches = merge(S.catches, d.catches).sort((a, b) => b.t - a.t);
+    S.spots = merge(S.spots, d.spots); S.catches = merge(S.catches, d.catches).sort((a, b) => b.t - a.t); S.tracks = merge(S.tracks, d.tracks); await save('tracks');
     await save('spots'); await save('catches'); renderSpots(); renderLog(); toast('นำเข้าข้อมูลแล้ว');
   } catch { toast('ไฟล์นี้ไม่ใช่ไฟล์สำรองของพรานปลา'); }
   e.target.value = '';
@@ -1108,7 +1149,8 @@ $$('.tabbar [data-tab]').forEach(b => b.onclick = () => showTab(b.dataset.tab));
 (async function boot() {
   try {
     S.spots = (await DB.get('spots')) || []; S.catches = (await DB.get('catches')) || [];
-    const tr = await DB.get('track'); if (tr) { S.track = tr; S.track.on = false; trackLine.setLatLngs(tr.pts.map(p => [p[0], p[1]])); }
+    S.tracks = (await DB.get('tracks')) || [];
+    const tr = await DB.get('track'); if (tr) { const wasOn = tr.on; S.track = tr; S.track.on = false; trackLine.setLatLngs((tr.pts || []).map(p => [p[0], p[1]])); if ((wasOn || !tr.id) && tr.pts?.length > 1) { archiveTrack(); save('track'); } }
   } catch { toast('เปิดที่เก็บข้อมูลในเครื่องไม่ได้ ข้อมูลจะไม่ถูกบันทึก'); }
   renderSpots(); renderLog(); renderChecklist(); renderTools(); $('#crosshair').classList.toggle('hidden', !OPT.cross);
   const sn = season(); $('#seasonPillText').textContent = `${sn.icon} ${sn.name}`;
