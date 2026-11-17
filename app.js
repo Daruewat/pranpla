@@ -688,19 +688,22 @@ async function doSearch(q, typing) {
   $('.pills').classList.add('hidden'); box.classList.remove('hidden');
   const nq = norm(q), res = [];
   S.spots.filter(s => norm(s.name + s.fish + s.note + (s.rules || '')).includes(nq)).forEach(s => res.push({ lat: s.lat, lng: s.lng, name: s.name, sub: '📍 จุดของฉัน', pri: 0, spotId: s.id }));
+  S.catches.filter(k => norm(k.species + (k.bait || '') + (k.note || '')).includes(nq)).slice(0, 12).forEach(k => { const sp = S.spots.find(s => s.id === k.spotId), lat = k.lat ?? sp?.lat, lng = k.lng ?? sp?.lng; if (lat == null) return;
+    res.push({ lat, lng, name: k.species + (k.wt ? ` ${k.wt} กก.` : k.len ? ` ${k.len} ซม.` : ''), sub: `🐟 ปลาที่จับได้ · ${new Date(k.t).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}${k.bait ? ' · ' + k.bait : ''}${sp ? ' · ' + sp.name : ''}`, pri: 0, catchId: k.id }); });
   (S.water || []).filter(w => w.name && norm(w.name).includes(nq)).forEach(w => res.push({ lat: w.lat, lng: w.lng, name: w.name, sub: '💧 ' + w.kind, pri: 1 }));
   const render = loading => {
     if (seq !== searchSeq) return;
     const seen = [], list = [];
     res.map(r => ({ ...r, d: dist(ctr, r) })).sort((x, y) => (x.pri - y.pri) || (x.d - y.d)).forEach(r => {
-      if (seen.some(o => norm(o.name) === norm(r.name) && dist(o, r) < 400)) return; seen.push(r); list.push(r);
+      if (!r.catchId && seen.some(o => !o.catchId && norm(o.name) === norm(r.name) && dist(o, r) < 400)) return; seen.push(r); list.push(r);
     });
     box.innerHTML = (list.length ? list.slice(0, 25).map((r, i) => `<button data-i="${i}"><b>${esc(r.name)}</b><small>${fmtDist(r.d)}</small><span>${esc(r.sub)}</span></button>`).join('') : loading ? '' : `<div class="empty">ไม่พบ "${esc(q)}"<br><span class="sub">ลองพิมพ์ชื่อเฉพาะ เช่น "อ่างแม่กวง" "หนองบัว สันทราย" หรือกดปุ่ม 💧 เพื่อหาแหล่งน้ำรอบแผนที่</span></div>`)
       + (loading ? '<div class="empty">กำลังค้นหา…</div>' : '');
     $$('button', box).forEach(b => b.onclick = () => {
       const r = list[b.dataset.i]; closeSearch(); $('#searchInput').blur();
       S.follow = false; $('#btnLocate').classList.remove('follow'); map.setView([r.lat, r.lng], 15);
-      if (r.spotId) spotSheet(r.spotId);
+      if (r.catchId) catchSheet(r.catchId);
+      else if (r.spotId) spotSheet(r.spotId);
       else { searchPin.setLatLng([r.lat, r.lng]).addTo(map).bindPopup(`<b>${esc(r.name)}</b><br>กดค้างบนแผนที่เพื่อปักหมุด`).openPopup(); }
     });
   };
