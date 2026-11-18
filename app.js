@@ -186,7 +186,7 @@ function mapOptSheet() {
   <div class="types" id="optTypes">${Object.entries(SPOT_TYPES).map(([k, t]) => `<button type="button" data-type="${k}" class="${!OPT.types || OPT.types.includes(k) ? 'sel' : ''}">${t.icon} ${t.label}</button>`).join('')}</div>
   ${sw('catches', '🐟', 'ปลาที่ฉันจับได้', '')}
   ${sw('heat', '🔥', 'ฮีตแมปของฉัน', 'จากสมุดบันทึกของคุณ')}
-  ${grp('joined') ? sw('friends', '👥', 'หมุดของเพื่อนในกลุ่ม', '') : ''}
+  ${grp('joined') ? sw('friends', '👥', 'หมุดของคนอื่น', '') : ''}
   ${sw('water', '💧', 'แหล่งน้ำและระดับน้ำ', '')}
   ${sw('cross', '🎯', 'เส้นเล็ง', '')}
   <button class="menu-item" id="offOpen"><span class="mi">⬇️</span><span><b>เตรียมออฟไลน์สำหรับบริเวณนี้</b><span class="sub">แผนที่ แหล่งน้ำ พยากรณ์</span></span></button>
@@ -401,7 +401,7 @@ function spotForm(init) {
     <label>เบอร์ติดต่อ</label><input name="tel" type="tel" value="${esc(d.tel)}" placeholder="เจ้าของบ่อ / ผู้ดูแล">
     <label>รูป</label><input name="photo" type="file" accept="image/*">
     <img class="photo-prev ${d.photo ? '' : 'hidden'}" src="${d.photo || ''}">
-    ${grp('joined') ? `<label class="privrow"><input name="priv" type="checkbox" ${d.private ? 'checked' : ''}> 🔒 ส่วนตัว — ไม่แชร์ให้กลุ่ม</label>` : ''}
+    ${grp('joined') ? `<label class="privrow"><input name="priv" type="checkbox" ${d.private ? 'checked' : ''}> 🔒 ส่วนตัว — ไม่ให้คนอื่นเห็น</label>` : ''}
     <div class="row"><button class="btn block acc" id="spSave">บันทึกหมุด</button></div>
   </div>`);
   const r = $('#sheet');
@@ -423,7 +423,7 @@ function spotSheet(id) {
   const s = S.spots.find(x => x.id === id); if (!s) return;
   const t = SPOT_TYPES[s.type] || SPOT_TYPES.other, n = S.catches.filter(c => c.spotId === id).length;
   openSheet(`<h3>${t.icon} ${esc(s.name)}</h3>
-  <div class="sub">${t.label}${S.pos ? ' · ห่าง ' + fmtDist(dist(S.pos, s)) : ''}${grp('joined') ? (s.private ? ' · 🔒 ส่วนตัว' : ' · 👥 แชร์ให้กลุ่ม') : ''}</div>
+  <div class="sub">${t.label}${S.pos ? ' · ห่าง ' + fmtDist(dist(S.pos, s)) : ''}${grp('joined') ? (s.private ? ' · 🔒 ส่วนตัว' : ' · 👥 ทุกคนเห็น') : ''}</div>
   ${s.photo ? `<img class="photo-prev" src="${s.photo}">` : ''}
   <div class="kv"><span>พิกัด</span><b class="mono">${s.lat.toFixed(5)}, ${s.lng.toFixed(5)}</b>
     ${s.fish ? `<span>ปลา</span><b>${esc(s.fish)}</b>` : ''}${s.note ? `<span>โน้ต</span><b>${esc(s.note)}</b>` : ''}
@@ -476,7 +476,7 @@ function catchForm(init = {}) {
     <img class="photo-prev ${d.photo ? '' : 'hidden'}" src="${d.photo || ''}">
     <label>โน้ต</label><textarea name="note">${esc(d.note)}</textarea>
     <label style="display:flex;gap:8px;align-items:center;color:var(--tx)"><input name="rel" type="checkbox" style="width:auto" ${d.released ? 'checked' : ''}> ปล่อยคืนน้ำ</label>
-    ${grp('joined') ? `<label class="privrow"><input name="priv" type="checkbox" ${d.private ? 'checked' : ''}> 🔒 ส่วนตัว — ไม่แชร์ให้กลุ่ม</label>` : ''}
+    ${grp('joined') ? `<label class="privrow"><input name="priv" type="checkbox" ${d.private ? 'checked' : ''}> 🔒 ส่วนตัว — ไม่ให้คนอื่นเห็น</label>` : ''}
     <div class="row"><button class="btn block acc" id="ctSave">บันทึก</button></div>
   </div>`);
   const r = $('#sheet'); bindPhoto(r, d);

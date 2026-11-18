@@ -1,17 +1,14 @@
 'use strict';
-/* ============ กลุ่มเพื่อน: แชร์หมุดและปลาที่จับได้ผ่าน Firebase (Firestore + Anonymous Auth) ============
-   โครงข้อมูล: groups/{gid}/meta/info · members/{uid} · pins/{id} · catches/{id}
-   ทุกเอกสารมี uid ของเจ้าของ กฎฐานข้อมูล (firestore.rules) ให้แก้/ลบได้เฉพาะของตัวเอง
-   รหัสกลุ่มยาวสุ่ม ใครมีรหัสหรือลิงก์ชวนจึงจะเข้าถึงกลุ่มได้ */
+/* ============ ชุมชน: ทุกคนที่ใช้แอปเห็นหมุดและปลาที่จับได้ของกันและกัน (Firebase: Firestore + Anonymous Auth) ============
+   โครงข้อมูล: groups/all/members/{uid} · pins/{id} · catches/{id}
+   ทุกเอกสารมี uid ของเจ้าของ กฎฐานข้อมูล (firestore.rules) ให้แก้/ลบได้เฉพาะของตัวเอง */
 const GRP = (() => {
-  const saved = ls.get('group', null);
-  const st = { gid: saved?.id || null, gname: saved?.name || '', me: ls.get('myname', ''), uid: null, db: null, ready: false, err: '', pins: [], catches: [], members: [], unsub: [], first: { pins: false, catches: false } };
+  const st = { gid: 'all', gname: 'ชุมชนพรานปลา', me: ls.get('myname', ''), uid: null, db: null, ready: false, err: '', pins: [], catches: [], members: [], unsub: [], first: { pins: false, catches: false } };
   const layer = L.layerGroup().addTo(map);
   const pushed = ls.get('grpPushed', {});           // id → ลายนิ้วมือของข้อมูลที่ส่งขึ้นไปล่าสุด กันส่งซ้ำ
   const enabled = () => !!(window.FB_CONFIG && FB_CONFIG.apiKey);
   const col = n => st.db.collection('groups').doc(st.gid).collection(n);
   const fp = o => { const s = JSON.stringify(o); let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return s.length + ':' + h; };
-  const newGid = () => { const a = 'abcdefghjkmnpqrstuvwxyz23456789', r = crypto.getRandomValues(new Uint8Array(12)); return [...r].map(x => a[x % a.length]).join(''); };
   const initial = n => (n || '?').trim().charAt(0).toUpperCase();
 
   async function loadSdk() {
@@ -25,7 +22,7 @@ const GRP = (() => {
   }
   async function start() {
     stop(); st.err = '';
-    if (!enabled() || !st.gid) { render(); return; }
+    if (!enabled()) { render(); return; }
     try {
       await loadSdk();
       if (!firebase.apps.length) { firebase.initializeApp(FB_CONFIG); try { await firebase.firestore().enablePersistence({ synchronizeTabs: true }); } catch {} }
@@ -40,7 +37,6 @@ const GRP = (() => {
       watch('pins', 'pins', () => syncAll('pins'));
       watch('catches', 'catches', () => syncAll('catches'));
       watch('members', 'members');
-      st.unsub.push(col('meta').doc('info').onSnapshot(d => { if (d.exists && d.data().name) { st.gname = d.data().name; ls.set('group', { id: st.gid, name: st.gname }); render(); } }, () => {}));
       st.ready = true;
     } catch (e) { st.err = navigator.onLine === false ? 'ออฟไลน์ — จะเชื่อมกลุ่มเมื่อมีเน็ต' : (e.message || String(e)); }
     render();
@@ -129,79 +125,46 @@ const GRP = (() => {
   function render() {
     renderMap();
     const el = $('#groupCard'); if (!el) return;
-    if (!enabled()) { el.innerHTML = '<div class="sub">ยังไม่ได้เชื่อมเซิร์ฟเวอร์ของกลุ่ม</div>'; return; }
-    if (!st.gid) {
-      el.innerHTML = `<div class="form" style="margin-top:-6px"><label>ชื่อของคุณในกลุ่ม</label><input id="gMe" value="${esc(st.me)}" placeholder="เช่น ไซลม"></div>
-        <div class="row"><button class="btn" id="gNew">สร้างกลุ่มใหม่</button></div>
-        <div class="form"><label>หรือเข้ากลุ่มเพื่อนด้วยรหัส</label><input id="gCode" placeholder="รหัสกลุ่ม 12 ตัว" autocapitalize="off" autocomplete="off"></div>
-        <div class="row"><button class="btn ghost" id="gJoin">เข้าร่วม</button></div>`;
-      $('#gNew').onclick = () => { if (!setMe()) return; const id = newGid(); join(id, `กลุ่มของ ${st.me}`, true); };
-      $('#gJoin').onclick = () => { if (!setMe()) return; const code = ($('#gCode').value.match(/[a-z0-9]{8,}/i) || [''])[0].toLowerCase(); if (!code) return toast('ใส่รหัสกลุ่มหรือวางลิงก์ชวน'); join(code); };
-      return;
-    }
+    if (!enabled()) { el.innerHTML = '<div class="sub">ยังไม่ได้เชื่อมเซิร์ฟเวอร์</div>'; return; }
     const fp = friendPins().length, fc = friendCatches();
-    el.innerHTML = `<div class="grp-h"><div><b>${esc(st.gname || 'กลุ่มของฉัน')}</b><div class="sub">${st.ready ? (navigator.onLine === false ? 'ออฟไลน์ · จะซิงก์เมื่อมีเน็ต' : 'เชื่อมแล้ว') : st.err ? '' : 'กำลังเชื่อม…'} · คุณคือ ${esc(st.me)}</div></div><button class="btn small" id="gInv">👥 ชวนเพื่อน</button></div>
+    el.innerHTML = `${!st.me ? `<div class="form" style="margin-top:-6px"><label>ตั้งชื่อของคุณ ให้คนอื่นรู้ว่าหมุดเป็นของใคร</label><input id="gMe" placeholder="เช่น ไซลม"></div><div class="row" style="margin-bottom:12px"><button class="btn small" id="gMeSave">บันทึกชื่อ</button></div>` : ''}
+      <div class="grp-h"><div><b>${st.members.length || '-'} คนในแอป</b><div class="sub">${st.ready ? (navigator.onLine === false ? 'ออฟไลน์ · จะซิงก์เมื่อมีเน็ต' : 'เชื่อมแล้ว') : st.err ? '' : 'กำลังเชื่อม…'}${st.me ? ' · คุณคือ ' + esc(st.me) : ''}</div></div><button class="btn small" id="gInv">👥 ชวนเพื่อน</button></div>
       ${st.err ? `<div class="warn" style="margin:10px 0 0">${esc(st.err)}</div>` : ''}
-      <div class="members">${st.members.map(m => `<span class="mchip"><i>${esc(initial(m.name))}</i>${esc(m.name)}${m.uid === st.uid ? ' (คุณ)' : ''}</span>`).join('')}</div>
-      <div class="sub" style="margin-top:8px">หมุดของเพื่อน ${fp} จุด · ปลาของเพื่อน ${fc.length} ตัว · หมุดและปลาของคุณแชร์ให้กลุ่มอัตโนมัติ ยกเว้นที่ตั้งเป็นส่วนตัว</div>
-      ${fc.length ? `<div class="card-h" style="margin-top:14px;font-size:15px">ปลาล่าสุดของเพื่อน</div>${fc.slice(0, 15).map(c => `<div class="item" data-fcatch="${c.id}"><div class="th" ${c.photo ? `style="background-image:url(${c.photo})"` : ''}>${c.photo ? '' : '🐟'}</div><div class="mid"><b>${esc(c.species)}${c.wt ? ` ${c.wt} กก.` : c.len ? ` ${c.len} ซม.` : ''}</b><div class="sub">${esc(c.by)} · ${new Date(c.t).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}${c.bait ? ' · ' + esc(c.bait) : ''}${c.spot ? ' · ' + esc(c.spot) : ''}</div></div></div>`).join('')}` : ''}
-      <div class="row"><button class="btn ghost small" id="gName">เปลี่ยนชื่อ</button><button class="btn ghost small" id="gLeave">ออกจากกลุ่ม</button></div>`;
+      <div class="sub" style="margin-top:8px">หมุดของคนอื่น ${fp} จุด · ปลาของคนอื่น ${fc.length} ตัว · หมุดและปลาของคุณทุกคนเห็น ยกเว้นที่ตั้งเป็น 🔒 ส่วนตัว</div>
+      ${fc.length ? `<div class="card-h" style="margin-top:14px;font-size:15px">ปลาล่าสุดของคนอื่น</div>${fc.slice(0, 15).map(c => `<div class="item" data-fcatch="${c.id}"><div class="th" ${c.photo ? `style="background-image:url(${c.photo})"` : ''}>${c.photo ? '' : '🐟'}</div><div class="mid"><b>${esc(c.species)}${c.wt ? ` ${c.wt} กก.` : c.len ? ` ${c.len} ซม.` : ''}</b><div class="sub">${esc(c.by)} · ${new Date(c.t).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}${c.bait ? ' · ' + esc(c.bait) : ''}${c.spot ? ' · ' + esc(c.spot) : ''}</div></div></div>`).join('')}` : ''}
+      ${st.me ? '<div class="row"><button class="btn ghost small" id="gName">เปลี่ยนชื่อ</button></div>' : ''}`;
     $('#gInv').onclick = invite;
-    $('#gName').onclick = renameSheet;
+    if ($('#gName')) $('#gName').onclick = renameSheet;
+    if ($('#gMeSave')) $('#gMeSave').onclick = () => { if (!setMe()) return; afterRename(); render(); };
     $$('#groupCard [data-fcatch]').forEach(x => x.onclick = () => catchSheetF(x.dataset.fcatch));
-    let armed = false;
-    $('#gLeave').onclick = e => { if (!armed) { armed = true; e.target.textContent = 'แตะอีกครั้ง: ออกจากกลุ่ม'; return; } leave(); };
   }
   function setMe() { const v = ($('#gMe')?.value || '').trim().slice(0, 24); if (!v) { toast('ใส่ชื่อของคุณก่อน เพื่อนจะได้รู้ว่าหมุดเป็นของใคร'); $('#gMe')?.focus(); return false; } st.me = v; ls.set('myname', v); return true; }
-  async function join(id, name, creating) {
-    st.gid = id; st.gname = name || ''; ls.set('group', { id, name: st.gname });
+  function afterRename() {   // ชื่อเปลี่ยน: อัปเดตชื่อบนหมุด/ปลาที่แชร์ไปแล้ว
     Object.keys(pushed).forEach(k => delete pushed[k]); ls.set('grpPushed', pushed);
-    await start();
-    if (creating && st.ready) await col('meta').doc('info').set({ uid: st.uid, name: st.gname, created: Date.now() }).catch(() => {});
-    toast(creating ? 'สร้างกลุ่มแล้ว กด “ชวนเพื่อน” เพื่อส่งลิงก์' : 'เข้ากลุ่มแล้ว');
-  }
-  function leave() {
-    stop(); st.gid = null; st.gname = ''; ls.set('group', null); render(); toast('ออกจากกลุ่มแล้ว (หมุดในเครื่องยังอยู่ครบ)');
+    if (st.ready) { col('members').doc(st.uid).set({ uid: st.uid, name: st.me, seen: Date.now() }, { merge: true }).catch(() => {}); syncAll('pins'); syncAll('catches'); }
   }
   async function invite() {
-    const link = `${location.origin}${location.pathname}#join=${st.gid}`;
-    const text = `ชวนเข้ากลุ่ม “${st.gname}” ในพรานปลา — แชร์หมุดตกปลากัน\n${link}\n(รหัสกลุ่ม: ${st.gid})`;
+    const link = `${location.origin}${location.pathname}`;
+    const text = `มาใช้พรานปลากัน แอปแผนที่ตกปลา เห็นหมุดตกปลาของกันและกัน\n${link}`;
     if (navigator.share) { try { await navigator.share({ text }); return; } catch (e) { if (e.name === 'AbortError') return; } }
-    copy(text, 'คัดลอกลิงก์ชวนแล้ว ส่งทาง LINE ได้เลย');
+    copy(text, 'คัดลอกลิงก์แล้ว ส่งทาง LINE ได้เลย');
   }
   function renameSheet() {
-    openSheet(`<h3>เปลี่ยนชื่อ</h3><div class="form"><label>ชื่อของคุณในกลุ่ม</label><input id="rnMe" value="${esc(st.me)}">
-      ${st.gid ? `<label>ชื่อกลุ่ม</label><input id="rnG" value="${esc(st.gname)}">` : ''}</div><div class="row"><button class="btn block acc" id="rnSave">บันทึก</button></div>`);
-    $('#rnSave').onclick = async () => {
-      const me = $('#rnMe').value.trim().slice(0, 24), g = ($('#rnG')?.value || '').trim().slice(0, 40);
-      if (me && me !== st.me) { st.me = me; ls.set('myname', me); Object.keys(pushed).forEach(k => delete pushed[k]); if (st.ready) { col('members').doc(st.uid).set({ uid: st.uid, name: me, seen: Date.now() }, { merge: true }).catch(() => {}); syncAll('pins'); syncAll('catches'); } }
-      if (g && g !== st.gname && st.ready) { st.gname = g; ls.set('group', { id: st.gid, name: g }); col('meta').doc('info').set({ uid: st.uid, name: g }, { merge: true }).catch(() => toast('เปลี่ยนชื่อกลุ่มได้เฉพาะคนสร้างกลุ่ม')); }
-      closeSheet(); render();
-    };
-  }
-  function joinFromHash() {
-    const m = location.hash.match(/^#join=([a-z0-9]{8,})$/i); if (!m) return;
-    history.replaceState(null, '', location.pathname);
-    const id = m[1].toLowerCase();
-    if (!enabled()) return toast('ลิงก์ชวนนี้ใช้ไม่ได้ แอปยังไม่ได้เชื่อมเซิร์ฟเวอร์ของกลุ่ม', 4500);
-    if (st.gid === id) return toast('คุณอยู่ในกลุ่มนี้แล้ว');
-    openSheet(`<h3>เข้ากลุ่มเพื่อน</h3><div class="sub">หมุดและปลาที่จับได้ของคุณจะแชร์ให้คนในกลุ่มเห็น ยกเว้นที่ตั้งเป็นส่วนตัว${st.gid ? ' · คุณจะออกจากกลุ่มเดิม' : ''}</div>
-      <div class="form"><label>ชื่อของคุณในกลุ่ม</label><input id="gMe" value="${esc(st.me)}" placeholder="เช่น ไซลม"></div>
-      <div class="row"><button class="btn block acc" id="gGo">เข้าร่วมกลุ่ม</button></div>`);
-    $('#gGo').onclick = () => { if (!setMe()) return; closeSheet(); showTab('log'); join(id); };
+    openSheet(`<h3>เปลี่ยนชื่อ</h3><div class="form"><label>ชื่อของคุณ</label><input id="gMe" value="${esc(st.me)}"></div><div class="row"><button class="btn block acc" id="rnSave">บันทึก</button></div>`);
+    $('#rnSave').onclick = () => { if (!setMe()) return; afterRename(); closeSheet(); render(); };
   }
 
-  window.addEventListener('hashchange', joinFromHash);
-  window.addEventListener('online', () => { if (st.gid && !st.ready) start(); else render(); });
+  window.addEventListener('online', () => { if (!st.ready) start(); else render(); });
   window.addEventListener('offline', render);
-  setTimeout(() => { joinFromHash(); start(); }, 0);
+  if (/^#join=/.test(location.hash)) history.replaceState(null, '', location.pathname);   // ลิงก์ชวนรุ่นเก่า
+  setTimeout(start, 0);
 
   return {
     pushSpot: s => push('pins', s), delSpot: id => drop('pins', id),
     pushCatch: c => push('catches', c), delCatch: id => drop('catches', id),
     syncAll: () => { syncAll('pins'); syncAll('catches'); },
     renderMap, render, pinSheet, catchSheet: catchSheetF,
-    get joined() { return !!st.gid; },
+    get joined() { return enabled(); },
     friendPins, friendCatches, st
   };
 })();
