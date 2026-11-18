@@ -809,8 +809,11 @@ $('#fcPlace').onclick = pickTambon;
 
 /* ============ forecast & fish score ============ */
 const wmo = (c, night) => { const w = WMO[c] || WMO[[0, 1, 2, 3, 45, 51, 61, 80, 95].reduce((a, b) => Math.abs(b - c) < Math.abs(a - c) ? b : a)]; return { txt: w[0], ico: night ? w[2] : w[1] }; };
-const scoreColor = s => s >= 76 ? '#22c55e' : s >= 68 ? '#84cc16' : s >= 60 ? '#facc15' : s >= 50 ? '#f59e0b' : s >= 40 ? '#f97316' : '#ef4444';   // แดง=ไม่กิน → เหลือง → เขียว=กินดี
-const scoreLabel = s => s >= 85 ? 'ปลากินกระจาย' : s >= 76 ? 'ปลากินดี' : s >= 62 ? 'ปลาเริ่มกิน' : s >= 50 ? 'พอมีลุ้น' : s >= 40 ? 'ปลากินน้อย' : 'ปลาไม่ค่อยกิน';
+// 4 ระดับ ตรงกับคำอธิบายสีใต้กราฟ: แดง=ไม่กิน ส้ม=พอลุ้น เหลือง=เริ่มกิน เขียว=กินดี
+const scoreLevel = s => s >= 72 ? 3 : s >= 60 ? 2 : s >= 45 ? 1 : 0;
+const LEVELS = [['#ef4444', 'ไม่กิน'], ['#f59e0b', 'พอลุ้น'], ['#facc15', 'เริ่มกิน'], ['#22c55e', 'กินดี']];
+const scoreColor = s => LEVELS[scoreLevel(s)][0];
+const scoreLabel = s => s >= 85 ? 'ปลากินกระจาย' : ['ปลาไม่ค่อยกิน', 'พอมีลุ้น', 'ปลาเริ่มกิน', 'ปลากินดี'][scoreLevel(s)];
 function moonName(p) {
   const age = p * 29.53, ico = ['🌑', '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘'][Math.round(p * 8) % 8];
   const txt = p < 0.5 ? `ขึ้น ${clamp(Math.round(age), 1, 15)} ค่ำ` : `แรม ${clamp(Math.round(age - 14.77), 1, 15)} ค่ำ`;
@@ -918,6 +921,19 @@ function renderAlert() {
   el.innerHTML = msgs.map(m => `<div>${m}</div>`).join('') + (msgs.length ? `<small>ใน 3 ชม. ที่ ${esc(S.fcLoc?.place?.short || S.fcLoc?.name || '')}</small>` : '');
   return msgs;
 }
+function goodRanges(next) {   // ช่วงเวลาที่คะแนนถึงระดับ "เริ่มกิน" ขึ้นไป ใน 24 ชม.ข้างหน้า
+  const out = []; let s = -1, lv = next.some(x => scoreLevel(x.score) >= 3) ? 3 : 2;   // มีช่วง "กินดี" ก็โชว์เฉพาะช่วงนั้น ไม่งั้นโชว์ "เริ่มกิน"
+  next.forEach((x, i) => { const ok = scoreLevel(x.score) >= lv; if (ok && s < 0) s = i; if ((!ok || i === next.length - 1) && s >= 0) { const e = ok ? i : i - 1; out.push([s, e]); s = -1; } });
+  if (!out.length) return '<span class="sub">24 ชม.นี้ยังไม่มีช่วงที่ปลากินเด่น</span>';
+  const day = t => t.toDateString() === new Date().toDateString() ? '' : DAYS[t.getDay()] + ' ';
+  return '<span class="sub">ช่วงน่าไป</span>' + out.map(([s, e]) => { const mx = Math.max(...next.slice(s, e + 1).map(x => x.score)), t0 = next[s].t, t1 = new Date(next[e].t.getTime() + 36e5);
+    return `<span class="good" style="--c:${scoreColor(mx)}">${s === 0 && e === next.length - 1 ? 'ตลอด 24 ชม.' : `${day(t0)}${pad(t0.getHours())}:00–${pad(t1.getHours())}:00`} · ${LEVELS[scoreLevel(mx)][1]}</span>`; }).join('');
+}
+function barInfo(i) {
+  const W = S.wx, x = W?.next[i]; if (!x) return;
+  $$('.bars div').forEach(b => b.classList.toggle('sel', +b.dataset.b === i));
+  $('#barInfo').innerHTML = `<b>${i === 0 ? 'ตอนนี้' : (x.t.toDateString() === new Date().toDateString() ? '' : DAYS[x.t.getDay()] + ' ') + pad(x.t.getHours()) + ':00'}</b> <span style="color:${scoreColor(x.score)}">● ${x.score} ${LEVELS[scoreLevel(x.score)][1]}</span> <span class="sub">${Math.round(x.temp)}° · ฝน ${x.pop ?? 0}%</span>`;
+}
 function renderForecast() {
   const W = S.wx, n = W.now, wm = wmo(n.code, !n.day), sn = season(), mo = new Date().getMonth() + 1;
   const best = W.next[W.bi], best2 = W.next[W.bi + 1] || best;
@@ -938,9 +954,11 @@ function renderForecast() {
       <div class="ring"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="none" style="stroke:var(--track)" stroke-width="9"/><circle cx="50" cy="50" r="40" fill="none" stroke="${scoreColor(n.score)}" stroke-width="9" stroke-linecap="round" stroke-dasharray="${C * n.score / 100} ${C}"/></svg><b>${n.score}</b></div>
       <div><div class="score-label">${scoreLabel(n.score)}</div><div class="sub">🔥 ช่วงดีที่สุด: ${bestTxt}</div></div>
     </div>
-    <div class="bars">${W.next.map((x, i) => `<div class="${i === 0 ? 'now' : ''} ${i === W.bi || i === W.bi + 1 ? 'best' : ''}" style="height:${clamp(x.score, 8, 100)}%;background:${scoreColor(x.score)}"></div>`).join('')}</div>
-    <div class="scale"><i style="background:#ef4444"></i>ไม่กิน<i style="background:#f59e0b"></i>พอลุ้น<i style="background:#facc15"></i>เริ่มกิน<i style="background:#22c55e"></i>กินดี</div>
-    <div class="bar-axis"><span>ตอนนี้</span>${[6, 12, 18].map(k => `<span>${pad(W.next[k]?.t.getHours() ?? 0)}</span>`).join('')}<span>+24ชม.</span></div>
+    <div class="bar-info" id="barInfo"></div>
+    <div class="bars">${W.next.map((x, i) => `<div data-b="${i}" class="${i === 0 ? 'now' : ''}" style="height:${clamp((x.score - 20) * 1.25, 8, 100)}%;background:${scoreColor(x.score)}"></div>`).join('')}</div>
+    <div class="bar-hours">${W.next.map((x, i) => `<span>${i === 0 ? 'ตอนนี้' : x.t.getHours() % 3 === 0 ? pad(x.t.getHours()) : ''}</span>`).join('')}</div>
+    <div class="goods">${goodRanges(W.next)}</div>
+    <div class="scale">${LEVELS.map(l => `<i style="background:${l[0]}"></i>${l[1]}`).join('')}</div>
   </div>
   ${(() => { const m = renderAlert() || []; return m.length ? `<div class="warn alert-in">${m.map(x => `<div>${x}</div>`).join('')}</div>` : ''; })()}
   ${(() => { const r = rainOutlook(W.next); return `<div class="card rain-card ${r.ok ? 'dry' : 'wet'}"><div class="card-h">${r.ok ? '🌂' : '🌧️'} ฝนที่จุดนี้</div><div>${r.txt}</div><div class="row"><button class="btn ghost small" id="fcRainMap">🗺️ ดูฝนบนแผนที่</button></div></div>`; })()}
@@ -962,6 +980,7 @@ function renderForecast() {
     <div class="card-h" style="margin-top:12px;font-size:15px">น่าตกช่วงนี้</div>
     <div class="fishrow">${fishNow.map(f => `<div class="fish"><b>${f.n}</b><p>🪱 ${f.bait}</p><p>📍 ${f.where}</p></div>`).join('')}</div></div>
   <div class="row"><button class="btn ghost small" id="fcMine">📍 ดูที่ตำแหน่งของฉัน</button><button class="btn ghost small" id="fcCenter">🎯 ดูที่กลางแผนที่</button></div>`;
+  $$('.bars div').forEach(b => b.onclick = () => barInfo(+b.dataset.b)); barInfo(W.bi);
   showPlace(); renderAlert(); renderDamCard(); $('#view-forecast').scrollTop = keepScroll;
   $('#fcRainMap').onclick = () => { showTab('map'); map.setView([W.lat, W.lng], Math.min(map.getZoom(), 11)); setRain(true); };
   $('#fcMine').onclick = () => S.pos ? loadForecast({ lat: S.pos.lat, lng: S.pos.lng, name: 'ตำแหน่งของฉัน', auto: true }) : toast('ยังไม่ได้ตำแหน่ง GPS');

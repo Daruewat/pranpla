@@ -1935,3 +1935,17 @@ html {
 .coordbar{bottom:calc(var(--nav) + var(--safe-b) + 22px)}
 .optrow{padding:11px 0}
 .menu-item{padding:9px 0}
+
+/* กราฟคะแนนปลากิน 24 ชม. */
+.bars{height:96px;gap:2px;margin-top:10px}
+.bars div{border-radius:4px 4px 2px 2px;cursor:pointer;forced-color-adjust:none}
+.bars div.now{outline:0;box-shadow:inset 0 0 0 2px rgba(255,255,255,.85)}
+.bars div.best::after{display:none}
+.bars div.sel{box-shadow:0 0 0 2px var(--tx)}
+.bar-hours{display:flex;gap:2px;margin-top:5px}
+.bar-hours span{flex:1;min-width:0;font-size:11px;color:var(--tx2);white-space:nowrap;overflow:visible;text-align:left}
+.bar-info{margin-top:18px;min-height:22px;font-size:14px;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.bar-info b{font-weight:600}
+.goods{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:12px}
+.good{border-radius:10px;padding:5px 10px;font-size:13px;font-weight:600;background:color-mix(in srgb,var(--c) 18%,transparent);color:var(--tx);box-shadow:inset 3px 0 0 var(--c)}
+.scale{font-size:11px;margin-top:10px}
