@@ -362,13 +362,14 @@ function bindPhoto(root, holder) {
 }
 
 /* ---- FAB menu ---- */
-$('#fab').onclick = () => openSheet(`
+$('#fab').onclick = () => { openSheet(`
   <h3>อยากทำอะไร?</h3>
+  <button class="menu-item" id="fabTools"><span class="mi">🧭</span><span><b>เอาตัวรอด</b><span class="sub">เข็มทิศ พิกัด ไฟฉาย SOS เบอร์ฉุกเฉิน</span></span></button>
   <button class="menu-item" data-act="new-catch"><span class="mi">🐟</span><span><b>บันทึกปลาที่จับได้</b></span></button>
   <button class="menu-item" data-act="new-spot-here"><span class="mi">📍</span><span><b>ปักหมุดตรงที่ฉันยืน</b></span></button>
   <button class="menu-item" data-act="new-spot-center"><span class="mi">🎯</span><span><b>ปักหมุดกลางแผนที่</b></span></button>
   <button class="menu-item" data-act="toggle-track"><span class="mi">👣</span><span><b>${S.track.on ? 'หยุดบันทึกเส้นทาง' : 'เริ่มบันทึกเส้นทางเดิน'}</b></span></button>
-  <button class="menu-item" data-act="find-water"><span class="mi">💧</span><span><b>หาแหล่งน้ำรอบแผนที่</b></span></button>`);
+  <button class="menu-item" data-act="find-water"><span class="mi">💧</span><span><b>หาแหล่งน้ำรอบแผนที่</b></span></button>`); $('#fabTools').onclick = () => { closeSheet(); showTab('tools'); }; };
 
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return;
@@ -1170,10 +1171,10 @@ function renderLog() {
   if (OPT.catches || OPT.heat) renderSpots();
   const sp = new Set(S.catches.map(c => c.species)), big = S.catches.reduce((m, c) => Math.max(m, c.wt || 0), 0);
   $('#stats').innerHTML = `<div><b>${S.catches.length}</b><span>ปลาที่จับได้</span></div><div><b>${sp.size}</b><span>ชนิดปลา</span></div><div><b>${S.spots.length}</b><span>หมุด</span></div><div><b>${big || '-'}</b><span>กก. ใหญ่สุด</span></div>`;
-  $('#catchList').innerHTML = S.catches.length ? S.catches.map(c => {
+  $('#catchList').innerHTML = S.catches.length ? '<div class="strip">' + S.catches.map(c => {
     const d = new Date(c.t), s = S.spots.find(x => x.id === c.spotId);
-    return `<div class="item" data-act="catch" data-id="${c.id}"><div class="th" ${c.photo ? `style="background-image:url(${c.photo})"` : ''}>${c.photo ? '' : '🐟'}</div><div class="mid"><b>${esc(c.species)}</b><div class="sub">${[c.len && c.len + ' ซม.', c.wt && c.wt + ' กก.', c.bait && esc(c.bait)].filter(Boolean).join(' · ') || '-'}</div><div class="sub">${d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })} ${hm(d)}${s ? ' · ' + esc(s.name) : ''}</div></div></div>`;
-  }).join('') : '<div class="empty">ยังไม่มีปลาในสมุด กด ＋ เพื่อบันทึกตัวแรก</div>';
+    return `<div class="ccard" data-act="catch" data-id="${c.id}"><div class="cimg" ${c.photo ? `style="background-image:url(${c.photo})"` : ''}>${c.photo ? '' : '🐟'}${c.private ? '<span class="lock">🔒</span>' : ''}</div><b>${esc(c.species)}</b><span class="sub">${[c.wt && c.wt + ' กก.', c.len && c.len + ' ซม.'].filter(Boolean).join(' · ') || esc(c.bait || '')}</span><span class="sub">${d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}${s ? ' · ' + esc(s.name) : ''}</span></div>`;
+  }).join('') + '<div class="ccard add" data-act="new-catch"><span>＋</span>บันทึกปลา</div></div>' : '<div class="ccard first" data-act="new-catch"><span>📷</span><b>ปลาตัวแรกรอคุณอยู่</b><span class="sub">บันทึกไว้ แล้วจะมาแปะที่นี่</span></div>';
   $('#spotList').innerHTML = S.spots.length ? S.spots.map(s => {
     const t = SPOT_TYPES[s.type] || SPOT_TYPES.other;
     return `<div class="item" data-act="spot" data-id="${s.id}"><div class="th" ${s.photo ? `style="background-image:url(${s.photo})"` : `style="background:${t.color}33"`}>${s.photo ? '' : t.icon}</div><div class="mid"><b>${esc(s.name)}</b><div class="sub">${t.label}${S.pos ? ' · ' + fmtDist(dist(S.pos, s)) : ''}</div>${s.note ? `<div class="sub">${esc(s.note)}</div>` : ''}</div></div>`;
@@ -1230,6 +1231,7 @@ function showTab(t) {
   if (t === 'map') setTimeout(() => map.invalidateSize(), 50);
   if (t === 'tools') renderTools();
   if (t === 'log') renderLog();
+  if (t === 'feed') grp('render');
   if (t === 'forecast' && S.wx && Date.now() - S.wx.fetched > 30 * 6e4) loadForecast();
 }
 $$('.tabbar [data-tab]').forEach(b => b.onclick = () => showTab(b.dataset.tab));

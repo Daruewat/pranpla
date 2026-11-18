@@ -1966,3 +1966,39 @@ html {
 .adm-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--line)}
 .adm-row b{font-weight:600}
 .adm-act{display:flex;gap:6px;flex:none}
+
+/* โปรไฟล์ */
+.profile{display:flex;align-items:center;gap:16px;margin:4px 0 14px}
+.av{flex:none;display:inline-grid;place-items:center;width:40px;height:40px;border-radius:50%;background:var(--blue) center/cover;color:#fff;font:700 16px/1 Anuphan,sans-serif;font-style:normal}
+.av.big{width:84px;height:84px;font-size:32px;box-shadow:0 0 0 3px var(--bg),0 0 0 5px var(--blue)}
+.pinfo{display:flex;flex-direction:column;gap:3px;min-width:0}
+.pinfo b{font-size:22px;font-weight:700}
+.pinfo .btn{align-self:flex-start;margin-top:6px}
+.plinks{display:flex;gap:14px;margin-top:4px}
+.plinks .link{padding:0;font-size:14px}
+/* แถบปลาแนวนอน */
+.strip{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;scroll-snap-type:x mandatory}
+.ccard{flex:none;width:150px;scroll-snap-align:start;background:var(--card);border-radius:18px;padding:8px 8px 10px;display:flex;flex-direction:column;gap:2px;cursor:pointer}
+.ccard .cimg{position:relative;height:120px;border-radius:12px;background:var(--card2) center/cover;display:grid;place-items:center;font-size:34px;color:var(--tx3);margin-bottom:6px}
+.ccard .lock{position:absolute;right:6px;top:6px;font-size:14px;background:var(--glass);border-radius:8px;padding:2px 4px}
+.ccard b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ccard .sub{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ccard.add{border:2px dashed var(--line);background:none;align-items:center;justify-content:center;color:var(--link);font-weight:600;gap:6px}
+.ccard.add span{font-size:30px}
+.ccard.first{width:auto;align-items:center;text-align:center;padding:22px}
+.ccard.first span{font-size:30px;width:60px;height:60px;border-radius:50%;background:var(--blue);display:grid;place-items:center;color:#fff;margin-bottom:8px}
+.ccard.first b{white-space:normal;font-size:18px}
+/* ฟีดชุมชน */
+.mstack{display:flex}.mstack .av{width:30px;height:30px;font-size:12px;margin-left:-8px;box-shadow:0 0 0 2px var(--card)}
+.post{background:var(--card);border-radius:22px;margin:0 0 14px;overflow:hidden}
+.post header{display:flex;align-items:center;gap:10px;padding:12px 12px 10px}
+.post header>div{flex:1;min-width:0;display:flex;flex-direction:column}
+.post header b{font-weight:600;font-size:16px}
+.post header .sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pmore{background:none;border:0;color:var(--tx2);font-size:22px;padding:4px 8px}
+.pimg{display:block;width:100%;max-height:70vh;object-fit:cover;background:var(--card2);cursor:pointer}
+.pimg.none{height:160px;display:grid;place-items:center;font-size:48px;color:var(--tx3)}
+.pbody{padding:12px 14px 14px}
+.pbody b{font-weight:600;font-size:16px}
+.pbody p{margin:6px 0 0;font-size:14px}
+.pbody .sub .link{padding:0;font-size:13px}

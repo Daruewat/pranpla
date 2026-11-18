@@ -43,7 +43,7 @@ const GRP = (() => {
       if (!st.me) { st.me = (st.user.displayName || '').trim().slice(0, 24); if (st.me) ls.set('myname', st.me); }
       st.admin = await st.db.collection('admins').doc(st.uid).get().then(d => d.exists).catch(() => false);
       st.banned = await st.db.collection('banned').doc(st.uid).get().then(d => d.exists).catch(() => false);
-      if (!st.banned) col('members').doc(st.uid).set({ uid: st.uid, name: st.me || 'ไม่ระบุชื่อ', seen: Date.now() }, { merge: true }).catch(() => {});
+      if (!st.banned) col('members').doc(st.uid).set({ uid: st.uid, name: st.me || 'ไม่ระบุชื่อ', av: st.user.photoURL || '', seen: Date.now() }, { merge: true }).catch(() => {});
       const watch = (name, key, after) => st.unsub.push(col(name).onSnapshot(snap => {
         st[key] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         if (!st.first[key]) { st.first[key] = true; after && after(); }
@@ -64,8 +64,8 @@ const GRP = (() => {
     if (!src) return Promise.resolve(null);
     return new Promise(res => { const im = new Image(); im.onload = () => { const s = Math.min(1, max / Math.max(im.width, im.height)), c = document.createElement('canvas'); c.width = Math.round(im.width * s); c.height = Math.round(im.height * s); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); res(c.toDataURL('image/jpeg', .6)); }; im.onerror = () => res(null); im.src = src; });
   }
-  const spotDoc = s => ({ uid: st.uid, by: st.me || 'ไม่ระบุชื่อ', type: s.type, name: s.name, lat: s.lat, lng: s.lng, fish: s.fish || '', note: s.note || '', fee: s.fee || '', hours: s.hours || '', rules: s.rules || '', tel: s.tel || '' });
-  const catchDoc = c => { const sp = S.spots.find(x => x.id === c.spotId); return { uid: st.uid, by: st.me || 'ไม่ระบุชื่อ', species: c.species, len: c.len ?? null, wt: c.wt ?? null, bait: c.bait || '', note: c.note || '', t: c.t, lat: c.lat ?? sp?.lat ?? null, lng: c.lng ?? sp?.lng ?? null, spot: sp?.name || '', released: !!c.released }; };
+  const spotDoc = s => ({ uid: st.uid, by: st.me || 'ไม่ระบุชื่อ', av: st.user?.photoURL || '', type: s.type, name: s.name, lat: s.lat, lng: s.lng, fish: s.fish || '', note: s.note || '', fee: s.fee || '', hours: s.hours || '', rules: s.rules || '', tel: s.tel || '' });
+  const catchDoc = c => { const sp = S.spots.find(x => x.id === c.spotId); return { uid: st.uid, by: st.me || 'ไม่ระบุชื่อ', av: st.user?.photoURL || '', species: c.species, len: c.len ?? null, wt: c.wt ?? null, bait: c.bait || '', note: c.note || '', t: c.t, lat: c.lat ?? sp?.lat ?? null, lng: c.lng ?? sp?.lng ?? null, spot: sp?.name || '', released: !!c.released }; };
   async function push(kind, item) {
     if (!st.ready || st.banned) return;
     const remote = st[kind].find(x => x.id === item.id), key = kind + ':' + item.id;
@@ -73,7 +73,7 @@ const GRP = (() => {
     if (remote && remote.uid !== st.uid) return;                       // ไอดีชนกับของคนอื่น (แทบเป็นไปไม่ได้) ไม่ทับ
     const doc = kind === 'pins' ? spotDoc(item) : catchDoc(item), f = fp(doc) + ':' + (item.photo ? item.photo.length : 0);
     if (remote && pushed[key] === f) return;
-    doc.photo = await thumb(item.photo); doc.updated = Date.now();
+    doc.photo = await thumb(item.photo, kind === 'catches' ? 900 : 480); doc.updated = Date.now();
     await col(kind).doc(item.id).set(doc).then(() => { pushed[key] = f; ls.set('grpPushed', pushed); }).catch(e => { st.err = e.message; render(); });
   }
   async function drop(kind, id) {
@@ -151,34 +151,65 @@ const GRP = (() => {
   }
 
   /* ---------- หน้ากลุ่มในแท็บบันทึก ---------- */
-  function render() {
-    renderMap();
+  const avatar = (url, name, cls = 'av') => url ? `<i class="${cls}" style="background-image:url('${esc(url)}')"></i>` : `<i class="${cls}">${esc(initial(name))}</i>`;
+  const ago = t => { const m = Math.round((Date.now() - t) / 6e4); return m < 60 ? Math.max(1, m) + ' นาทีที่แล้ว' : m < 1440 ? Math.round(m / 60) + ' ชม.ที่แล้ว' : m < 10080 ? Math.round(m / 1440) + ' วันที่แล้ว' : new Date(t).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }); };
+  let tambons = null; loadTambons().then(T => { tambons = T; renderFeed(); });
+  const placeOf = c => { if (c.spot) return c.spot; if (!tambons || c.lat == null) return ''; let b = null, bd = 1e12; for (const t of tambons) { if (Math.abs(t[0] - c.lat) > .2 || Math.abs(t[1] - c.lng) > .2) continue; const d = dist(c, { lat: t[0], lng: t[1] }); if (d < bd) { bd = d; b = t; } } return b ? `${b[2]} · ${b[3]}` : ''; };
+  let feedMode = 'all';
+  function render() { renderMap(); renderProfile(); renderCommunity(); renderFeed(); }
+  function renderProfile() {
+    const el = $('#profileBox'); if (!el) return;
+    if (!enabled()) { el.innerHTML = `${avatar('', 'ฉัน', 'av big')}<div class="pinfo"><b>สมุดบันทึกของฉัน</b></div>`; return; }
+    if (!st.user) {
+      el.innerHTML = `${avatar('', '?', 'av big')}<div class="pinfo"><b>ยังไม่เข้าสู่ระบบ</b><span class="sub">เข้าสู่ระบบเพื่อแชร์หมุดและปลาในชุมชน</span><button class="btn small" id="pLogin" ${st.authed ? '' : 'disabled'}>เข้าสู่ระบบด้วย Google</button></div>`;
+      $('#pLogin').onclick = () => { st.err = ''; login(); };
+      return;
+    }
+    el.innerHTML = `${avatar(st.user.photoURL, st.me, 'av big')}<div class="pinfo"><b>${esc(st.me || 'ไม่ระบุชื่อ')}${st.admin ? ' <span class="adm">แอดมิน</span>' : ''}</b><span class="sub">${esc(st.user.email || '')}</span>
+      <div class="plinks"><button class="link" id="pName">เปลี่ยนชื่อ</button><button class="link" id="pOut">ออกจากระบบ</button>${st.admin ? '' : '<button class="link" id="pUid">รหัสผู้ใช้</button>'}</div></div>`;
+    $('#pName').onclick = renameSheet; $('#pOut').onclick = logout;
+    if ($('#pUid')) $('#pUid').onclick = () => copy(st.uid, 'คัดลอกรหัสผู้ใช้แล้ว');
+  }
+  function renderCommunity() {
     const el = $('#groupCard'); if (!el) return;
+    $('#feedSeg')?.classList.toggle('hidden', !st.user);
     if (!enabled()) { el.innerHTML = '<div class="sub">ยังไม่ได้เชื่อมเซิร์ฟเวอร์</div>'; return; }
     if (!st.user) {
-      el.innerHTML = `<div class="sub" style="color:var(--tx)">เข้าสู่ระบบเพื่อดูหมุดของคนอื่น และแชร์หมุดของคุณ</div>
+      el.innerHTML = `<div style="font-weight:600;font-size:17px">ดูปลาและจุดตกปลาของทุกคน</div><div class="sub" style="margin-top:4px">เข้าสู่ระบบเพื่อเห็นโพสต์ปลาของคนอื่น และแชร์ของคุณ</div>
         ${st.err ? `<div class="warn" style="margin:10px 0 0">${esc(st.err)}</div>` : ''}
-        <div class="row"><button class="btn" id="gLogin" ${st.authed ? '' : 'disabled'}>เข้าสู่ระบบด้วย Google</button></div>
-        <div class="sub" style="margin-top:8px">ไม่เข้าสู่ระบบก็ใช้แอปได้ตามปกติ แต่เห็นแค่หมุดของตัวเอง</div>`;
+        <div class="row"><button class="btn" id="gLogin" ${st.authed ? '' : 'disabled'}>เข้าสู่ระบบด้วย Google</button></div>`;
       $('#gLogin').onclick = () => { st.err = ''; login(); };
       return;
     }
-    const fp = friendPins().length, fc = friendCatches();
-    el.innerHTML = `<div class="grp-h"><div><b>${st.members.length || '-'} คนในแอป</b><div class="sub">${st.ready ? (navigator.onLine === false ? 'ออฟไลน์ · จะซิงก์เมื่อมีเน็ต' : 'เชื่อมแล้ว') : st.err ? '' : 'กำลังเชื่อม…'} · ${esc(st.me || st.user.email || '')}${st.admin ? ' · <span class="adm">แอดมิน</span>' : ''}</div></div><button class="btn small" id="gInv">👥 ชวนเพื่อน</button></div>
+    el.innerHTML = `<div class="grp-h"><div><b>${st.members.length || '-'} คนในชุมชน</b><div class="sub">${st.ready ? (navigator.onLine === false ? 'ออฟไลน์ · จะซิงก์เมื่อมีเน็ต' : 'เชื่อมแล้ว') : st.err ? '' : 'กำลังเชื่อม…'} · หมุด ${friendPins().length} จุดจากคนอื่น</div></div><div class="mstack">${st.members.slice(0, 5).map(m => avatar(m.av, m.name)).join('')}</div></div>
       ${st.banned ? '<div class="warn" style="margin:10px 0 0">บัญชีนี้ถูกระงับการแชร์ หมุดและปลาของคุณจะไม่ถูกส่งขึ้นไป</div>' : ''}
       ${st.err ? `<div class="warn" style="margin:10px 0 0">${esc(st.err)}</div>` : ''}
-      <div class="sub" style="margin-top:8px">หมุดของคนอื่น ${fp} จุด · ปลาของคนอื่น ${fc.length} ตัว · หมุดและปลาของคุณทุกคนที่เข้าสู่ระบบเห็น ยกเว้นที่ตั้งเป็น 🔒 ส่วนตัว</div>
-      ${fc.length ? `<div class="card-h" style="margin-top:14px;font-size:15px">ปลาล่าสุดของคนอื่น</div>${fc.slice(0, 15).map(c => `<div class="item" data-fcatch="${c.id}"><div class="th" ${c.photo ? `style="background-image:url(${c.photo})"` : ''}>${c.photo ? '' : '🐟'}</div><div class="mid"><b>${esc(c.species)}${c.wt ? ` ${c.wt} กก.` : c.len ? ` ${c.len} ซม.` : ''}</b><div class="sub">${esc(c.by)} · ${new Date(c.t).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}${c.bait ? ' · ' + esc(c.bait) : ''}${c.spot ? ' · ' + esc(c.spot) : ''}</div></div></div>`).join('')}` : ''}
-      ${st.admin ? adminHtml() : ''}
-      <div class="row"><button class="btn ghost small" id="gName">เปลี่ยนชื่อ</button><button class="btn ghost small" id="gOut">ออกจากระบบ</button>${st.admin ? '' : '<button class="btn ghost small" id="gUid">คัดลอกรหัสผู้ใช้</button>'}</div>`;
-    $('#gInv').onclick = invite;
-    $('#gName').onclick = renameSheet;
-    $('#gOut').onclick = logout;
-    if ($('#gUid')) $('#gUid').onclick = () => copy(st.uid, 'คัดลอกรหัสผู้ใช้แล้ว');
-    $$('#groupCard [data-fcatch]').forEach(x => x.onclick = () => catchSheetF(x.dataset.fcatch));
+      ${st.admin ? adminHtml() : ''}`;
     $$('#groupCard [data-ban]').forEach(b => b.onclick = () => { const m = st.members.find(x => x.uid === b.dataset.ban) || st.bannedList.find(x => x.id === b.dataset.ban); ban(b.dataset.ban, m?.name, b.dataset.on === '1'); });
     $$('#groupCard [data-wipe]').forEach(b => armBtn(b, 'แตะอีกครั้ง: ลบทั้งหมดของคนนี้', () => wipe(b.dataset.wipe)));
   }
+  function renderFeed() {
+    const el = $('#feedList'); if (!el) return;
+    if (!st.user) { el.innerHTML = ''; return; }
+    const posts = st.catches.filter(c => feedMode === 'all' || c.uid === st.uid).sort((a, b) => b.t - a.t).slice(0, 60);
+    if (!posts.length) { el.innerHTML = `<div class="empty">${feedMode === 'mine' ? 'ยังไม่มีปลาที่แชร์ กด ＋ เพื่อบันทึกปลาตัวแรก' : 'ยังไม่มีใครโพสต์ปลา เป็นคนแรกเลย กด ＋ บันทึกปลา'}</div>`; return; }
+    el.innerHTML = posts.map(c => { const m = st.members.find(x => x.uid === c.uid), name = c.uid === st.uid ? (st.me || c.by) : (m?.name || c.by), av = c.av || m?.av, place = placeOf(c);
+      return `<article class="post" data-post="${c.id}">
+        <header>${avatar(av, name)}<div><b>${esc(name)}</b><span class="sub">${esc(c.species)}${place ? ' · ' + esc(place) : ''}</span></div>${c.uid === st.uid || st.admin ? `<button class="pmore" data-pmore="${c.id}" aria-label="เพิ่มเติม">⋮</button>` : ''}</header>
+        ${c.photo ? `<img class="pimg" loading="lazy" src="${c.photo}" alt="">` : `<div class="pimg none">🐟</div>`}
+        <div class="pbody"><b>${esc(c.species)}${c.wt ? ` ${c.wt} กก.` : ''}${c.len ? ` · ${c.len} ซม.` : ''}</b>${c.bait ? `<span class="sub"> · เหยื่อ ${esc(c.bait)}</span>` : ''}${c.released ? '<span class="sub"> · ปล่อยคืนน้ำ</span>' : ''}
+          ${c.note ? `<p>${esc(c.note)}</p>` : ''}<div class="sub">${ago(c.t)}${c.lat != null ? ` · <button class="link" data-pmap="${c.id}">ดูบนแผนที่</button>` : ''}</div></div></article>`; }).join('');
+    $$('#feedList [data-post] .pimg').forEach(x => x.onclick = () => openPost(x.closest('[data-post]').dataset.post));
+    $$('#feedList [data-pmap]').forEach(b => b.onclick = () => { const c = st.catches.find(x => x.id === b.dataset.pmap); if (!c) return; showTab('map'); S.follow = false; map.setView([c.lat, c.lng], 15); });
+    $$('#feedList [data-pmore]').forEach(b => b.onclick = () => openPost(b.dataset.pmore));
+  }
+  function openPost(id) {
+    const c = st.catches.find(x => x.id === id); if (!c) return;
+    if (c.uid === st.uid && S.catches.some(x => x.id === id)) return catchSheet(id);
+    catchSheetF(id);
+  }
+  $$('#feedSeg [data-feed]').forEach(b => b.onclick = () => { feedMode = b.dataset.feed; $$('#feedSeg button').forEach(x => x.classList.toggle('sel', x === b)); renderFeed(); });
+  $('#feedInv')?.addEventListener('click', () => invite());
   function adminHtml() {
     const banned = new Set(st.bannedList.map(b => b.id));
     const rows = st.members.filter(m => m.uid !== st.uid).map(m => {
