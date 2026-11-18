@@ -58,7 +58,7 @@ const DB = (() => {
 const S = {
   spots: [], catches: [], tracks: [], track: { on: false, pts: [], started: null },
   pos: null, heading: null, target: null, follow: true,
-  wx: null, fcLoc: null, layer: ls.get('layer', 'light'), firstFix: false
+  wx: null, fcLoc: null, layer: ls.get('layer', 'hyb'), firstFix: false
 };
 const grp = (f, ...x) => { try { if (typeof GRP !== 'undefined') return typeof GRP[f] === 'function' ? GRP[f](...x) : GRP[f]; } catch (e) { console.warn(e); } };   // เรียกโมดูลกลุ่ม (group.js) ถ้ามี
 const save = k => DB.set(k, S[k]).catch(() => toast('บันทึกข้อมูลไม่สำเร็จ'));
@@ -68,33 +68,32 @@ const map = L.map('map', { zoomControl: false, attributionControl: false }).setV
 const OSM = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/';
 const TL = (u, o) => L.tileLayer(u, { crossOrigin: true, maxZoom: 19, ...o });
 const LAYERS = {
-  vec: { short: 'เรียบง่าย', name: 'พรานปลา (เวกเตอร์)', ico: '🎣', desc: 'โทนสีเข้ากับแอป ซูมลื่น ตัวหนังสือคม เปลี่ยนตามธีมมืด/สว่าง · ออฟไลน์ใช้พื้นที่น้อย', maxZ: 14, kb: 22, urls: [], make: makeVec },
+  hyb: { short: 'ดาวเทียม', name: 'ดาวเทียม + ถนน', ico: '🛰️', desc: 'ภาพถ่ายจริง เห็นบ้าน ถนน ชื่อสถานที่ภาษาไทย', maxZ: 17, kb: 26, urls: [ESRI + 'World_Imagery/MapServer/tile/{z}/{y}/{x}'], uMax: [17, 14], make: () => makeVec(() => hybridStyle()) },
+  vec: { short: 'เรียบง่าย', name: 'พรานปลา (เวกเตอร์)', ico: '🎣', desc: 'โทนสีเข้ากับแอป ซูมลื่น ตัวหนังสือคม เปลี่ยนตามธีมมืด/สว่าง · ออฟไลน์ใช้พื้นที่น้อย', maxZ: 14, kb: 22, urls: [], make: () => makeVec(() => vecStyle(curTheme())) },
   light: { short: 'ถนน', name: 'แผนที่', ico: '🗺️', desc: 'สว่าง อ่านง่าย ชื่อสถานที่ภาษาไทย', urls: [OSM], maxZ: 18, kb: 18, l: TL(OSM, { attribution: '© OpenStreetMap' }) },
-  sat: { name: 'ดาวเทียม', ico: '🛰️', desc: 'ภาพถ่ายจริง + ชื่อสถานที่ เห็นแนวน้ำ กอหญ้า ทางเข้า', maxZ: 18, kb: 30,
-    urls: [ESRI + 'World_Imagery/MapServer/tile/{z}/{y}/{x}', ESRI + 'Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'],
-    l: L.layerGroup([TL(ESRI + 'World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxNativeZoom: 18, attribution: 'Esri, Maxar' }), TL(ESRI + 'Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxNativeZoom: 18 })]) },
   map: { name: 'กลางคืน', ico: '🌙', desc: 'โทนมืด ถนอมสายตาและแบต', urls: [OSM], maxZ: 18, kb: 18, l: TL(OSM, { className: 'dark-tiles', attribution: '© OpenStreetMap' }) },
   topo: { name: 'ภูมิประเทศ', ico: '⛰️', desc: 'เส้นชั้นความสูง ลำห้วย ทางเดินป่า', urls: ['https://a.tile.opentopomap.org/{z}/{x}/{y}.png'], maxZ: 16, kb: 28, l: TL('https://a.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17, attribution: '© OpenTopoMap' }) }
 };
 const loadScript = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
 const curTheme = () => document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
-async function makeVec() {   // โหลดตัววาดแผนที่เวกเตอร์เฉพาะตอนเลือกใช้
+async function makeVec(styleFn) {   // โหลดตัววาดแผนที่เวกเตอร์เฉพาะตอนเลือกใช้
   if (!window.maplibregl) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'lib/maplibre-gl.css'; document.head.appendChild(l); await loadScript('lib/maplibre-gl.js'); await loadScript('lib/leaflet-maplibre-gl.js'); await loadScript('vecstyle.js'); }
   if (!maplibregl.supported?.() && !document.createElement('canvas').getContext('webgl')) throw new Error('no webgl');
-  fetch('https://tiles.openfreemap.org/planet').then(r => r.json()).then(j => { if (j.tiles?.[0]) LAYERS.vec.urls = [j.tiles[0]]; }).catch(() => {});
-  return L.maplibreGL({ style: vecStyle(curTheme()), attribution: '© OpenStreetMap · OpenFreeMap' });
+  fetch('https://tiles.openfreemap.org/planet').then(r => r.json()).then(j => { if (j.tiles?.[0]) { LAYERS.vec.urls = [j.tiles[0]]; LAYERS.hyb.urls = [LAYERS.hyb.urls[0], j.tiles[0]]; } }).catch(() => {});
+  return L.maplibreGL({ style: styleFn(), attribution: '© OpenStreetMap · OpenFreeMap · Esri' });
 }
 function vecRestyle() { const l = LAYERS.vec.l; try { l?.getMaplibreMap?.()?.setStyle(vecStyle(curTheme())); } catch {} }
 let layerSeq = 0;
 async function setLayer(k) {
   const seq = ++layerSeq, o = LAYERS[k];
-  if (o.make && !o.l) { try { toast('กำลังโหลดแผนที่เวกเตอร์…'); o.l = await o.make(); } catch { toast('เครื่อง/เบราว์เซอร์นี้เปิดแผนที่เวกเตอร์ไม่ได้ ใช้แผนที่ปกติแทน'); if (seq === layerSeq) return setLayer('light'); return; } }
+  if (o.make && !o.l) { try { if (k === 'vec') toast('กำลังโหลดแผนที่เวกเตอร์…'); o.l = await o.make(); } catch { toast('เครื่อง/เบราว์เซอร์นี้เปิดแผนที่เวกเตอร์ไม่ได้ ใช้แผนที่ปกติแทน'); if (seq === layerSeq) return setLayer('light'); return; } }
   if (seq !== layerSeq) return;
   Object.values(LAYERS).forEach(x => x.l && map.removeLayer(x.l));
-  o.l.addTo(map); S.layer = k; ls.set('layer', k); $('#layerName').textContent = k === 'vec' ? 'เวกเตอร์' : o.name;
+  o.l.addTo(map); S.layer = k; ls.set('layer', k); $('#layerName').textContent = o.short || o.name;
   if (k === 'vec') vecRestyle();
 }
-setLayer(LAYERS[S.layer] ? S.layer : 'light');
+if (!ls.get('layerV2', false)) { ls.set('layerV2', true); if (['light', 'map', 'sat'].includes(S.layer)) S.layer = 'hyb'; }   // ครั้งแรกหลังอัปเดต: เปลี่ยนเป็นแผนที่ดาวเทียม+ถนน (เห็นบ้าน) ให้ เปลี่ยนกลับได้ในตัวเลือกแผนที่
+setLayer(LAYERS[S.layer] ? S.layer : 'hyb');
 const searchPin = L.marker([0, 0], { icon: L.divIcon({ className: '', html: '<div class="mk" style="background:#e11d48"><span>🔎</span></div>', iconSize: [34, 34], iconAnchor: [17, 34] }) });
 L.control.attribution({ prefix: false, position: 'bottomleft' }).addTo(map);
 const gSpots = L.layerGroup().addTo(map), gWater = L.layerGroup().addTo(map);
@@ -213,10 +212,10 @@ const lon2x = (lon, z) => Math.floor((lon + 180) / 360 * 2 ** z);
 const lat2y = (lat, z) => { const r = lat * Math.PI / 180; return Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * 2 ** z); };
 function offlinePlan() {
   const ly = LAYERS[S.layer], b = map.getBounds(), z0 = Math.min(Math.round(map.getZoom()), ly.maxZ);
-  const list = z1 => { const out = []; for (let z = Math.max(z0 - 3, 5); z <= z1; z++) { const x0 = lon2x(b.getWest(), z), x1 = lon2x(b.getEast(), z), y0 = lat2y(b.getNorth(), z), y1 = lat2y(b.getSouth(), z); for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) ly.urls.forEach(u => out.push(u.replace('{z}', z).replace('{x}', x).replace('{y}', y))); } return out; };
+  const list = z1 => { const out = []; for (let z = Math.max(z0 - 3, 5); z <= z1; z++) { const x0 = lon2x(b.getWest(), z), x1 = lon2x(b.getEast(), z), y0 = lat2y(b.getNorth(), z), y1 = lat2y(b.getSouth(), z); for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) ly.urls.forEach((u, i) => z <= (ly.uMax?.[i] ?? ly.maxZ) && out.push(u.replace('{z}', z).replace('{x}', x).replace('{y}', y))); } return out; };
   let z1 = Math.min(z0 + 3, ly.maxZ), urls = list(z1);
   while (urls.length > OFF.cap && z1 > z0) urls = list(--z1);
-  if (S.layer === 'vec') ['Noto Sans Regular', 'Noto Sans Bold', 'Noto Sans Italic'].forEach(f => ['0-255', '3584-3839', '8192-8447'].forEach(g => urls.push(`https://tiles.openfreemap.org/fonts/${encodeURIComponent(f)}/${g}.pbf`)));   // ตัวอักษรไทย/อังกฤษของแผนที่
+  if (S.layer === 'vec' || S.layer === 'hyb') ['Noto Sans Regular', 'Noto Sans Bold', 'Noto Sans Italic'].forEach(f => ['0-255', '3584-3839', '8192-8447'].forEach(g => urls.push(`https://tiles.openfreemap.org/fonts/${encodeURIComponent(f)}/${g}.pbf`)));   // ตัวอักษรไทย/อังกฤษของแผนที่
   return { urls, z0, z1, ly, tooBig: urls.length > OFF.cap };
 }
 async function offlineCount() { try { return (await (await caches.open('pranpla-offline')).keys()).length; } catch { return 0; } }
@@ -1214,8 +1213,6 @@ function applyTheme() {
 }
 $$('#themeSeg button').forEach(b => b.onclick = () => {
   const old = document.documentElement.dataset.theme; ls.set('theme', b.dataset.theme); applyTheme();
-  const now = document.documentElement.dataset.theme;      // สลับแผนที่ตามธีมให้ด้วย ถ้ายังใช้คู่ แผนที่สว่าง/กลางคืน อยู่
-  if (now !== old && (S.layer === 'light' || S.layer === 'map')) setLayer(now === 'light' ? 'light' : 'map');
   if (S.layer === 'vec') vecRestyle();
 });
 mqLight.addEventListener?.('change', applyTheme);
