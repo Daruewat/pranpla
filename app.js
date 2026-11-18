@@ -60,6 +60,7 @@ const S = {
   pos: null, heading: null, target: null, follow: true,
   wx: null, fcLoc: null, layer: ls.get('layer', 'light'), firstFix: false
 };
+const grp = (f, ...x) => { try { if (typeof GRP !== 'undefined') return typeof GRP[f] === 'function' ? GRP[f](...x) : GRP[f]; } catch (e) { console.warn(e); } };   // เรียกโมดูลกลุ่ม (group.js) ถ้ามี
 const save = k => DB.set(k, S[k]).catch(() => toast('บันทึกข้อมูลไม่สำเร็จ'));
 
 /* ============ map ============ */
@@ -110,7 +111,7 @@ function spotIcon(type) {
   const t = SPOT_TYPES[type] || SPOT_TYPES.other;
   return L.divIcon({ className: '', html: `<div class="mk" style="background:${t.color}"><span>${t.icon}</span></div>`, iconSize: [34, 34], iconAnchor: [17, 34] });
 }
-const OPT = Object.assign({ types: null, catches: false, cross: false, heat: false, water: true }, ls.get('mapopt', {}));
+const OPT = Object.assign({ types: null, catches: false, cross: false, heat: false, water: true, friends: true }, ls.get('mapopt', {}));
 const saveOpt = () => ls.set('mapopt', OPT);
 const gCatch = L.layerGroup().addTo(map), gHeat = L.layerGroup().addTo(map);
 function renderSpots() {
@@ -120,6 +121,7 @@ function renderSpots() {
   if (OPT.catches) C.forEach(c => L.marker([c.lat + (Math.random() - .5) * 8e-5, c.lng + (Math.random() - .5) * 8e-5], { icon: L.divIcon({ className: '', html: '<div class="cmk">🐟</div>', iconSize: [26, 26], iconAnchor: [13, 13] }) }).on('click', () => catchSheet(c.id)).addTo(gCatch));
   if (OPT.heat) C.forEach(c => L.marker([c.lat, c.lng], { interactive: false, zIndexOffset: -1000, icon: L.divIcon({ className: '', html: '<div class="heat"></div>', iconSize: [110, 110], iconAnchor: [55, 55] }) }).addTo(gHeat));
   if (OPT.water) { if (!map.hasLayer(gWater)) gWater.addTo(map); } else map.removeLayer(gWater);
+  grp('renderMap');
 }
 function updateCoordBar() {
   const el = $('#coordBar'); updateCross(); el.classList.toggle('hidden', !$('#crosshair').classList.contains('hidden'));
@@ -184,6 +186,7 @@ function mapOptSheet() {
   <div class="types" id="optTypes">${Object.entries(SPOT_TYPES).map(([k, t]) => `<button type="button" data-type="${k}" class="${!OPT.types || OPT.types.includes(k) ? 'sel' : ''}">${t.icon} ${t.label}</button>`).join('')}</div>
   ${sw('catches', '🐟', 'ปลาที่ฉันจับได้', '')}
   ${sw('heat', '🔥', 'ฮีตแมปของฉัน', 'จากสมุดบันทึกของคุณ')}
+  ${grp('joined') ? sw('friends', '👥', 'หมุดของเพื่อนในกลุ่ม', '') : ''}
   ${sw('water', '💧', 'แหล่งน้ำและระดับน้ำ', '')}
   ${sw('cross', '🎯', 'เส้นเล็ง', '')}
   <button class="menu-item" id="offOpen"><span class="mi">⬇️</span><span><b>เตรียมออฟไลน์สำหรับบริเวณนี้</b><span class="sub">แผนที่ แหล่งน้ำ พยากรณ์</span></span></button>
@@ -398,6 +401,7 @@ function spotForm(init) {
     <label>เบอร์ติดต่อ</label><input name="tel" type="tel" value="${esc(d.tel)}" placeholder="เจ้าของบ่อ / ผู้ดูแล">
     <label>รูป</label><input name="photo" type="file" accept="image/*">
     <img class="photo-prev ${d.photo ? '' : 'hidden'}" src="${d.photo || ''}">
+    ${grp('joined') ? `<label class="privrow"><input name="priv" type="checkbox" ${d.private ? 'checked' : ''}> 🔒 ส่วนตัว — ไม่แชร์ให้กลุ่ม</label>` : ''}
     <div class="row"><button class="btn block acc" id="spSave">บันทึกหมุด</button></div>
   </div>`);
   const r = $('#sheet');
@@ -406,9 +410,10 @@ function spotForm(init) {
   $('#spSave').onclick = () => {
     d.name = $('[name=name]', r).value.trim() || SPOT_TYPES[d.type].label;
     ['fish', 'note', 'fee', 'hours', 'rules', 'tel'].forEach(k => d[k] = $(`[name=${k}]`, r).value.trim());
+    if ($('[name=priv]', r)) d.private = $('[name=priv]', r).checked;
     const i = S.spots.findIndex(s => s.id === d.id);
     if (i >= 0) S.spots[i] = d; else S.spots.push(d);
-    save('spots'); renderSpots(); renderLog(); closeSheet(); toast('บันทึกหมุดแล้ว');
+    save('spots'); renderSpots(); renderLog(); closeSheet(); toast('บันทึกหมุดแล้ว'); grp('pushSpot', d);
   };
 }
 const svUrl = p => `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${(+p.lat).toFixed(6)},${(+p.lng).toFixed(6)}`;
@@ -418,7 +423,7 @@ function spotSheet(id) {
   const s = S.spots.find(x => x.id === id); if (!s) return;
   const t = SPOT_TYPES[s.type] || SPOT_TYPES.other, n = S.catches.filter(c => c.spotId === id).length;
   openSheet(`<h3>${t.icon} ${esc(s.name)}</h3>
-  <div class="sub">${t.label}${S.pos ? ' · ห่าง ' + fmtDist(dist(S.pos, s)) : ''}</div>
+  <div class="sub">${t.label}${S.pos ? ' · ห่าง ' + fmtDist(dist(S.pos, s)) : ''}${grp('joined') ? (s.private ? ' · 🔒 ส่วนตัว' : ' · 👥 แชร์ให้กลุ่ม') : ''}</div>
   ${s.photo ? `<img class="photo-prev" src="${s.photo}">` : ''}
   <div class="kv"><span>พิกัด</span><b class="mono">${s.lat.toFixed(5)}, ${s.lng.toFixed(5)}</b>
     ${s.fish ? `<span>ปลา</span><b>${esc(s.fish)}</b>` : ''}${s.note ? `<span>โน้ต</span><b>${esc(s.note)}</b>` : ''}
@@ -444,7 +449,7 @@ function spotSheet(id) {
   let armed = false;
   $('#spDel').onclick = e => {
     if (!armed) { armed = true; e.target.textContent = 'แตะอีกครั้งเพื่อลบ'; return; }
-    S.spots = S.spots.filter(x => x.id !== id); save('spots'); renderSpots(); renderLog(); closeSheet(); toast('ลบหมุดแล้ว');
+    S.spots = S.spots.filter(x => x.id !== id); save('spots'); renderSpots(); renderLog(); closeSheet(); toast('ลบหมุดแล้ว'); grp('delSpot', id);
   };
   map.panTo([s.lat, s.lng]);
 }
@@ -471,6 +476,7 @@ function catchForm(init = {}) {
     <img class="photo-prev ${d.photo ? '' : 'hidden'}" src="${d.photo || ''}">
     <label>โน้ต</label><textarea name="note">${esc(d.note)}</textarea>
     <label style="display:flex;gap:8px;align-items:center;color:var(--tx)"><input name="rel" type="checkbox" style="width:auto" ${d.released ? 'checked' : ''}> ปล่อยคืนน้ำ</label>
+    ${grp('joined') ? `<label class="privrow"><input name="priv" type="checkbox" ${d.private ? 'checked' : ''}> 🔒 ส่วนตัว — ไม่แชร์ให้กลุ่ม</label>` : ''}
     <div class="row"><button class="btn block acc" id="ctSave">บันทึก</button></div>
   </div>`);
   const r = $('#sheet'); bindPhoto(r, d);
@@ -478,20 +484,21 @@ function catchForm(init = {}) {
     const v = n => $(`[name=${n}]`, r).value.trim();
     d.species = v('species') || 'ไม่ระบุชนิด'; d.len = parseFloat(v('len')) || null; d.wt = parseFloat(v('wt')) || null;
     d.bait = v('bait'); d.note = v('note'); d.released = $('[name=rel]', r).checked; d.spotId = v('spot');
+    if ($('[name=priv]', r)) d.private = $('[name=priv]', r).checked;
     d.t = v('t') ? new Date(v('t')).getTime() : Date.now();
     const sp = S.spots.find(s => s.id === d.spotId);
     if (sp) { d.lat = sp.lat; d.lng = sp.lng; } else if (S.pos && !editing) { d.lat = S.pos.lat; d.lng = S.pos.lng; }
-    if (editing) { const i = S.catches.findIndex(x => x.id === d.id); if (i >= 0) S.catches[i] = d; S.catches.sort((x, y) => y.t - x.t); save('catches'); renderLog(); closeSheet(); toast('แก้ไขแล้ว'); return; }
+    if (editing) { const i = S.catches.findIndex(x => x.id === d.id); if (i >= 0) S.catches[i] = d; S.catches.sort((x, y) => y.t - x.t); save('catches'); renderLog(); closeSheet(); toast('แก้ไขแล้ว'); grp('pushCatch', d); return; }
     if (Math.abs(Date.now() - d.t) < 2 * 36e5 && S.fcLoc && (d.lat == null || dist(S.fcLoc, d) < 25000)) d.wx = wxSnap();
     d.moon = SunCalc.getMoonIllumination(new Date(d.t)).phase;
-    S.catches.unshift(d); save('catches'); renderLog(); closeSheet(); toast('บันทึกปลาแล้ว 🎣');
+    S.catches.unshift(d); save('catches'); renderLog(); closeSheet(); toast('บันทึกปลาแล้ว 🎣'); grp('pushCatch', d);
   };
 }
 function catchSheet(id) {
   const c = S.catches.find(x => x.id === id); if (!c) return;
   const sp = S.spots.find(s => s.id === c.spotId), dt = new Date(c.t);
   openSheet(`<h3>🐟 ${esc(c.species)}</h3>
-  <div class="sub">${dt.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })} ${hm(dt)}${c.released ? ' · ปล่อยคืนน้ำ' : ''}</div>
+  <div class="sub">${dt.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })} ${hm(dt)}${c.released ? ' · ปล่อยคืนน้ำ' : ''}${grp('joined') && c.private ? ' · 🔒 ส่วนตัว' : ''}</div>
   ${c.photo ? `<img class="photo-prev" src="${c.photo}">` : ''}
   <div class="kv">
     ${c.len ? `<span>ยาว</span><b>${c.len} ซม.</b>` : ''}${c.wt ? `<span>หนัก</span><b>${c.wt} กก.</b>` : ''}
@@ -506,7 +513,7 @@ function catchSheet(id) {
   let armed = false;
   $('#ctDel').onclick = e => {
     if (!armed) { armed = true; e.target.textContent = 'แตะอีกครั้งเพื่อลบ'; return; }
-    S.catches = S.catches.filter(x => x.id !== id); save('catches'); renderLog(); closeSheet();
+    S.catches = S.catches.filter(x => x.id !== id); save('catches'); renderLog(); closeSheet(); grp('delCatch', id);
   };
 }
 
@@ -721,6 +728,7 @@ async function doSearch(q, typing) {
   $('.pills').classList.add('hidden'); box.classList.remove('hidden');
   const nq = norm(q), res = [];
   S.spots.filter(s => norm(s.name + s.fish + s.note + (s.rules || '')).includes(nq)).forEach(s => res.push({ lat: s.lat, lng: s.lng, name: s.name, sub: '📍 จุดของฉัน', pri: 0, spotId: s.id }));
+  (typeof GRP !== 'undefined' ? GRP.friendPins() : []).filter(p => norm(p.name + p.fish + p.note + (p.by || '')).includes(nq)).forEach(p => res.push({ lat: p.lat, lng: p.lng, name: p.name, sub: '👥 หมุดของ ' + p.by, pri: 0, friendPin: p.id }));
   S.catches.filter(k => norm(k.species + (k.bait || '') + (k.note || '')).includes(nq)).slice(0, 12).forEach(k => { const sp = S.spots.find(s => s.id === k.spotId), lat = k.lat ?? sp?.lat, lng = k.lng ?? sp?.lng; if (lat == null) return;
     res.push({ lat, lng, name: k.species + (k.wt ? ` ${k.wt} กก.` : k.len ? ` ${k.len} ซม.` : ''), sub: `🐟 ปลาที่จับได้ · ${new Date(k.t).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}${k.bait ? ' · ' + k.bait : ''}${sp ? ' · ' + sp.name : ''}`, pri: 0, catchId: k.id }); });
   (waterC || S.water || []).filter(w => w.name && norm(w.name).includes(nq)).slice(0, 40).forEach(w => res.push({ lat: w.lat, lng: w.lng, name: w.name, sub: '💧 ' + w.kind, pri: 1 }));
@@ -729,14 +737,15 @@ async function doSearch(q, typing) {
     if (seq !== searchSeq) return;
     const seen = [], list = [];
     res.map(r => ({ ...r, d: dist(ctr, r) })).sort((x, y) => (x.pri - y.pri) || (x.d - y.d)).forEach(r => {
-      if (!r.catchId && seen.some(o => !o.catchId && norm(o.name) === norm(r.name) && dist(o, r) < 400)) return; seen.push(r); list.push(r);
+      if (!r.catchId && !r.friendPin && seen.some(o => !o.catchId && !o.friendPin && norm(o.name) === norm(r.name) && dist(o, r) < 400)) return; seen.push(r); list.push(r);
     });
     box.innerHTML = (list.length ? list.slice(0, 25).map((r, i) => `<button data-i="${i}"><b>${esc(r.name)}</b><small>${fmtDist(r.d)}</small><span>${esc(r.sub)}</span></button>`).join('') : loading ? '' : `<div class="empty">ไม่พบ "${esc(q)}"<br><span class="sub">ลองพิมพ์ชื่อเฉพาะ เช่น "อ่างแม่กวง" "หนองบัว สันทราย" หรือกดปุ่ม 💧 เพื่อหาแหล่งน้ำรอบแผนที่</span></div>`)
       + (loading ? '<div class="empty">กำลังค้นหา…</div>' : '');
     $$('button', box).forEach(b => b.onclick = () => {
       const r = list[b.dataset.i]; closeSearch(); $('#searchInput').blur();
       S.follow = false; $('#btnLocate').classList.remove('follow'); map.setView([r.lat, r.lng], 15);
-      if (r.catchId) catchSheet(r.catchId);
+      if (r.friendPin) grp('pinSheet', r.friendPin);
+      else if (r.catchId) catchSheet(r.catchId);
       else if (r.spotId) spotSheet(r.spotId);
       else { searchPin.setLatLng([r.lat, r.lng]).addTo(map).bindPopup(`<b>${esc(r.name)}</b><br>กดค้างบนแผนที่เพื่อปักหมุด<br><a href="${svUrl(r)}" target="_blank" rel="noopener">ดูภาพถนน (Street View)</a>`).openPopup(); }
     });
@@ -1157,6 +1166,7 @@ function renderStats() {
 
 /* ============ log ============ */
 function renderLog() {
+  grp('render');
   if (OPT.catches || OPT.heat) renderSpots();
   const sp = new Set(S.catches.map(c => c.species)), big = S.catches.reduce((m, c) => Math.max(m, c.wt || 0), 0);
   $('#stats').innerHTML = `<div><b>${S.catches.length}</b><span>ปลาที่จับได้</span></div><div><b>${sp.size}</b><span>ชนิดปลา</span></div><div><b>${S.spots.length}</b><span>หมุด</span></div><div><b>${big || '-'}</b><span>กก. ใหญ่สุด</span></div>`;
@@ -1181,7 +1191,7 @@ $('#importFile').onchange = async e => {
     const d = JSON.parse(await f.text()); if (d.app !== 'pranpla') throw 0;
     const merge = (cur, inc) => { const ids = new Set(cur.map(x => x.id)); return cur.concat((inc || []).filter(x => x && x.id && !ids.has(x.id))); };
     S.spots = merge(S.spots, d.spots); S.catches = merge(S.catches, d.catches).sort((a, b) => b.t - a.t); S.tracks = merge(S.tracks, d.tracks); await save('tracks');
-    await save('spots'); await save('catches'); renderSpots(); renderLog(); toast('นำเข้าข้อมูลแล้ว');
+    await save('spots'); await save('catches'); renderSpots(); renderLog(); toast('นำเข้าข้อมูลแล้ว'); grp('syncAll');
   } catch { toast('ไฟล์นี้ไม่ใช่ไฟล์สำรองของพรานปลา'); }
   e.target.value = '';
 };

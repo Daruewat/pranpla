@@ -54,6 +54,8 @@ const ICONS = {
   '☎': ['<path d="M6 3h3l1.5 5-2 1.500a12 12 0 0 0 6 6l1.5-2 5 1.500v3a2 2 0 0 1-2 2A16 16 0 0 1 4 5a2 2 0 0 1 2-2Z"/>'],
   '🎒': ['<path d="M8 8V6a4 4 0 0 1 8 0v2M5 8h14v12H5V8ZM9 14h6"/>'],
   '🚶': ['<circle cx="12" cy="4.5" r="2"/><path d="M12 7.5v6l-3 7M12 13.5l3.5 7M8 10.5l4-2 3.5 3"/>'],
+  '👥': ['<circle cx="9" cy="8" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0M16 5.5a3 3 0 0 1 0 5.5M17.5 13.5a5 5 0 0 1 3 5"/>'],
+  '🔒': ['<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'],
   '📱': ['<rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/>']
 };
 const ICON_RE = new RegExp('(' + Object.keys(ICONS).sort((a, b) => b.length - a.length).join('|') + ')\\uFE0F?', 'u');

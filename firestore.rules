@@ -1,0 +1,17 @@
+rules_version = '2';
+// กฎฐานข้อมูลของพรานปลา: วางใน Firebase Console → Firestore Database → Rules แล้วกด Publish
+// - ต้องเข้าระบบ (แบบไม่ระบุตัวตน) ก่อนถึงอ่าน/เขียนได้
+// - อ่านได้เฉพาะกลุ่มที่รู้รหัส (รายชื่อกลุ่มทั้งหมดดูไม่ได้)
+// - สร้าง/แก้/ลบได้เฉพาะเอกสารของตัวเอง (uid ตรงกับผู้ใช้)
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /groups/{gid}/{col}/{id} {
+      function okCol() { return col in ['pins', 'catches', 'members', 'meta']; }
+      function mine() { return request.resource.data.uid == request.auth.uid; }
+      allow get, list: if request.auth != null && okCol();
+      allow create: if request.auth != null && okCol() && gid.size() >= 8 && mine();
+      allow update: if request.auth != null && okCol() && resource.data.uid == request.auth.uid && mine();
+      allow delete: if request.auth != null && okCol() && resource.data.uid == request.auth.uid;
+    }
+  }
+}

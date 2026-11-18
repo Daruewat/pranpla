@@ -1949,3 +1949,14 @@ html {
 .goods{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:12px}
 .good{border-radius:10px;padding:5px 10px;font-size:13px;font-weight:600;background:color-mix(in srgb,var(--c) 18%,transparent);color:var(--tx);box-shadow:inset 3px 0 0 var(--c)}
 .scale{font-size:11px;margin-top:10px}
+
+/* กลุ่มเพื่อน */
+.mk.friend{border-style:dashed;opacity:.92}
+.mk.friend em{position:absolute;right:-7px;top:-7px;transform:rotate(45deg);width:17px;height:17px;border-radius:50%;background:#fff;color:#0a1220;font:700 10px/17px Anuphan,sans-serif;font-style:normal;text-align:center}
+.grp-h{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.grp-h b{font-weight:600;font-size:17px}
+.members{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.mchip{display:inline-flex;align-items:center;gap:6px;background:var(--card2);border-radius:99px;padding:3px 10px 3px 3px;font-size:13px}
+.mchip i{width:22px;height:22px;border-radius:50%;background:var(--blue);color:#fff;font:700 11px/22px Anuphan,sans-serif;font-style:normal;text-align:center}
+.privrow{display:flex!important;gap:8px;align-items:center;color:var(--tx)!important;margin-top:14px!important}
+.privrow input{width:auto!important}
