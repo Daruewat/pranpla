@@ -69,9 +69,8 @@ const OSM = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', ESRI = 'https://se
 const TL = (u, o) => L.tileLayer(u, { crossOrigin: true, maxZoom: 19, ...o });
 const LAYERS = {
   hyb: { short: 'ดาวเทียม', name: 'ดาวเทียม + ถนน', ico: '🛰️', desc: 'ภาพถ่ายจริง เห็นบ้าน ถนน ชื่อสถานที่ภาษาไทย', maxZ: 17, kb: 26, urls: [ESRI + 'World_Imagery/MapServer/tile/{z}/{y}/{x}'], uMax: [17, 14], make: () => makeVec(() => hybridStyle()) },
-  vec: { short: 'เรียบง่าย', name: 'พรานปลา (เวกเตอร์)', ico: '🎣', desc: 'โทนสีเข้ากับแอป ซูมลื่น ตัวหนังสือคม เปลี่ยนตามธีมมืด/สว่าง · ออฟไลน์ใช้พื้นที่น้อย', maxZ: 14, kb: 22, urls: [], make: () => makeVec(() => vecStyle(curTheme())) },
-  light: { short: 'ถนน', name: 'แผนที่', ico: '🗺️', desc: 'สว่าง อ่านง่าย ชื่อสถานที่ภาษาไทย', urls: [OSM], maxZ: 18, kb: 18, l: TL(OSM, { attribution: '© OpenStreetMap' }) },
-  map: { name: 'กลางคืน', ico: '🌙', desc: 'โทนมืด ถนอมสายตาและแบต', urls: [OSM], maxZ: 18, kb: 18, l: TL(OSM, { className: 'dark-tiles', attribution: '© OpenStreetMap' }) },
+  vec: { short: 'ถนน', name: 'แผนที่ถนน', ico: '🗺️', desc: 'แผนที่ถนนสีสว่าง ตัวหนังสือคม ซูมลื่น · ออฟไลน์ใช้พื้นที่น้อย', maxZ: 14, kb: 22, urls: [], make: () => makeVec(() => vecStyle('light')) },
+  light: { hidden: true, short: 'ถนน', name: 'แผนที่', ico: '🗺️', desc: 'สว่าง อ่านง่าย ชื่อสถานที่ภาษาไทย', urls: [OSM], maxZ: 18, kb: 18, l: TL(OSM, { attribution: '© OpenStreetMap' }) },
   topo: { name: 'ภูมิประเทศ', ico: '⛰️', desc: 'เส้นชั้นความสูง ลำห้วย ทางเดินป่า', urls: ['https://a.tile.opentopomap.org/{z}/{x}/{y}.png'], maxZ: 16, kb: 28, l: TL('https://a.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17, attribution: '© OpenTopoMap' }) }
 };
 const loadScript = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
@@ -82,7 +81,7 @@ async function makeVec(styleFn) {   // โหลดตัววาดแผน�
   fetch('https://tiles.openfreemap.org/planet').then(r => r.json()).then(j => { if (j.tiles?.[0]) { LAYERS.vec.urls = [j.tiles[0]]; LAYERS.hyb.urls = [LAYERS.hyb.urls[0], j.tiles[0]]; } }).catch(() => {});
   return L.maplibreGL({ style: styleFn(), attribution: '© OpenStreetMap · OpenFreeMap · Esri' });
 }
-function vecRestyle() { const l = LAYERS.vec.l; try { l?.getMaplibreMap?.()?.setStyle(vecStyle(curTheme())); } catch {} }
+function vecRestyle() {}
 let layerSeq = 0;
 async function setLayer(k) {
   const seq = ++layerSeq, o = LAYERS[k];
@@ -92,7 +91,8 @@ async function setLayer(k) {
   o.l.addTo(map); S.layer = k; ls.set('layer', k); $('#layerName').textContent = o.short || o.name;
   if (k === 'vec') vecRestyle();
 }
-if (!ls.get('layerV2', false)) { ls.set('layerV2', true); if (['light', 'map', 'sat'].includes(S.layer)) S.layer = 'hyb'; }   // ครั้งแรกหลังอัปเดต: เปลี่ยนเป็นแผนที่ดาวเทียม+ถนน (เห็นบ้าน) ให้ เปลี่ยนกลับได้ในตัวเลือกแผนที่
+if (!ls.get('layerV2', false)) { ls.set('layerV2', true); if (['light', 'map', 'sat'].includes(S.layer)) S.layer = 'hyb'; }
+if (!LAYERS[S.layer] || LAYERS[S.layer].hidden) S.layer = 'hyb';   // แผนที่ที่เลิกใช้แล้ว (กลางคืน/ถนนแบบเก่า)   // ครั้งแรกหลังอัปเดต: เปลี่ยนเป็นแผนที่ดาวเทียม+ถนน (เห็นบ้าน) ให้ เปลี่ยนกลับได้ในตัวเลือกแผนที่
 setLayer(LAYERS[S.layer] ? S.layer : 'hyb');
 const searchPin = L.marker([0, 0], { icon: L.divIcon({ className: '', html: '<div class="mk" style="background:#e11d48"><span>🔎</span></div>', iconSize: [34, 34], iconAnchor: [17, 34] }) });
 L.control.attribution({ prefix: false, position: 'bottomleft' }).addTo(map);
@@ -180,7 +180,7 @@ function mapOptSheet() {
   const sw = (k, ico, title, sub) => `<label class="optrow"><span class="oi">${ico}</span><span class="ot"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</span><input type="checkbox" class="switch" data-opt="${k}" ${OPT[k] ? 'checked' : ''}></label>`;
   openSheet(`<h3>ตัวเลือกแผนที่</h3>
   <div class="card-h" style="font-size:15px;margin-top:6px">รูปแบบแผนที่</div>
-  <div class="stylegrid">${Object.entries(LAYERS).map(([k, o]) => `<button data-layer="${k}" class="${k === S.layer ? 'sel' : ''}"><span>${o.ico}</span>${o.short || o.name}</button>`).join('')}</div>
+  <div class="stylegrid">${Object.entries(LAYERS).filter(([, o]) => !o.hidden).map(([k, o]) => `<button data-layer="${k}" class="${k === S.layer ? 'sel' : ''}"><span>${o.ico}</span>${o.short || o.name}</button>`).join('')}</div>
   <div class="card-h" style="font-size:15px;margin-top:14px">กรองหมุด</div>
   <div class="types" id="optTypes">${Object.entries(SPOT_TYPES).map(([k, t]) => `<button type="button" data-type="${k}" class="${!OPT.types || OPT.types.includes(k) ? 'sel' : ''}">${t.icon} ${t.label}</button>`).join('')}</div>
   ${sw('catches', '🐟', 'ปลาที่ฉันจับได้', '')}
