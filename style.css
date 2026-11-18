@@ -2002,3 +2002,79 @@ html {
 .pbody b{font-weight:600;font-size:16px}
 .pbody p{margin:6px 0 0;font-size:14px}
 .pbody .sub .link{padding:0;font-size:13px}
+
+/* =====================================================================
+   พรานปลา — อัตลักษณ์ "ทุ่นตกปลา"  (ทับธีมเดิมทั้งหมด ด้านล่างนี้คือภาพลักษณ์ปัจจุบัน)
+   น้ำ: เทา-เขียวน้ำลึก  ·  สีสั่งการ: แดงทุ่น  ·  สีเลือก/ข้อมูลน้ำ: เขียวน้ำตื้น
+   ตัวเลข/หัวข้อ: Chakra Petch (เหมือนหน้าปัดเครื่องมือภาคสนาม)  ·  เนื้อหา: Anuphan
+   ===================================================================== */
+:root{
+  --bg:#0c1719; --bg2:#111f22; --card:#13232700; --card:#142427; --card2:#1b2f33; --line:#24393d;
+  --tx:#e4ece9; --tx2:#8ea4a2; --tx3:#5d7472;
+  --act:#ff5a36; --act-tx:#fff; --sel:#3dbaa8; --blue:#3dbaa8; --acc:#ffb020; --red:#ef4444;
+  --glass:rgba(17,31,34,.94); --track:#1f3236; --navbg:#0c1719; --wet-bg:#10302e; --link:#6fd3c3;
+  --disp:"Chakra Petch",Anuphan,system-ui,sans-serif;
+}
+:root[data-theme=light]{
+  --bg:#edf2f0; --bg2:#ffffff; --card:#ffffff; --card2:#e3ebe8; --line:#d2ddd9;
+  --tx:#102220; --tx2:#4f6461; --tx3:#8a9b98;
+  --act:#e8452a; --sel:#13917f; --blue:#13917f; --glass:rgba(255,255,255,.95); --track:#d8e3df; --navbg:#ffffff; --wet-bg:#dff3ee; --link:#0f7a6b;
+}
+/* ตัวอักษร */
+.vhead h1,.sheet h3,.fc-temp,.ring b,.stats b,.score-label,.pinfo b,.big,.coords,.env .v,.sos b,.days .sc,.hours .h .t,.hours .h .s,.mono,.crosslbl b,.bar-info b,.dam-h span,.grp-h b{font-family:var(--disp);letter-spacing:0}
+.vhead h1{font-size:30px;font-weight:700;letter-spacing:-.01em}
+.sheet h3{font-weight:700}
+.sect-h h2{font-size:15px;font-weight:600;color:var(--tx2)}
+.card-h{font-size:15.5px}
+/* พื้นผิว: มุมโค้งตามลำดับชั้น */
+.card,.stats,.post{border-radius:14px}
+.item{border-radius:12px}
+.sheet{border-radius:22px 22px 0 0}
+.chip,.types button,.good,.mchip{border-radius:8px}
+.seg{border-radius:10px}.seg button{border-radius:8px}
+.seg button.sel,.types button.sel{background:var(--sel);color:#fff}
+.switch:checked{background:var(--sel);border-color:var(--sel)}
+.stylegrid button{border-radius:12px}.stylegrid button.sel{box-shadow:inset 0 0 0 2px var(--sel)}.stylegrid button.sel span{color:var(--sel)}
+.menu-item .mi{border-radius:12px;color:var(--link)}
+/* ปุ่มสั่งการ = แดงทุ่น */
+.btn,.btn.acc{background:var(--act);color:var(--act-tx);border-radius:12px}
+.btn.ghost{background:var(--card2);color:var(--tx)}
+.btn.danger{background:transparent;color:var(--red);box-shadow:inset 0 0 0 1.5px var(--red)}
+.link{color:var(--link)}
+/* แถบล่าง: ปุ่มกลางเป็นสี่เหลี่ยมมุมมน (ไม่ใช่วงกลมลอย) ไอคอนที่เลือกมีขีดแดงด้านบน */
+.tabbar{background:var(--navbg);border-top:1px solid var(--line)}
+.tabbar button{position:relative}
+.tabbar button.active{color:var(--tx)}
+.tabbar button.active::before{content:"";position:absolute;top:0;left:50%;width:22px;height:3px;margin-left:-11px;border-radius:0 0 3px 3px;background:var(--act)}
+.tabbar .fab{width:56px;height:56px;margin:-14px auto 0;border-radius:18px;background:var(--act);color:#fff;font-weight:400;box-shadow:0 6px 16px rgba(255,90,54,.35);transform:rotate(0)}
+/* แผนที่: ปุ่มเครื่องมือรวมเป็นแท่งเดียว */
+.mapctl{gap:0;right:12px;background:var(--glass);border-radius:16px;padding:4px;box-shadow:0 4px 14px rgba(0,0,0,.28)}
+.mapctl button{width:44px;height:44px;min-height:44px;border-radius:12px;background:transparent;box-shadow:none;color:var(--tx)}
+.mapctl button+button{margin-top:2px}
+.mapctl button.on{background:var(--sel);color:#fff;box-shadow:none}
+#btnTrack.on{background:var(--act);color:#fff;box-shadow:none}
+.mapctl .primary{width:44px;height:44px;margin-top:8px;border-radius:12px;background:var(--act);color:#fff;border:0}
+.mapctl .primary.follow{background:#fff;color:var(--act)}
+.mapcompass{border-radius:14px;background:var(--glass)}
+.search{border-radius:14px;height:48px;background:var(--glass);box-shadow:0 4px 14px rgba(0,0,0,.22)}
+.pill{border-radius:12px;background:var(--glass)}
+.score-dot{border-radius:8px;font-family:var(--disp)}
+.coordbar,.crosslbl,.crosssv{border-radius:10px}
+.crosshair circle{fill:var(--act)}
+.mk.friend em{font-family:var(--disp)}
+/* หน้าพยากรณ์: ทุ่นบอกคะแนนปลากิน */
+.score-row{gap:14px;align-items:center}
+.bobber{width:112px;height:112px;flex:none}
+.bobber .w{stroke:var(--sel);stroke-width:1.6;fill:none}
+.bobber .uw{fill:var(--sel);opacity:.10}
+.bob-num{font-family:var(--disp);font-size:44px;font-weight:700;line-height:1}
+.bob-num small{font-size:15px;color:var(--tx2);font-weight:500;margin-left:2px}
+.score-label{font-size:21px;font-weight:600;margin-top:2px}
+/* โปรไฟล์ */
+.av{background-color:var(--sel);border-radius:14px}
+.av.big{border-radius:24px;box-shadow:none}
+.mchip i,.adm{background:var(--sel)}
+.ccard,.ccard .cimg{border-radius:12px}
+.ccard.first span{background:var(--act);border-radius:16px}
+
+:root[data-theme=light] .bob-num,:root[data-theme=light] .days .sc:not(.top),:root[data-theme=light] .bar-info span[style]{filter:brightness(.78) saturate(1.2)}

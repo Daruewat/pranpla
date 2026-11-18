@@ -1,9 +1,9 @@
 'use strict';
 /* สไตล์แผนที่เวกเตอร์ของพรานปลา (ข้อมูล OpenStreetMap ผ่าน OpenFreeMap, โครงสร้าง OpenMapTiles) */
 const VEC_PAL = {
-  dark: { bg: '#0c1524', wood: '#0f2130', grass: '#10232f', farm: '#0e1a2a', resid: '#111d30', park: '#11293a', water: '#1b5fb0', river: '#2a78cf', wet: '#103244',
-    bld: '#18263c', minor: '#24344e', mid: '#32456a', major: '#44598a', hwy: '#6b7fae', path: '#3b4d6e', rail: '#2c3a55', bnd: '#3f5378',
-    tx: '#dfe8f5', tx2: '#93a4bd', halo: '#0a1220', wtx: '#8cc4ff', poi: '#9fb7d9' },
+  dark: { bg: '#0d1a1c', wood: '#10261f', grass: '#122a22', farm: '#0f1f1d', resid: '#13221f', park: '#123024', water: '#1d6a73', river: '#2a8f97', wet: '#113331',
+    bld: '#182b29', minor: '#243b38', mid: '#30504b', major: '#41675f', hwy: '#7d6a3e', path: '#3a5550', rail: '#2b403c', bnd: '#456660',
+    tx: '#dfe9e5', tx2: '#8ea4a2', halo: '#0c1719', wtx: '#7fd9cd', poi: '#a9c1a6' },
   light: { bg: '#f1f3ec', wood: '#cfe3c4', grass: '#dcebcf', farm: '#ebeedd', resid: '#e9e9e2', park: '#c3e0b5', water: '#9cc8ee', river: '#7fb6e6', wet: '#c5e3dc',
     bld: '#dcd9d0', minor: '#ffffff', mid: '#fff6d6', major: '#ffe49a', hwy: '#f6b86a', path: '#b89a78', rail: '#a9a9a9', bnd: '#9a8fb0',
     tx: '#1d2a23', tx2: '#55665d', halo: '#ffffff', wtx: '#0b5a94', poi: '#4c6a1f' }

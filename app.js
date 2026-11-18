@@ -944,6 +944,14 @@ function barInfo(i) {
   $$('.bars div').forEach(b => b.classList.toggle('sel', +b.dataset.b === i));
   $('#barInfo').innerHTML = `<b>${i === 0 ? 'ตอนนี้' : (x.t.toDateString() === new Date().toDateString() ? '' : DAYS[x.t.getDay()] + ' ') + pad(x.t.getHours()) + ':00'}</b> <span style="color:${scoreColor(x.score)}">● ${x.score} ${LEVELS[scoreLevel(x.score)][1]}</span> <span class="sub">${Math.round(x.temp)}° · ฝน ${x.pop ?? 0}%</span>`;
 }
+// ทุ่นตกปลา: ปลากินมาก ทุ่นยิ่งจมและมีวงน้ำกระเพื่อม
+function bobberSvg(score) {
+  const dy = (clamp(score, 0, 100) - 45) * .42, lv = scoreLevel(score), col = scoreColor(score);
+  const float = `<g transform="translate(0 ${dy.toFixed(1)})"><path d="M60 8v24" stroke="${col}" stroke-width="3" stroke-linecap="round"/><path d="M40 52a20 20 0 0 1 40 0Z" fill="#ff5a36"/><path d="M40 52a20 20 0 0 0 40 0Z" fill="#f4f1ea"/><path d="M60 72v16" stroke="#9aa9a6" stroke-width="3" stroke-linecap="round"/></g>`;
+  const rip = [1, 2, 3].slice(0, lv).map(i => `<ellipse class="w" cx="60" cy="66" rx="${22 + i * 11}" ry="${3 + i * 1.6}" opacity="${(.9 - i * .22).toFixed(2)}"/>`).join('');
+  return `<svg class="bobber" viewBox="0 0 120 120" aria-hidden="true"><defs><clipPath id="bbA"><rect width="120" height="66"/></clipPath><clipPath id="bbU"><rect y="66" width="120" height="54"/></clipPath></defs>
+    <defs><linearGradient id="bbG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--sel)" stop-opacity=".22"/><stop offset="1" stop-color="var(--sel)" stop-opacity="0"/></linearGradient></defs><rect y="66" width="120" height="54" fill="url(#bbG)"/><g clip-path="url(#bbU)" opacity=".35">${float}</g><g clip-path="url(#bbA)">${float}</g>${rip}<path class="w" d="M6 66h108"/></svg>`;
+}
 function renderForecast() {
   const W = S.wx, n = W.now, wm = wmo(n.code, !n.day), sn = season(), mo = new Date().getMonth() + 1;
   const best = W.next[W.bi], best2 = W.next[W.bi + 1] || best;
@@ -961,8 +969,8 @@ function renderForecast() {
   <div class="card">
     <div class="fc-now"><div><div class="sub" id="fcNowPlace">ตอนนี้</div><div class="fc-temp">${Math.round(n.temp)}°C</div><div class="sub">${wm.txt}</div></div><div class="fc-ico">${wm.ico}</div></div>
     <div class="score-row">
-      <div class="ring"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="none" style="stroke:var(--track)" stroke-width="9"/><circle cx="50" cy="50" r="40" fill="none" stroke="${scoreColor(n.score)}" stroke-width="9" stroke-linecap="round" stroke-dasharray="${C * n.score / 100} ${C}"/></svg><b>${n.score}</b></div>
-      <div><div class="score-label">${scoreLabel(n.score)}</div><div class="sub">🔥 ช่วงดีที่สุด: ${bestTxt}</div></div>
+      ${bobberSvg(n.score)}
+      <div><div class="bob-num" style="color:${scoreColor(n.score)}">${n.score}<small>/100</small></div><div class="score-label">${scoreLabel(n.score)}</div><div class="sub">ช่วงดีที่สุด ${bestTxt}</div></div>
     </div>
     <div class="bar-info" id="barInfo"></div>
     <div class="bars">${W.next.map((x, i) => `<div data-b="${i}" class="${i === 0 ? 'now' : ''}" style="height:${clamp((x.score - 20) * 1.25, 8, 100)}%;background:${scoreColor(x.score)}"></div>`).join('')}</div>
@@ -1202,7 +1210,7 @@ const mqLight = window.matchMedia('(prefers-color-scheme: light)');
 function applyTheme() {
   const pref = ls.get('theme', 'dark'), t = pref === 'auto' ? (mqLight.matches ? 'light' : 'dark') : pref;
   document.documentElement.dataset.theme = t;
-  $('meta[name=theme-color]').content = t === 'light' ? '#f3f6fb' : '#0a1220';
+  $('meta[name=theme-color]').content = t === 'light' ? '#edf2f0' : '#0c1719';
   $('meta[name=color-scheme]').content = t;
   $$('#themeSeg button').forEach(b => b.classList.toggle('sel', b.dataset.theme === pref));
 }
