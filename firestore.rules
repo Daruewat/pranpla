@@ -1,17 +1,29 @@
 rules_version = '2';
 // กฎฐานข้อมูลของพรานปลา: วางใน Firebase Console → Firestore Database → Rules แล้วกด Publish
-// - ต้องเข้าระบบ (แบบไม่ระบุตัวตน) ก่อนถึงอ่าน/เขียนได้
-// - ทุกคนที่ใช้แอปอ่านหมุด/ปลาของกันได้ (พื้นที่เดียว: groups/all)
-// - สร้าง/แก้/ลบได้เฉพาะเอกสารของตัวเอง (uid ตรงกับผู้ใช้)
+// - ต้องเข้าสู่ระบบด้วย Google ถึงจะอ่าน/เขียนหมุดและปลาได้
+// - สร้าง/แก้/ลบได้เฉพาะของตัวเอง ผู้ใช้ที่ถูกแบนสร้าง/แก้ไม่ได้
+// - แอดมิน (มีเอกสาร admins/{uid} ซึ่งสร้างได้จาก Console เท่านั้น) แก้/ลบได้ทุกอย่าง และแบนผู้ใช้ได้
 service cloud.firestore {
   match /databases/{database}/documents {
+    function signedIn() { return request.auth != null && request.auth.token.firebase.sign_in_provider == 'google.com'; }
+    function isAdmin() { return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
+    function isBanned() { return exists(/databases/$(database)/documents/banned/$(request.auth.uid)); }
+
+    match /admins/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+    match /banned/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow list, write: if isAdmin();
+    }
     match /groups/{gid}/{col}/{id} {
-      function okCol() { return col in ['pins', 'catches', 'members', 'meta']; }
+      function okCol() { return gid == 'all' && col in ['pins', 'catches', 'members']; }
       function mine() { return request.resource.data.uid == request.auth.uid; }
-      allow get, list: if request.auth != null && okCol();
-      allow create: if request.auth != null && okCol() && gid == 'all' && mine();
-      allow update: if request.auth != null && okCol() && resource.data.uid == request.auth.uid && mine();
-      allow delete: if request.auth != null && okCol() && resource.data.uid == request.auth.uid;
+      allow get, list: if signedIn() && okCol();
+      allow create: if signedIn() && okCol() && mine() && !isBanned();
+      allow update: if okCol() && ((signedIn() && resource.data.uid == request.auth.uid && mine() && !isBanned()) || isAdmin());
+      allow delete: if okCol() && ((signedIn() && resource.data.uid == request.auth.uid) || isAdmin());
     }
   }
 }
