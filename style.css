@@ -2247,3 +2247,10 @@ html {
 :focus-visible{outline:2px solid var(--sig);outline-offset:2px}
 #fcBody > .card:first-child,#fcBody > .warn + .card{background:none;border:0;padding:2px 2px 10px}
 .env>div{border-radius:4px}
+/* เปลี่ยนรูปโปรไฟล์ */
+.avedit{position:relative;flex:none;background:none;border:0;padding:0;cursor:pointer;border-radius:50%}
+.avpen{position:absolute;right:8px;bottom:8px;width:30px;height:30px;border-radius:50%;background:var(--act);display:grid;place-items:center;box-shadow:0 0 0 3px var(--bg)}
+.avpen svg{width:16px;height:16px;fill:none;stroke:#fff;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.avpick{display:flex;justify-content:center;margin:10px 0 6px}
+.avpick .av.big{width:120px;height:120px;font-size:44px}
+#groupCard.hidden{display:none}

@@ -10,6 +10,8 @@ const GRP = (() => {
   const col = n => st.db.collection('groups').doc(st.gid).collection(n);
   const fp = o => { const s = JSON.stringify(o); let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return s.length + ':' + h; };
   const initial = n => (n || '?').trim().charAt(0).toUpperCase();
+  const myAv = () => ls.get('myAv', '') || st.user?.photoURL || '';            // รูปโปรไฟล์ที่ตั้งเอง ไม่มีก็ใช้รูป Google
+  const docAv = () => ls.get('myAv', '') ? '' : (st.user?.photoURL || '');      // ในโพสต์เก็บแค่ลิงก์ Google รูปที่ตั้งเองอ่านจากข้อมูลสมาชิก (ไม่ให้โพสต์ใหญ่)
 
   async function loadSdk() {
     if (window.firebase?.firestore) return;
@@ -34,7 +36,7 @@ const GRP = (() => {
       if (e.code !== 'auth/popup-closed-by-user') { st.err = authErr(e); render(); }
     }
   }
-  async function logout() { stop(); await firebase.auth().signOut().catch(() => {}); st.admin = false; st.banned = false; render(); toast('ออกจากระบบแล้ว (หมุดในเครื่องยังอยู่ครบ)'); }
+  async function logout() { stop(); ls.set('myAv', ''); await firebase.auth().signOut().catch(() => {}); st.admin = false; st.banned = false; render(); toast('ออกจากระบบแล้ว (หมุดในเครื่องยังอยู่ครบ)'); }
   async function start() {
     stop(); st.err = '';
     if (!st.user) { render(); return; }
@@ -43,7 +45,9 @@ const GRP = (() => {
       if (!st.me) { st.me = (st.user.displayName || '').trim().slice(0, 24); if (st.me) ls.set('myname', st.me); }
       st.admin = await st.db.collection('admins').doc(st.uid).get().then(d => d.exists).catch(() => false);
       st.banned = await st.db.collection('banned').doc(st.uid).get().then(d => d.exists).catch(() => false);
-      if (!st.banned) col('members').doc(st.uid).set({ uid: st.uid, name: st.me || 'ไม่ระบุชื่อ', av: st.user.photoURL || '', seen: Date.now() }, { merge: true }).catch(() => {});
+      const md = await col('members').doc(st.uid).get().then(d => d.exists ? d.data() : null).catch(() => null);   // รูปที่ตั้งไว้จากเครื่องอื่น
+      if (!ls.get('myAv', '') && /^data:/.test(md?.av || '')) ls.set('myAv', md.av);
+      if (!st.banned) col('members').doc(st.uid).set({ uid: st.uid, name: st.me || 'ไม่ระบุชื่อ', av: myAv(), seen: Date.now() }, { merge: true }).catch(() => {});
       const watch = (name, key, after, each) => st.unsub.push(col(name).onSnapshot(snap => {
         st[key] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         if (!st.first[key]) { st.first[key] = true; after && after(); }
@@ -67,8 +71,8 @@ const GRP = (() => {
     if (!src) return Promise.resolve(null);
     return new Promise(res => { const im = new Image(); im.onload = () => { const s = Math.min(1, max / Math.max(im.width, im.height)), c = document.createElement('canvas'); c.width = Math.round(im.width * s); c.height = Math.round(im.height * s); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); res(c.toDataURL('image/jpeg', .6)); }; im.onerror = () => res(null); im.src = src; });
   }
-  const spotDoc = s => ({ uid: st.uid, by: st.me || 'ไม่ระบุชื่อ', av: st.user?.photoURL || '', type: s.type, name: s.name, lat: s.lat, lng: s.lng, fish: s.fish || '', note: s.note || '', fee: s.fee || '', hours: s.hours || '', rules: s.rules || '', tel: s.tel || '' });
-  const catchDoc = c => { const sp = S.spots.find(x => x.id === c.spotId); return { uid: st.uid, by: st.me || 'ไม่ระบุชื่อ', av: st.user?.photoURL || '', species: c.species, len: c.len ?? null, wt: c.wt ?? null, bait: c.bait || '', note: c.note || '', t: c.t, lat: c.lat ?? sp?.lat ?? null, lng: c.lng ?? sp?.lng ?? null, spot: sp?.name || '', released: !!c.released }; };
+  const spotDoc = s => ({ uid: st.uid, by: st.me || 'ไม่ระบุชื่อ', av: docAv(), type: s.type, name: s.name, lat: s.lat, lng: s.lng, fish: s.fish || '', note: s.note || '', fee: s.fee || '', hours: s.hours || '', rules: s.rules || '', tel: s.tel || '' });
+  const catchDoc = c => { const sp = S.spots.find(x => x.id === c.spotId); return { uid: st.uid, by: st.me || 'ไม่ระบุชื่อ', av: docAv(), species: c.species, len: c.len ?? null, wt: c.wt ?? null, bait: c.bait || '', note: c.note || '', t: c.t, lat: c.lat ?? sp?.lat ?? null, lng: c.lng ?? sp?.lng ?? null, spot: sp?.name || '', released: !!c.released }; };
   let shareOk = !!ls.get('shareOk', false);   // ผู้ใช้ยืนยันแล้วว่ายอมแชร์ของที่มีอยู่ในเครื่อง
   async function push(kind, item) {
     if (!st.ready || st.banned || !shareOk) return;
@@ -198,9 +202,9 @@ const GRP = (() => {
       $('#pLogin').onclick = () => { st.err = ''; login(); };
       return;
     }
-    el.innerHTML = `${avatar(st.user.photoURL, st.me, 'av big')}<div class="pinfo"><b>${esc(st.me || 'ไม่ระบุชื่อ')}${st.admin ? ' <span class="adm">แอดมิน</span>' : ''}</b><span class="sub">${esc(st.user.email || '')}</span>
+    el.innerHTML = `<button class="avedit" id="pAv" aria-label="เปลี่ยนรูปโปรไฟล์">${avatar(myAv(), st.me, 'av big')}<span class="avpen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></svg></span></button><div class="pinfo"><b>${esc(st.me || 'ไม่ระบุชื่อ')}${st.admin ? ' <span class="adm">แอดมิน</span>' : ''}</b><span class="sub">${esc(st.user.email || '')}</span>
       <div class="plinks"><button class="link" id="pName">เปลี่ยนชื่อ</button><button class="link" id="pOut">ออกจากระบบ</button>${st.admin ? '' : '<button class="link" id="pUid">รหัสผู้ใช้</button>'}</div></div>`;
-    $('#pName').onclick = renameSheet; $('#pOut').onclick = logout;
+    $('#pName').onclick = renameSheet; $('#pOut').onclick = logout; $('#pAv').onclick = avSheet;
     if ($('#pUid')) $('#pUid').onclick = () => copy(st.uid, 'คัดลอกรหัสผู้ใช้แล้ว');
   }
   function renderCommunity() {
@@ -214,10 +218,9 @@ const GRP = (() => {
       $('#gLogin').onclick = () => { st.err = ''; login(); };
       return;
     }
-    el.innerHTML = `<div class="grp-h"><div><b>${st.members.length || '-'} คนในชุมชน</b><div class="sub">${st.ready ? (navigator.onLine === false ? 'ออฟไลน์ · จะซิงก์เมื่อมีเน็ต' : 'เชื่อมแล้ว') : st.err ? '' : 'กำลังเชื่อม…'} · หมุด ${friendPins().length} จุดจากคนอื่น</div></div><div class="mstack">${st.members.slice(0, 5).map(m => avatar(m.av, m.name)).join('')}</div></div>
-      ${st.banned ? '<div class="warn" style="margin:10px 0 0">บัญชีนี้ถูกระงับการแชร์ หมุดและปลาของคุณจะไม่ถูกส่งขึ้นไป</div>' : ''}
-      ${st.err ? `<div class="warn" style="margin:10px 0 0">${esc(st.err)}</div>` : ''}
-      ${st.admin ? adminHtml() : ''}`;
+    const note = [st.banned ? 'บัญชีนี้ถูกระงับการแชร์ หมุดและปลาของคุณจะไม่ถูกส่งขึ้นไป' : '', st.err, !st.ready && !st.err ? 'กำลังเชื่อม…' : navigator.onLine === false ? 'ออฟไลน์ · จะซิงก์เมื่อมีเน็ต' : ''].filter(Boolean);
+    el.classList.toggle('hidden', !note.length && !st.admin);
+    el.innerHTML = `${note.map(n => `<div class="warn" style="margin:0 0 8px">${esc(n)}</div>`).join('')}${st.admin ? adminHtml() : ''}`;
     $$('#groupCard [data-ban]').forEach(b => b.onclick = () => { const m = st.members.find(x => x.uid === b.dataset.ban) || st.bannedList.find(x => x.id === b.dataset.ban); ban(b.dataset.ban, m?.name, b.dataset.on === '1'); });
     $$('#groupCard [data-wipe]').forEach(b => armBtn(b, 'แตะอีกครั้ง: ลบทั้งหมดของคนนี้', () => wipe(b.dataset.wipe)));
   }
@@ -228,7 +231,7 @@ const GRP = (() => {
   const cmsOf = id => st.comments.filter(c => c.post === id).sort((a, b) => a.t - b.t);
   const iLike = id => st.likes.some(l => l.post === id && l.uid === st.uid);
   const nameOf = (uid, fb) => uid === st.uid ? (st.me || fb) : (st.members.find(x => x.uid === uid)?.name || fb);
-  const avOf = (uid, fb) => st.members.find(x => x.uid === uid)?.av || fb;
+  const avOf = (uid, fb) => (uid === st.uid ? myAv() : st.members.find(x => x.uid === uid)?.av) || fb;
   async function toggleLike(id) {
     if (!st.ready) return toast('ยังไม่ได้เชื่อมต่อ');
     if (st.banned) return toast('บัญชีนี้ถูกระงับ');
@@ -260,7 +263,7 @@ const GRP = (() => {
     const inp = $('#cmIn'), text = (inp?.value || '').trim().slice(0, 300); if (!text) return;
     if (!st.ready) return toast('ยังไม่ได้เชื่อมต่อ');
     inp.value = '';
-    await col('comments').add({ uid: st.uid, by: st.me || 'ไม่ระบุชื่อ', av: st.user?.photoURL || '', post: id, text, t: Date.now() }).catch(e => { inp.value = text; toast('ส่งไม่ได้: ' + e.message); });
+    await col('comments').add({ uid: st.uid, by: st.me || 'ไม่ระบุชื่อ', av: docAv(), post: id, text, t: Date.now() }).catch(e => { inp.value = text; toast('ส่งไม่ได้: ' + e.message); });
   }
   /* จุดแจ้งเตือนบนแท็บชุมชน: มีคนไลก์/คอมเมนต์ปลาของเราตั้งแต่เปิดดูครั้งล่าสุด */
   function badge() {
@@ -276,7 +279,7 @@ const GRP = (() => {
     if (!st.user) { el.innerHTML = ''; return; }
     const posts = st.catches.filter(c => feedMode === 'all' || c.uid === st.uid).sort((a, b) => b.t - a.t).slice(0, 60);
     if (!posts.length) { el.innerHTML = `<div class="empty">${feedMode === 'mine' ? 'ยังไม่มีปลาที่แชร์ กด ＋ เพื่อบันทึกปลาตัวแรก' : 'ยังไม่มีใครโพสต์ปลา เป็นคนแรกเลย กด ＋ บันทึกปลา'}</div>`; return; }
-    el.innerHTML = posts.map(c => { const name = nameOf(c.uid, c.by), av = c.av || avOf(c.uid), place = placeOf(c), nl = likesOf(c.id).length, cms = cmsOf(c.id), last = cms[cms.length - 1];
+    el.innerHTML = posts.map(c => { const name = nameOf(c.uid, c.by), av = avOf(c.uid, c.av), place = placeOf(c), nl = likesOf(c.id).length, cms = cmsOf(c.id), last = cms[cms.length - 1];
       const rd = [c.wt ? `<span><small>หนัก</small><b>${c.wt}</b><i>กก.</i></span>` : '', c.len ? `<span><small>ยาว</small><b>${c.len}</b><i>ซม.</i></span>` : '', c.bait ? `<span class="wide"><small>เหยื่อ</small><b class="t">${esc(c.bait)}</b></span>` : ''].join('');
       return `<article class="post" data-post="${c.id}">
         <header>${avatar(av, name)}<div><b>${esc(name)}</b><span class="sub">${ago(c.t)}${place ? ' · ' + esc(place) : ''}</span></div>${c.uid === st.uid || st.admin ? `<button class="pmore" data-pmore="${c.id}" aria-label="เพิ่มเติม">⋮</button>` : ''}</header>
@@ -308,7 +311,7 @@ const GRP = (() => {
       return `<div class="adm-row"><div><b>${esc(m.name || 'ไม่ระบุชื่อ')}</b>${isB ? ' <span class="adm ban">ถูกแบน</span>' : ''}<div class="sub">หมุด ${np} · ปลา ${nc}${m.seen ? ' · ล่าสุด ' + new Date(m.seen).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) : ''}</div></div>
         <div class="adm-act"><button class="btn small ${isB ? 'ghost' : 'danger'}" data-ban="${m.uid}" data-on="${isB ? 0 : 1}">${isB ? 'ปลดแบน' : 'แบน'}</button>${np + nc ? `<button class="btn small ghost" data-wipe="${m.uid}">ลบทั้งหมด</button>` : ''}</div></div>`;
     }).join('');
-    return `<div class="card-h" style="margin-top:16px;font-size:15px">จัดการผู้ใช้ (แอดมิน)</div>${rows || '<div class="sub">ยังไม่มีผู้ใช้อื่น</div>'}<div class="sub" style="margin-top:6px">แตะหมุดหรือปลาของใครก็ได้ เพื่อลบทีละรายการ</div>`;
+    return `<div class="card-h" style="font-size:15px">จัดการผู้ใช้ (แอดมิน) · ${st.members.length} คน</div>${rows || '<div class="sub">ยังไม่มีผู้ใช้อื่น</div>'}<div class="sub" style="margin-top:6px">แตะหมุดหรือปลาของใครก็ได้ เพื่อลบทีละรายการ</div>`;
   }
   function setMe() { const v = ($('#gMe')?.value || '').trim().slice(0, 24); if (!v) { toast('ใส่ชื่อของคุณก่อน เพื่อนจะได้รู้ว่าหมุดเป็นของใคร'); $('#gMe')?.focus(); return false; } st.me = v; ls.set('myname', v); return true; }
   function afterRename() {   // ชื่อเปลี่ยน: อัปเดตชื่อบนหมุด/ปลาที่แชร์ไปแล้ว
@@ -320,6 +323,22 @@ const GRP = (() => {
     const text = `มาใช้พรานปลากัน แอปแผนที่ตกปลา เห็นหมุดตกปลาของกันและกัน\n${link}`;
     if (navigator.share) { try { await navigator.share({ text }); return; } catch (e) { if (e.name === 'AbortError') return; } }
     copy(text, 'คัดลอกลิงก์แล้ว ส่งทาง LINE ได้เลย');
+  }
+  function avSheet() {
+    openSheet(`<h3>รูปโปรไฟล์</h3><div class="avpick">${avatar(myAv(), st.me, 'av big')}</div>
+      <div class="row" style="flex-direction:column;align-items:stretch"><label class="btn">เลือกรูปจากเครื่อง<input type="file" id="avFile" accept="image/*" hidden></label>
+      ${ls.get('myAv', '') && st.user?.photoURL ? '<button class="btn ghost" id="avG">ใช้รูปจากบัญชี Google</button>' : ''}</div><div class="sub" style="margin-top:8px">ทุกคนในชุมชนจะเห็นรูปนี้ข้างชื่อคุณ</div>`);
+    $('#avFile').onchange = async e => { const f = e.target.files[0]; if (!f) return; const url = await squareThumb(f, 256); if (!url) return toast('เปิดรูปนี้ไม่ได้'); setAv(url); };
+    if ($('#avG')) $('#avG').onclick = () => setAv('');
+  }
+  function squareThumb(file, size) {   // ตัดกลางรูปเป็นสี่เหลี่ยมจัตุรัส ย่อเหลือ 256px
+    return new Promise(res => { const u = URL.createObjectURL(file), im = new Image(); im.onload = () => { const m = Math.min(im.width, im.height), c = document.createElement('canvas'); c.width = c.height = size; c.getContext('2d').drawImage(im, (im.width - m) / 2, (im.height - m) / 2, m, m, 0, 0, size, size); URL.revokeObjectURL(u); res(c.toDataURL('image/jpeg', .8)); }; im.onerror = () => res(null); im.src = u; });
+  }
+  async function setAv(url) {
+    ls.set('myAv', url); closeSheet(); render();
+    if (st.ready && !st.banned) await col('members').doc(st.uid).set({ uid: st.uid, av: myAv(), seen: Date.now() }, { merge: true }).then(() => toast('เปลี่ยนรูปโปรไฟล์แล้ว')).catch(e => toast('บันทึกรูปไม่ได้: ' + e.message));
+    else toast('เปลี่ยนรูปแล้ว (จะส่งขึ้นชุมชนเมื่อเชื่อมต่อ)');
+    Object.keys(pushed).forEach(k => delete pushed[k]); ls.set('grpPushed', pushed); syncAll('pins'); syncAll('catches');   // อัปเดตลิงก์รูปในโพสต์เก่า
   }
   function renameSheet() {
     openSheet(`<h3>เปลี่ยนชื่อ</h3><div class="form"><label>ชื่อของคุณ</label><input id="gMe" value="${esc(st.me)}"></div><div class="row"><button class="btn block acc" id="rnSave">บันทึก</button></div>`);
