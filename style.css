@@ -2078,3 +2078,6 @@ html {
 .ccard.first span{background:var(--act);border-radius:16px}
 
 :root[data-theme=light] .bob-num,:root[data-theme=light] .days .sc:not(.top),:root[data-theme=light] .bar-info span[style]{filter:brightness(.78) saturate(1.2)}
+
+#mcDeg{display:none}
+.mapcompass{padding:5px}

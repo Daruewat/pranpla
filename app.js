@@ -189,8 +189,7 @@ function mapOptSheet() {
   ${grp('joined') ? sw('friends', '👥', 'หมุดของคนอื่น', '') : ''}
   ${sw('water', '💧', 'แหล่งน้ำและระดับน้ำ', '')}
   ${sw('cross', '🎯', 'เส้นเล็ง', '')}
-  <button class="menu-item" id="offOpen"><span class="mi">⬇️</span><span><b>เตรียมออฟไลน์สำหรับบริเวณนี้</b><span class="sub">แผนที่ แหล่งน้ำ พยากรณ์</span></span></button>
-  <button class="menu-item" data-act="toggle-track"><span class="mi">👣</span><span><b>${S.track.on ? 'หยุดโหมดเดินทาง' : 'โหมดเดินทาง'}</b></span></button>`);
+  <button class="menu-item" id="offOpen"><span class="mi">⬇️</span><span><b>เตรียมออฟไลน์สำหรับบริเวณนี้</b><span class="sub">แผนที่ แหล่งน้ำ พยากรณ์</span></span></button>`);
   $('#offOpen').onclick = offlineSheet;
   $$('#sheet [data-layer]').forEach(b => b.onclick = () => { setLayer(b.dataset.layer); $$('#sheet [data-layer]').forEach(x => x.classList.toggle('sel', x === b)); });
   $$('#optTypes button').forEach(b => b.onclick = () => {
@@ -368,8 +367,7 @@ $('#fab').onclick = () => { openSheet(`
   <button class="menu-item" data-act="new-catch"><span class="mi">🐟</span><span><b>บันทึกปลาที่จับได้</b></span></button>
   <button class="menu-item" data-act="new-spot-here"><span class="mi">📍</span><span><b>ปักหมุดตรงที่ฉันยืน</b></span></button>
   <button class="menu-item" data-act="new-spot-center"><span class="mi">🎯</span><span><b>ปักหมุดกลางแผนที่</b></span></button>
-  <button class="menu-item" data-act="toggle-track"><span class="mi">👣</span><span><b>${S.track.on ? 'หยุดบันทึกเส้นทาง' : 'เริ่มบันทึกเส้นทางเดิน'}</b></span></button>
-  <button class="menu-item" data-act="find-water"><span class="mi">💧</span><span><b>หาแหล่งน้ำรอบแผนที่</b></span></button>`); $('#fabTools').onclick = () => { closeSheet(); showTab('tools'); }; };
+`); $('#fabTools').onclick = () => { closeSheet(); showTab('tools'); }; };
 
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return;
@@ -980,17 +978,13 @@ function renderForecast() {
   </div>
   ${(() => { const m = renderAlert() || []; return m.length ? `<div class="warn alert-in">${m.map(x => `<div>${x}</div>`).join('')}</div>` : ''; })()}
   ${(() => { const r = rainOutlook(W.next); return `<div class="card rain-card ${r.ok ? 'dry' : 'wet'}"><div class="card-h">${r.ok ? '🌂' : '🌧️'} ฝนที่จุดนี้</div><div>${r.txt}</div><div class="row"><button class="btn ghost small" id="fcRainMap">🗺️ ดูฝนบนแผนที่</button></div></div>`; })()}
-  <div class="card"><div class="card-h">🌙 ช่วงปลากินตามดวงจันทร์ (24 ชม.)</div>
-    <div class="solunar">${W.ev.length ? W.ev.map(e => `<span class="chip ${e.type}">${e.type === 'major' ? '★ ' : ''}${hm(new Date(e.t))} ${e.label}</span>`).join('') : '<span class="sub">-</span>'}</div>
-    <div class="sub" style="margin-top:8px">${moonName(mp)}</div></div>
-  <div class="card"><div class="card-h">รายชั่วโมง</div><div class="hours">${W.next.map(x => { const m = wmo(x.code, !x.day); return `<div class="h"><div class="t">${pad(x.t.getHours())}</div><div class="e">${m.ico}</div><div>${Math.round(x.temp)}°</div><div class="sub">${Math.round(x.wind)} กม.</div><div class="sub">${x.pop ?? 0}%💧</div><div class="s" style="background:${scoreColor(x.score)}">${x.score}</div></div>`; }).join('')}</div></div>
   <div class="card"><div class="card-h">พยากรณ์ ${W.days.length} วัน</div><div class="days">${W.days.map((x, i) => `<div class="d ${i === 0 ? 'today' : ''}"><span class="dn">${i === 0 ? 'วันนี้' : DAYS[x.date.getDay()] + ' ' + x.date.getDate()}</span><span>${wmo(x.code).ico}</span><span class="track"><i style="width:${x.score}%;background:${scoreColor(x.score)}"></i></span><span class="sc ${x.score === maxDay ? 'top' : ''}" style="${x.score === maxDay ? '' : 'color:' + scoreColor(x.score)}">${x.score}</span><span class="tt">${Math.round(x.max)}° <span>${Math.round(x.min)}°</span></span></div>`).join('')}</div></div>
   <div class="card-h" style="margin:16px 2px 8px">สภาพแวดล้อม</div>
   <div class="env">
     <div><div class="sub">💨 ลม</div><div class="v">${Math.round(n.wind)} <small>กม./ชม.</small></div><div class="sub">จากทิศ${dirTxt(n.wdir)}</div></div>
     <div><div class="sub">⏱ ความกดอากาศ</div><div class="v">${Math.round(n.pres)} <small>hPa</small></div><div class="sub">${trend} · ที่พื้น ${Math.round(n.sp)}</div></div>
     <div><div class="sub">💧 ความชื้น / ฝน</div><div class="v">${Math.round(n.hum)}<small>%</small></div><div class="sub">โอกาสฝน ${n.pop ?? 0}%</div></div>
-    <div><div class="sub">🌅 พระอาทิตย์</div><div class="v">${hm(sun.sunrise)}</div><div class="sub">ตก ${hm(sun.sunset)}</div></div>
+    <div><div class="sub">🌅 พระอาทิตย์</div><div class="v">${hm(sun.sunrise)}</div><div class="sub">ตก ${hm(sun.sunset)} · ${moonName(mp).replace(" (โดยประมาณ)", "")}</div></div>
   </div>
   <div class="card" style="margin-top:12px" id="damCard"><div class="card-h">🌊 ระดับน้ำเขื่อน/อ่างใกล้ที่นี่</div><div class="sub">กำลังโหลด…</div></div>
   <div class="card"><div class="card-h">${sn.icon} ${sn.name}</div><div class="sub" style="color:var(--tx)">${sn.tip}</div>
