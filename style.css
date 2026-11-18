@@ -1986,7 +1986,7 @@ html {
 .ccard.add{border:2px dashed var(--line);background:none;align-items:center;justify-content:center;color:var(--link);font-weight:600;gap:6px}
 .ccard.add span{font-size:30px}
 .ccard.first{width:auto;align-items:center;text-align:center;padding:22px}
-.ccard.first span{font-size:30px;width:60px;height:60px;border-radius:50%;background:var(--blue);display:grid;place-items:center;color:#fff;margin-bottom:8px}
+.ccard.first span:first-child{font-size:30px;width:60px;height:60px;border-radius:50%;background:var(--blue);display:grid;place-items:center;color:#fff;margin-bottom:8px}
 .ccard.first b{white-space:normal;font-size:18px}
 /* ฟีดชุมชน */
 .mstack{display:flex}.mstack .av{width:30px;height:30px;font-size:12px;margin-left:-8px;box-shadow:0 0 0 2px var(--card)}
@@ -2075,7 +2075,7 @@ html {
 .av.big{border-radius:24px;box-shadow:none}
 .mchip i,.adm{background:var(--sel)}
 .ccard,.ccard .cimg{border-radius:12px}
-.ccard.first span{background:var(--act);border-radius:16px}
+.ccard.first span:first-child{background:var(--act);border-radius:16px}
 
 :root[data-theme=light] .bob-num,:root[data-theme=light] .days .sc:not(.top),:root[data-theme=light] .bar-info span[style]{filter:brightness(.78) saturate(1.2)}
 
@@ -2191,7 +2191,7 @@ html {
 :root[data-theme=light] .stats b{text-shadow:none}
 .stats div{border-right:1px dashed var(--line)}
 .ccard .cimg{border-radius:4px}
-.ccard.first span{border-radius:50%}
+.ccard.first span:first-child{border-radius:50%}
 .mstack .av{box-shadow:0 0 0 2px var(--card)}
 
 /* ฟีดชุมชน: โพสต์เป็นบันทึกการพบเป้า */
@@ -2254,3 +2254,10 @@ html {
 .avpick{display:flex;justify-content:center;margin:10px 0 6px}
 .avpick .av.big{width:120px;height:120px;font-size:44px}
 #groupCard.hidden{display:none}
+.vback{display:flex;align-items:center;gap:12px}
+.vback .iconbtn{display:grid;place-items:center;flex:none}
+.vback .iconbtn svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.plinks{flex-wrap:wrap;row-gap:4px}
+.plinks .link{white-space:nowrap}
+.plinks .link{min-height:40px;padding:8px 0}
+.plinks{margin-top:0}

@@ -325,15 +325,19 @@ function setTarget(t) {
 $('#targetClear').onclick = () => setTarget(null);
 
 /* ============ sheets ============ */
-let sheetHist = false;
+let sheetHist = false, backPending = false;   // backPending: สั่งย้อนประวัติไปแล้วแต่ยังไม่เสร็จ (ปิดแผ่นหนึ่งแล้วเปิดอีกแผ่นทันที)
 function openSheet(html) {
   $('#sheet').innerHTML = '<div class="grab"></div><button class="sheet-x" data-act="close" aria-label="ปิด">✕</button>' + html;
   $('#sheet').classList.add('open'); $('#sheetBg').classList.remove('hidden'); $('#sheet').scrollTop = 0;
-  if (!sheetHist) { try { history.pushState({ sheet: 1 }, ''); sheetHist = true; } catch {} }   // ให้ปุ่มย้อนกลับของมือถือปิดหน้าต่างนี้
+  if (!sheetHist && !backPending) { try { history.pushState({ sheet: 1 }, ''); sheetHist = true; } catch {} }   // ให้ปุ่มย้อนกลับของมือถือปิดหน้าต่างนี้
 }
 function hideSheet() { $('#sheet').classList.remove('open'); $('#sheetBg').classList.add('hidden'); $('#crosshair').classList.toggle('hidden', !OPT.cross); }
-function closeSheet() { hideSheet(); if (sheetHist) { sheetHist = false; try { history.back(); } catch {} } }
-window.addEventListener('popstate', () => { if (sheetHist) { sheetHist = false; hideSheet(); } });
+function sheetRepush() { if ($('#sheet').classList.contains('open') && !sheetHist) { try { history.pushState({ sheet: 1 }, ''); sheetHist = true; } catch {} } }
+function closeSheet() { hideSheet(); if (sheetHist) { sheetHist = false; backPending = true; try { history.back(); } catch {} setTimeout(() => { if (backPending) { backPending = false; sheetRepush(); } }, 600); } }
+window.addEventListener('popstate', () => {
+  if (backPending) { backPending = false; sheetRepush(); return; }   // เป็นการย้อนที่เราสั่งเอง: ถ้าเปิดแผ่นใหม่ไปแล้ว ให้แผ่นใหม่ปิดด้วยปุ่มย้อนกลับได้ต่อ
+  if (sheetHist) { sheetHist = false; hideSheet(); }
+});
 // ลากแถบบนลงเพื่อปิด
 { let y0 = null; const sh = $('#sheet');
   sh.addEventListener('touchstart', e => { y0 = sh.scrollTop <= 0 && e.touches[0].clientY - sh.getBoundingClientRect().top < 70 ? e.touches[0].clientY : null; }, { passive: true });
@@ -585,6 +589,8 @@ function returnToStart() {
 }
 $('#btnTrack').onclick = () => toggleTrack();
 $('#tReturn').onclick = returnToStart;
+window.addEventListener('offline', () => S.wx && renderForecast()); window.addEventListener('online', () => S.wx && renderForecast());
+$('#toolsBack').onclick = () => showTab(prevTab === 'tools' ? 'map' : prevTab);
 
 /* ============ water bodies (Overpass) ============ */
 const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
@@ -966,7 +972,7 @@ function renderForecast() {
   $('#seasonPillText').textContent = `${sn.icon} ${sn.name}`;
   const keepScroll = $('#view-forecast').scrollTop;
   $('#fcBody').innerHTML = `
-  ${W.stale ? `<div class="warn">ออฟไลน์อยู่ – แสดงข้อมูลที่โหลดไว้ล่าสุด ${new Date(W.fetched).toLocaleString('th-TH', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })}</div>` : ''}
+  ${W.stale || navigator.onLine === false ? `<div class="warn">ออฟไลน์อยู่ – แสดงข้อมูลที่โหลดไว้ล่าสุด ${new Date(W.fetched).toLocaleString('th-TH', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })}</div>` : ''}
   <div class="card">
     <div class="fc-now"><div><div class="sub" id="fcNowPlace">ตอนนี้</div><div class="fc-temp">${Math.round(n.temp)}°C</div><div class="sub">${wm.txt}</div></div><div class="fc-ico">${wm.ico}</div></div>
     <div class="score-row">
@@ -975,7 +981,7 @@ function renderForecast() {
     </div>
     <div class="bar-info" id="barInfo"></div>
     <div class="bars">${W.next.map((x, i) => `<div data-b="${i}" class="${i === 0 ? 'now' : ''}" style="height:${clamp((x.score - 20) * 1.25, 8, 100)}%;background:${scoreColor(x.score)}"></div>`).join('')}</div>
-    <div class="bar-hours">${W.next.map((x, i) => `<span>${i === 0 ? 'ตอนนี้' : x.t.getHours() % 3 === 0 ? pad(x.t.getHours()) : ''}</span>`).join('')}</div>
+    <div class="bar-hours">${W.next.map((x, i) => `<span>${i === 0 ? 'ตอนนี้' : i > 2 && x.t.getHours() % 3 === 0 ? pad(x.t.getHours()) : ''}</span>`).join('')}</div>
     <div class="goods">${goodRanges(W.next)}</div>
     <div class="scale">${LEVELS.map(l => `<i style="background:${l[0]}"></i>${l[1]}`).join('')}</div>
   </div>
@@ -1228,7 +1234,9 @@ window.addEventListener('offline', () => { netState(); toast('ออฟไลน
 $('#offPill').onclick = () => toast('ออฟไลน์อยู่: แผนที่ที่เก็บไว้ หมุด บันทึก เข็มทิศ พิกัด ไฟฉาย และพยากรณ์ที่โหลดไว้ ยังใช้ได้ · เรดาร์ฝนและการค้นหาสถานที่ใหม่ต้องใช้เน็ต', 7000);
 
 /* ============ tabs ============ */
+var prevTab = 'map', curTab = 'map';
 function showTab(t) {
+  if (t !== curTab) { prevTab = curTab; curTab = t; }
   $$('.view').forEach(v => v.classList.toggle('show', v.id === 'view-' + t));
   $$('.tabbar [data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
   if (t === 'map') setTimeout(() => map.invalidateSize(), 50);
@@ -1254,5 +1262,5 @@ $$('.tabbar [data-tab]').forEach(b => b.onclick = () => showTab(b.dataset.tab));
   setInterval(() => { if ($('#view-tools').classList.contains('show')) renderTools(); }, 30000);
   setInterval(() => { if (document.visibilityState !== 'visible' || !S.fcLoc) return; if (S.fcLoc.auto && S.pos) loadForecast({ lat: S.pos.lat, lng: S.pos.lng, name: 'ตำแหน่งของฉัน', auto: true }); else loadForecast(); }, 20 * 6e4);
   navigator.storage?.persist?.();
-  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
