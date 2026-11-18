@@ -66,8 +66,9 @@ const GRP = (() => {
   }
   const spotDoc = s => ({ uid: st.uid, by: st.me || 'ไม่ระบุชื่อ', av: st.user?.photoURL || '', type: s.type, name: s.name, lat: s.lat, lng: s.lng, fish: s.fish || '', note: s.note || '', fee: s.fee || '', hours: s.hours || '', rules: s.rules || '', tel: s.tel || '' });
   const catchDoc = c => { const sp = S.spots.find(x => x.id === c.spotId); return { uid: st.uid, by: st.me || 'ไม่ระบุชื่อ', av: st.user?.photoURL || '', species: c.species, len: c.len ?? null, wt: c.wt ?? null, bait: c.bait || '', note: c.note || '', t: c.t, lat: c.lat ?? sp?.lat ?? null, lng: c.lng ?? sp?.lng ?? null, spot: sp?.name || '', released: !!c.released }; };
+  let shareOk = !!ls.get('shareOk', false);   // ผู้ใช้ยืนยันแล้วว่ายอมแชร์ของที่มีอยู่ในเครื่อง
   async function push(kind, item) {
-    if (!st.ready || st.banned) return;
+    if (!st.ready || st.banned || !shareOk) return;
     const remote = st[kind].find(x => x.id === item.id), key = kind + ':' + item.id;
     if (item.private) { if (remote && remote.uid === st.uid) { await col(kind).doc(item.id).delete().catch(() => {}); delete pushed[key]; ls.set('grpPushed', pushed); } return; }
     if (remote && remote.uid !== st.uid) return;                       // ไอดีชนกับของคนอื่น (แทบเป็นไปไม่ได้) ไม่ทับ
@@ -95,7 +96,25 @@ const GRP = (() => {
       toast(`กู้${kind === 'pins' ? 'หมุด' : 'ปลา'}ของคุณจากเซิร์ฟเวอร์ ${back.length} รายการ`);
     }
     if (st.banned) return;
+    if (!shareOk) { askShare(); return; }
     for (const x of local) await push(kind, x);
+  }
+  let asked = false;
+  function askShare() {   // ครั้งแรกที่ล็อกอิน: ถามก่อนแชร์ของเดิมทั้งหมด
+    if (asked) return; asked = true;
+    const srv = k => new Set(st[k].filter(r => r.uid === st.uid).map(r => r.id)), sp = srv('pins'), sc = srv('catches');
+    const ps = S.spots.filter(s => !s.private && !sp.has(s.id)).length, cs = S.catches.filter(c => !c.private && !sc.has(c.id)).length;
+    if (!ps && !cs) { shareOk = true; ls.set('shareOk', true); return; }
+    openSheet(`<h3>แชร์ของที่มีอยู่แล้ว?</h3><div class="sub" style="color:var(--tx)">ในเครื่องนี้มีหมุด ${ps} จุด และปลา ${cs} ตัว ที่ยังไม่ได้ตั้งเป็นส่วนตัว ถ้าแชร์ ทุกคนที่ล็อกอินจะเห็น รวมโน้ตและรูป</div>
+      <div class="row" style="flex-direction:column;align-items:stretch"><button class="btn" id="shAll">แชร์ทั้งหมด (ยกเว้นที่ตั้งส่วนตัวไว้)</button><button class="btn ghost" id="shNone">ตั้งของเดิมทั้งหมดเป็นส่วนตัวก่อน แล้วค่อยเลือกเปิดเอง</button></div>
+      <div class="sub" style="margin-top:8px">หมุดและปลาที่บันทึกใหม่หลังจากนี้จะแชร์อัตโนมัติ ยกเว้นที่ติ๊กส่วนตัว</div>`);
+    const go = async priv => {
+      const onSrv = k => new Set(st[k].filter(r => r.uid === st.uid).map(r => r.id));   // ของที่อยู่บนเซิร์ฟเวอร์แล้วไม่ต้องแตะ
+      if (priv) { const p = onSrv('pins'), c2 = onSrv('catches'); S.spots.forEach(s => { if (!p.has(s.id)) s.private = true; }); S.catches.forEach(c => { if (!c2.has(c.id)) c.private = true; }); save('spots'); save('catches'); renderSpots(); renderLog(); }
+      shareOk = true; ls.set('shareOk', true); closeSheet(); await syncAll('pins'); await syncAll('catches');
+      toast(priv ? 'ตั้งเป็นส่วนตัวแล้ว เปิดแชร์ทีละอันได้ในหน้าแก้ไขหมุด/ปลา' : 'แชร์แล้ว');
+    };
+    $('#shAll').onclick = () => go(false); $('#shNone').onclick = () => go(true);
   }
 
   /* ---------- แอดมิน ---------- */

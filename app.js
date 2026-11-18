@@ -400,7 +400,7 @@ function spotForm(init) {
     <label>เบอร์ติดต่อ</label><input name="tel" type="tel" value="${esc(d.tel)}" placeholder="เจ้าของบ่อ / ผู้ดูแล">
     <label>รูป</label><input name="photo" type="file" accept="image/*">
     <img class="photo-prev ${d.photo ? '' : 'hidden'}" src="${d.photo || ''}">
-    ${grp('joined') ? `<label class="privrow"><input name="priv" type="checkbox" ${d.private ? 'checked' : ''}> 🔒 ส่วนตัว — ไม่ให้คนอื่นเห็น</label>` : ''}
+    <label class="privrow"><input name="priv" type="checkbox" ${d.private ? 'checked' : ''}> 🔒 ส่วนตัว — ไม่ให้คนอื่นเห็น</label>
     <div class="row"><button class="btn block acc" id="spSave">บันทึกหมุด</button></div>
   </div>`);
   const r = $('#sheet');
@@ -422,7 +422,7 @@ function spotSheet(id) {
   const s = S.spots.find(x => x.id === id); if (!s) return;
   const t = SPOT_TYPES[s.type] || SPOT_TYPES.other, n = S.catches.filter(c => c.spotId === id).length;
   openSheet(`<h3>${t.icon} ${esc(s.name)}</h3>
-  <div class="sub">${t.label}${S.pos ? ' · ห่าง ' + fmtDist(dist(S.pos, s)) : ''}${grp('joined') ? (s.private ? ' · 🔒 ส่วนตัว' : ' · 👥 ทุกคนเห็น') : ''}</div>
+  <div class="sub">${t.label}${S.pos ? ' · ห่าง ' + fmtDist(dist(S.pos, s)) : ''}${s.private ? ' · 🔒 ส่วนตัว' : grp('joined') ? ' · 👥 ทุกคนเห็น' : ''}</div>
   ${s.photo ? `<img class="photo-prev" src="${s.photo}">` : ''}
   <div class="kv"><span>พิกัด</span><b class="mono">${s.lat.toFixed(5)}, ${s.lng.toFixed(5)}</b>
     ${s.fish ? `<span>ปลา</span><b>${esc(s.fish)}</b>` : ''}${s.note ? `<span>โน้ต</span><b>${esc(s.note)}</b>` : ''}
@@ -475,7 +475,7 @@ function catchForm(init = {}) {
     <img class="photo-prev ${d.photo ? '' : 'hidden'}" src="${d.photo || ''}">
     <label>โน้ต</label><textarea name="note">${esc(d.note)}</textarea>
     <label style="display:flex;gap:8px;align-items:center;color:var(--tx)"><input name="rel" type="checkbox" style="width:auto" ${d.released ? 'checked' : ''}> ปล่อยคืนน้ำ</label>
-    ${grp('joined') ? `<label class="privrow"><input name="priv" type="checkbox" ${d.private ? 'checked' : ''}> 🔒 ส่วนตัว — ไม่ให้คนอื่นเห็น</label>` : ''}
+    <label class="privrow"><input name="priv" type="checkbox" ${d.private ? 'checked' : ''}> 🔒 ส่วนตัว — ไม่ให้คนอื่นเห็น</label>
     <div class="row"><button class="btn block acc" id="ctSave">บันทึก</button></div>
   </div>`);
   const r = $('#sheet'); bindPhoto(r, d);
@@ -497,7 +497,7 @@ function catchSheet(id) {
   const c = S.catches.find(x => x.id === id); if (!c) return;
   const sp = S.spots.find(s => s.id === c.spotId), dt = new Date(c.t);
   openSheet(`<h3>🐟 ${esc(c.species)}</h3>
-  <div class="sub">${dt.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })} ${hm(dt)}${c.released ? ' · ปล่อยคืนน้ำ' : ''}${grp('joined') && c.private ? ' · 🔒 ส่วนตัว' : ''}</div>
+  <div class="sub">${dt.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })} ${hm(dt)}${c.released ? ' · ปล่อยคืนน้ำ' : ''}${c.private ? ' · 🔒 ส่วนตัว' : ''}</div>
   ${c.photo ? `<img class="photo-prev" src="${c.photo}">` : ''}
   <div class="kv">
     ${c.len ? `<span>ยาว</span><b>${c.len} ซม.</b>` : ''}${c.wt ? `<span>หนัก</span><b>${c.wt} กก.</b>` : ''}
