@@ -136,6 +136,23 @@ const GRP = (() => {
   async function wipe(uid) { if (!st.admin) return; let n = 0; for (const k of ['pins', 'catches', 'comments', 'likes']) for (const x of st[k].filter(x => x.uid === uid)) { if (k === 'catches') await clearReactions(x.id); await col(k).doc(x.id).delete().catch(() => {}); if (k !== 'likes') n++; } toast(`ลบแล้ว ${n} รายการ`); }
   const armBtn = (el, label, fn) => { let a = false; el.onclick = e => { if (!a) { a = true; e.currentTarget.textContent = label; return; } fn(); }; };
 
+  function adminEditPin(p) {   // แอดมินแก้หมุดของคนอื่นบนเซิร์ฟเวอร์โดยตรง (เจ้าของยังเป็นคนเดิม)
+    let type = p.type;
+    const f = (k, l, ph = '') => `<label>${l}</label><input name="${k}" value="${esc(p[k] || '')}" placeholder="${ph}">`;
+    openSheet(`<h3>แก้ไขหมุดของ ${esc(p.by)}</h3><div class="sub">แก้ในฐานะแอดมิน เจ้าของหมุดยังเป็น ${esc(p.by)}</div><div class="form">
+      <label>ประเภท</label><div class="types">${Object.entries(SPOT_TYPES).map(([k, t]) => `<button type="button" data-type="${k}" class="${k === type ? 'sel' : ''}">${t.icon} ${t.label}</button>`).join('')}</div>
+      ${f('name', 'ชื่อจุด')}${f('fish', 'ปลาที่เจอ')}<label>โน้ต</label><textarea name="note">${esc(p.note || '')}</textarea>
+      <div class="two"><div>${f('fee', 'ค่าบริการ / ค่าบ่อ')}</div><div>${f('hours', 'เวลาเปิด–ปิด')}</div></div>${f('rules', 'กฎ / ข้อห้าม')}${f('tel', 'เบอร์ติดต่อ')}
+      <div class="row"><button class="btn block acc" id="aeSave">บันทึก</button></div></div>`);
+    const r = $('#sheet');
+    $$('.types button', r).forEach(b => b.onclick = () => { type = b.dataset.type; $$('.types button', r).forEach(x => x.classList.toggle('sel', x === b)); });
+    $('#aeSave').onclick = async () => {
+      const d = { type, updated: Date.now() }; ['name', 'fish', 'note', 'fee', 'hours', 'rules', 'tel'].forEach(k => d[k] = $(`[name=${k}]`, r).value.trim());
+      if (!d.name) d.name = (SPOT_TYPES[type] || SPOT_TYPES.other).label;
+      await col('pins').doc(p.id).set(d, { merge: true }).then(() => { toast('แก้หมุดแล้ว'); closeSheet(); }).catch(e => toast('แก้ไม่ได้: ' + e.message));
+    };
+  }
+
   /* ---------- ของเพื่อน ---------- */
   const friendPins = () => st.user ? st.pins.filter(p => p.uid !== st.uid) : [];
   const friendCatches = () => (st.user ? st.catches : []).filter(c => c.uid !== st.uid).sort((a, b) => b.t - a.t);
@@ -163,9 +180,9 @@ const GRP = (() => {
       ${svBtn(p)}
       <button class="btn ghost" id="fpFc">🌤️ พยากรณ์ที่นี่</button>
       <button class="btn ghost" id="fpCopy">📍 เก็บเป็นหมุดของฉัน</button>
-      ${st.admin ? '<button class="btn danger" id="fpDel">ลบหมุดนี้ (แอดมิน)</button>' : ''}
+      ${st.admin ? '<button class="btn ghost" id="fpEdit">แก้ไขหมุด (แอดมิน)</button><button class="btn danger" id="fpDel">ลบหมุดนี้ (แอดมิน)</button>' : ''}
     </div>`);
-    if (st.admin) armBtn($('#fpDel'), 'แตะอีกครั้งเพื่อลบหมุดของ ' + p.by, () => { adminDel('pins', p.id); closeSheet(); });
+    if (st.admin) { armBtn($('#fpDel'), 'แตะอีกครั้งเพื่อลบหมุดของ ' + p.by, () => { adminDel('pins', p.id); closeSheet(); }); $('#fpEdit').onclick = () => adminEditPin(p); }
     $('#fpNav').onclick = () => { setTarget({ lat: p.lat, lng: p.lng, name: p.name }); closeSheet(); showTab('tools'); };
     $('#fpFc').onclick = () => { closeSheet(); loadForecast({ lat: p.lat, lng: p.lng, name: p.name }); showTab('forecast'); };
     $('#fpCopy').onclick = () => spotForm({ private: true, lat: p.lat, lng: p.lng, type: p.type, name: p.name, fish: p.fish, note: p.note, fee: p.fee, hours: p.hours, rules: p.rules, tel: p.tel });
