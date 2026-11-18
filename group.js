@@ -76,17 +76,26 @@ const GRP = (() => {
     doc.photo = await thumb(item.photo, kind === 'catches' ? 900 : 480); doc.updated = Date.now();
     await col(kind).doc(item.id).set(doc).then(() => { pushed[key] = f; ls.set('grpPushed', pushed); }).catch(e => { st.err = e.message; render(); });
   }
+  const tomb = ls.get('grpDeleted', {});   // ของเราที่ลบในเครื่องนี้ กันดึงกลับมาจากเซิร์ฟเวอร์
   async function drop(kind, id) {
+    tomb[kind + ':' + id] = Date.now(); ls.set('grpDeleted', tomb);
     if (!st.ready) return;
     const remote = st[kind].find(x => x.id === id);
     if (remote && remote.uid === st.uid) await col(kind).doc(id).delete().catch(() => {});
     delete pushed[kind + ':' + id]; ls.set('grpPushed', pushed);
   }
-  async function syncAll(kind) {      // ส่งของที่ยังไม่ขึ้น และลบของเราที่ถูกลบในเครื่องไปแล้ว
-    if (!st.ready || st.banned) return;
+  async function syncAll(kind) {      // ส่งของในเครื่องที่ยังไม่ขึ้น และดึงของเราจากเซิร์ฟเวอร์ที่เครื่องนี้ไม่มี (เช่น เปลี่ยนเครื่อง/ล้างเบราว์เซอร์)
+    if (!st.ready) return;
     const local = kind === 'pins' ? S.spots : S.catches, ids = new Set(local.map(x => x.id));
+    const back = st[kind].filter(r => r.uid === st.uid && !ids.has(r.id) && !tomb[kind + ':' + r.id]);
+    if (back.length) {
+      back.forEach(r => { const { uid, by, av, updated, ...x } = r; if (kind === 'pins') S.spots.push(x); else { if (x.spot && !S.spots.some(s => s.name === x.spot)) x.note = [x.note, 'จุด: ' + x.spot].filter(Boolean).join(' · '); delete x.spot; S.catches.push(x); } });
+      if (kind === 'catches') S.catches.sort((a, b) => b.t - a.t);
+      save(kind === 'pins' ? 'spots' : 'catches'); renderSpots(); renderLog();
+      toast(`กู้${kind === 'pins' ? 'หมุด' : 'ปลา'}ของคุณจากเซิร์ฟเวอร์ ${back.length} รายการ`);
+    }
+    if (st.banned) return;
     for (const x of local) await push(kind, x);
-    for (const r of st[kind]) if (r.uid === st.uid && !ids.has(r.id)) await col(kind).doc(r.id).delete().catch(() => {});
   }
 
   /* ---------- แอดมิน ---------- */
