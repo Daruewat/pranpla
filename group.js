@@ -42,11 +42,12 @@ const GRP = (() => {
     if (!st.user) { render(); return; }
     try {
       st.uid = st.user.uid;
-      if (!st.me) { st.me = (st.user.displayName || '').trim().slice(0, 24); if (st.me) ls.set('myname', st.me); }
       st.admin = await st.db.collection('admins').doc(st.uid).get().then(d => d.exists).catch(() => false);
       st.banned = await st.db.collection('banned').doc(st.uid).get().then(d => d.exists).catch(() => false);
       const md = await col('members').doc(st.uid).get().then(d => d.exists ? d.data() : null).catch(() => null);   // รูปที่ตั้งไว้จากเครื่องอื่น
       if (!ls.get('myAv', '') && /^data:/.test(md?.av || '')) ls.set('myAv', md.av);
+      if (md?.name && md.name !== 'ไม่ระบุชื่อ' && !ls.get('myname', '')) { st.me = md.name; ls.set('myname', md.name); }   // ชื่อที่ตั้งไว้จากเครื่องอื่น
+      if (!st.me) { st.me = (st.user.displayName || '').trim().slice(0, 24); if (st.me) ls.set('myname', st.me); }
       if (!st.banned) col('members').doc(st.uid).set({ uid: st.uid, name: st.me || 'ไม่ระบุชื่อ', av: myAv(), seen: Date.now() }, { merge: true }).catch(() => {});
       const watch = (name, key, after, each) => st.unsub.push(col(name).onSnapshot(snap => {
         st[key] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
