@@ -943,12 +943,16 @@ function barInfo(i) {
   $('#barInfo').innerHTML = `<b>${i === 0 ? 'ตอนนี้' : (x.t.toDateString() === new Date().toDateString() ? '' : DAYS[x.t.getDay()] + ' ') + pad(x.t.getHours()) + ':00'}</b> <span style="color:${scoreColor(x.score)}">● ${x.score} ${LEVELS[scoreLevel(x.score)][1]}</span> <span class="sub">${Math.round(x.temp)}° · ฝน ${x.pop ?? 0}%</span>`;
 }
 // ทุ่นตกปลา: ปลากินมาก ทุ่นยิ่งจมและมีวงน้ำกระเพื่อม
-function bobberSvg(score) {
-  const dy = (clamp(score, 0, 100) - 45) * .42, lv = scoreLevel(score), col = scoreColor(score);
-  const float = `<g transform="translate(0 ${dy.toFixed(1)})"><path d="M60 8v24" stroke="${col}" stroke-width="3" stroke-linecap="round"/><path d="M40 52a20 20 0 0 1 40 0Z" fill="#ff5a36"/><path d="M40 52a20 20 0 0 0 40 0Z" fill="#f4f1ea"/><path d="M60 72v16" stroke="#9aa9a6" stroke-width="3" stroke-linecap="round"/></g>`;
-  const rip = [1, 2, 3].slice(0, lv).map(i => `<ellipse class="w" cx="60" cy="66" rx="${22 + i * 11}" ry="${3 + i * 1.6}" opacity="${(.9 - i * .22).toFixed(2)}"/>`).join('');
-  return `<svg class="bobber" viewBox="0 0 120 120" aria-hidden="true"><defs><clipPath id="bbA"><rect width="120" height="66"/></clipPath><clipPath id="bbU"><rect y="66" width="120" height="54"/></clipPath></defs>
-    <defs><linearGradient id="bbG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--sel)" stop-opacity=".22"/><stop offset="1" stop-color="var(--sel)" stop-opacity="0"/></linearGradient></defs><rect y="66" width="120" height="54" fill="url(#bbG)"/><g clip-path="url(#bbU)" opacity=".35">${float}</g><g clip-path="url(#bbA)">${float}</g>${rip}<path class="w" d="M6 66h108"/></svg>`;
+function bobberSvg(score) {   // จอโซนาร์: ยิ่งปลากินดี ยิ่งเห็นเป้าปลาบนจอมาก
+  const lv = scoreLevel(score), col = scoreColor(score), n = lv + 1;
+  const pos = [[88, 40], [42, 86], [92, 82], [36, 44]].slice(0, n);
+  const ang = ([x, y]) => (Math.atan2(y - 64, x - 64) * 180 / Math.PI + 90 + 360) % 360;   // หน่วงให้เป้ากะพริบตอนลำแสงกวาดผ่าน
+  const blips = pos.map((p, i) => `<g class="blip" style="animation-delay:${((((ang(p) - 60) / 360 * 4.5 - .36) % 4.5 + 4.5) % 4.5 - 4.5).toFixed(2)}s"><path d="M${p[0] - 9} ${p[1]}c4-4.5 11-4.5 15 0-4 4.5-11 4.5-15 0Zm15 0 5-4v8Z" fill="${col}"/></g>`).join('');
+  return `<svg class="sonar" viewBox="0 0 128 128" aria-hidden="true"><defs><linearGradient id="swG" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="var(--sig)" stop-opacity="0"/><stop offset="1" stop-color="var(--sig)" stop-opacity=".55"/></linearGradient></defs>
+    <circle class="face" cx="64" cy="64" r="60"/><circle class="rg" cx="64" cy="64" r="60"/><circle class="rg" cx="64" cy="64" r="40"/><circle class="rg" cx="64" cy="64" r="20"/>
+    <path class="ax" d="M64 4v120M4 64h120"/>
+    <g class="sw"><path d="M64 64V4A60 60 0 0 1 116 34Z" fill="url(#swG)" opacity=".7"/><path d="M64 64 116 34" stroke="var(--sig)" stroke-width="1.5"/></g>
+    ${blips}<circle cx="64" cy="64" r="3" fill="var(--sig)"/></svg>`;
 }
 function renderForecast() {
   const W = S.wx, n = W.now, wm = wmo(n.code, !n.day), sn = season(), mo = new Date().getMonth() + 1;
@@ -1204,7 +1208,7 @@ const mqLight = window.matchMedia('(prefers-color-scheme: light)');
 function applyTheme() {
   const pref = ls.get('theme', 'dark'), t = pref === 'auto' ? (mqLight.matches ? 'light' : 'dark') : pref;
   document.documentElement.dataset.theme = t;
-  $('meta[name=theme-color]').content = t === 'light' ? '#edf2f0' : '#0c1719';
+  $('meta[name=theme-color]').content = t === 'light' ? '#f6faf8' : '#021116';
   $('meta[name=color-scheme]').content = t;
   $$('#themeSeg button').forEach(b => b.classList.toggle('sel', b.dataset.theme === pref));
 }

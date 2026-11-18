@@ -2081,3 +2081,169 @@ html {
 
 #mcDeg{display:none}
 .mapcompass{padding:5px}
+
+/* =====================================================================
+   พรานปลา — "จอโซนาร์"  (ชั้นบนสุด ทับทุกอย่างข้างบน)
+   พื้น: น้ำลึกเขียวอมฟ้าเกือบดำ · สัญญาณ: เขียวฟอสฟอร์ (สิ่งที่เลือก/ข้อมูล) · สั่งการ: แดงทุ่น
+   แผง: ขอบเส้นบาง มุมมีเครื่องหมายเล็งแบบจอเครื่องมือ · ตัวเลข: Chakra Petch
+   จุดเด่นจุดเดียว: จอโซนาร์กวาดหาปลาในหน้าพยากรณ์ ที่เหลือเงียบและเป็นระเบียบ
+   ===================================================================== */
+:root{
+  --bg:#03151a; --bg2:#061d23; --card:#08232a; --card2:#0d2f37; --line:#123f47; --line2:#1b5a63;
+  --tx:#d9f7ef; --tx2:#7fb0a8; --tx3:#4d7c76;
+  --sig:#3df2c4; --sig-dim:rgba(61,242,196,.14); --sig-glow:rgba(61,242,196,.45);
+  --sel:#3df2c4; --blue:#3df2c4; --link:#5ff0cf; --act:#ff5a36; --amber:#ffb84a;
+  --glass:rgba(5,28,34,.9); --track:#0f3139; --navbg:#021116; --wet-bg:#06303a;
+  --tick:var(--line2);
+}
+:root[data-theme=light]{
+  --bg:#e9f1ee; --bg2:#f6faf8; --card:#fbfdfc; --card2:#e2ece8; --line:#c4d6d0; --line2:#9dbdb4;
+  --tx:#0a2a28; --tx2:#4a6a65; --tx3:#86a19b;
+  --sig:#0b8f78; --sig-dim:rgba(11,143,120,.1); --sig-glow:rgba(11,143,120,.3);
+  --sel:#0b8f78; --blue:#0b8f78; --link:#0a7764; --act:#e8452a; --amber:#b86e00;
+  --glass:rgba(251,253,252,.94); --track:#d3e2dd; --navbg:#f6faf8; --wet-bg:#d7eee8;
+}
+/* พื้นหลังหน้า: วงระยะโซนาร์จางๆ จากมุมขวาบน */
+.view{background:
+  repeating-radial-gradient(circle at 100% 0,transparent 0 63px,var(--sig-dim) 63px 64px) top right/100% 520px no-repeat,
+  linear-gradient(var(--bg),var(--bg))}
+:root[data-theme=light] .view{background:repeating-radial-gradient(circle at 100% 0,transparent 0 63px,rgba(11,143,120,.07) 63px 64px) top right/100% 520px no-repeat,var(--bg)}
+.vhead h1{font-size:30px;font-weight:700;letter-spacing:.01em}
+.vhead .sub{color:var(--tx2)}
+.iconbtn{border-radius:10px;background:var(--glass);border:1px solid var(--line2);color:var(--sig)}
+
+/* แผง: ขอบบาง + เครื่องหมายมุม */
+.card,.stats,.item,.post,.ccard{
+  background:
+    linear-gradient(var(--tick),var(--tick)) 0 0/10px 1px no-repeat,linear-gradient(var(--tick),var(--tick)) 0 0/1px 10px no-repeat,
+    linear-gradient(var(--tick),var(--tick)) 100% 100%/10px 1px no-repeat,linear-gradient(var(--tick),var(--tick)) 100% 100%/1px 10px no-repeat,
+    var(--card);
+  border:1px solid var(--line);border-radius:6px}
+.ccard.add{background:none;border:1px dashed var(--line2);color:var(--sig)}
+.item:active,.ccard:active{border-color:var(--line2)}
+.sect-h h2{font-family:var(--disp);font-size:15px;font-weight:600;color:var(--tx2);display:flex;align-items:center;gap:8px}
+.sect-h h2::before{content:"";width:14px;height:1px;background:var(--sig);box-shadow:0 0 6px var(--sig-glow)}
+.card-h{font-family:var(--disp);font-weight:600;letter-spacing:.01em}
+.sub{color:var(--tx2)}
+.empty{border:1px dashed var(--line);border-radius:6px;color:var(--tx2)}
+.empty.small{border:0;padding:16px 4px}
+
+/* ปุ่ม */
+.btn,.btn.acc{border-radius:8px;font-weight:600}
+.btn.ghost{background:transparent;color:var(--tx);box-shadow:inset 0 0 0 1px var(--line2)}
+.seg{background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:3px}
+.seg button{border-radius:6px;color:var(--tx2)}
+.seg button.sel,.types button.sel{background:var(--sig-dim);color:var(--sig);box-shadow:inset 0 0 0 1px var(--sig)}
+.chip,.types button,.good,.mchip{border-radius:6px}
+.switch:checked{background:var(--sig);border-color:var(--sig)}
+
+/* แถบล่าง: แผงหน้าปัด ไฟสัญญาณใต้ไอคอนที่เลือก */
+.tabbar{background:var(--navbg);border-top:1px solid var(--line);box-shadow:0 -1px 0 rgba(61,242,196,.05)}
+.tabbar button{color:var(--tx3);transition:color .2s}
+.tabbar button svg{transition:filter .2s}
+.tabbar button.active{color:var(--sig)}
+.tabbar button.active svg{filter:drop-shadow(0 0 5px var(--sig-glow))}
+.tabbar button.active::before{top:auto;bottom:4px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:var(--sig);box-shadow:0 0 8px var(--sig)}
+.tabbar .fab{border-radius:14px;background:var(--act);box-shadow:0 0 0 4px var(--navbg),0 0 0 5px rgba(255,90,54,.45),0 8px 20px rgba(255,90,54,.3)}
+.tabbar [data-n]{position:relative}
+.tabbar [data-n]::after{content:attr(data-n);position:absolute;top:6px;left:calc(50% + 6px);min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--act);color:#fff;font:600 10.5px/17px var(--disp);text-align:center}
+
+/* แผนที่: ปุ่มเป็นแผงเครื่องมือ */
+.search,.pill,.mapctl,.mapcompass,.coordbar,.crosslbl,.crosssv{background:var(--glass);border:1px solid var(--line2);box-shadow:0 6px 18px rgba(0,0,0,.28);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.search{border-radius:10px}
+.pill{border-radius:8px;font-family:var(--disp)}
+.score-dot{border-radius:5px}
+.mapctl{border-radius:10px}
+.mapctl button{border-radius:7px;color:var(--tx)}
+.mapctl button.on{background:var(--sig-dim);color:var(--sig);box-shadow:inset 0 0 0 1px var(--sig)}
+.mapctl .primary{border-radius:8px}
+.mapctl .primary.follow{background:var(--sig);color:#03151a}
+.mapcompass{border-radius:50%}
+.coordbar{font-family:var(--disp);color:var(--sig);border-radius:6px}
+:root[data-theme=light] .search,:root[data-theme=light] .pill,:root[data-theme=light] .mapctl,:root[data-theme=light] .mapcompass,:root[data-theme=light] .coordbar{box-shadow:0 4px 12px rgba(10,42,40,.14)}
+
+/* หน้าพยากรณ์: จอโซนาร์ */
+.score-row{gap:16px}
+.sonar{width:128px;height:128px;flex:none;overflow:visible}
+.sonar .rg{fill:none;stroke:var(--line2);stroke-width:1}
+.sonar .ax{stroke:var(--line);stroke-width:1}
+.sonar .face{fill:var(--bg2)}
+.sonar .sw{transform-origin:64px 64px;animation:sweep 4.5s linear infinite}
+.sonar .blip{transform-box:fill-box;transform-origin:center;animation:blip 4.5s linear infinite}
+@keyframes sweep{to{transform:rotate(360deg)}}
+@keyframes blip{0%,100%{opacity:.45}8%{opacity:1}70%{opacity:.5}}
+@media (prefers-reduced-motion:reduce){.sonar .sw,.sonar .blip{animation:none}.sonar .blip{opacity:.9}}
+.bob-num{font-size:48px;letter-spacing:-.01em}
+.fc-temp{letter-spacing:-.01em}
+.bars div{border-radius:2px 2px 0 0}
+.bars div.now{box-shadow:inset 0 0 0 2px var(--tx)}
+.good{border-radius:6px;font-family:var(--disp)}
+.days .sc{font-family:var(--disp)}
+
+/* โปรไฟล์: รูปอยู่กลางวงโซนาร์ */
+.av{border-radius:50%;background-color:var(--card2);color:var(--sig);box-shadow:inset 0 0 0 1px var(--line2)}
+.av.big{width:76px;height:76px;margin:14px;border-radius:50%;box-shadow:0 0 0 1px var(--sig),0 0 0 7px var(--bg),0 0 0 8px var(--line2),0 0 0 14px var(--bg),0 0 0 15px var(--line),0 0 18px 4px var(--sig-dim)}
+.profile{gap:12px}
+.pinfo b{font-family:var(--disp)}
+.adm,.mchip i{background:var(--sig-dim);color:var(--sig);box-shadow:inset 0 0 0 1px var(--sig);border-radius:4px}
+.adm.ban{background:transparent;color:var(--red);box-shadow:inset 0 0 0 1px var(--red)}
+.stats b{font-family:var(--disp);color:var(--sig);font-weight:600;text-shadow:0 0 12px var(--sig-glow)}
+:root[data-theme=light] .stats b{text-shadow:none}
+.stats div{border-right:1px dashed var(--line)}
+.ccard .cimg{border-radius:4px}
+.ccard.first span{border-radius:50%}
+.mstack .av{box-shadow:0 0 0 2px var(--card)}
+
+/* ฟีดชุมชน: โพสต์เป็นบันทึกการพบเป้า */
+.post{border-radius:6px;margin-bottom:16px}
+.post header{padding:12px 12px 10px}
+.pframe{position:relative;margin:0 10px;border-radius:3px;overflow:hidden;cursor:pointer;user-select:none}
+.pframe::before,.pframe::after{content:"";position:absolute;width:18px;height:18px;pointer-events:none;z-index:1}
+.pframe::before{left:8px;top:8px;border-left:2px solid var(--sig);border-top:2px solid var(--sig)}
+.pframe::after{right:8px;bottom:8px;border-right:2px solid var(--sig);border-bottom:2px solid var(--sig)}
+.pframe .pimg{border-radius:0;max-height:62vh}
+.ptag{position:absolute;left:8px;bottom:8px;padding:3px 8px;border-radius:4px;background:rgba(3,21,26,.78);color:#d9f7ef;font:600 13px/1.3 var(--disp);border:1px solid rgba(61,242,196,.4)}
+.pburst{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;opacity:0}
+.pburst svg{width:84px;height:84px;fill:var(--act);stroke:none;filter:drop-shadow(0 4px 16px rgba(0,0,0,.4))}
+.pburst.go{animation:burst .7s ease-out}
+@keyframes burst{0%{opacity:0;transform:scale(.4)}25%{opacity:1;transform:scale(1.1)}60%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.15)}}
+.pread{display:flex;gap:0;margin:10px 10px 0;border:1px solid var(--line);border-radius:4px}
+.pread span{flex:1;padding:6px 10px;display:flex;flex-direction:column;border-right:1px solid var(--line);min-width:0}
+.pread span:last-child{border:0}
+.pread span.wide{flex:2}
+.pread small{font-size:11.5px;color:var(--tx3)}
+.pread b{font:600 20px/1.15 var(--disp);color:var(--sig)}
+.pread b.t{font-family:Anuphan,sans-serif;font-size:15px;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.5}
+.pread i{font-style:normal;font-size:12px;color:var(--tx2);margin-top:-1px}
+.pnote{margin:10px 14px 0;font-size:15px;line-height:1.55}
+.pact{display:flex;align-items:center;gap:4px;padding:6px 6px 4px}
+.pa{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 10px;background:none;border:0;color:var(--tx2);font:600 15px var(--disp);border-radius:8px}
+.pa svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round}
+.pa.like.on{color:var(--act)}
+.pa.like.on svg{fill:var(--act);stroke:var(--act)}
+.pa.like:active svg{transform:scale(.85)}
+.pa.map{margin-left:auto;color:var(--link);font-family:Anuphan,sans-serif;font-size:14px}
+.plast{display:block;width:100%;text-align:left;background:none;border:0;border-top:1px dashed var(--line);padding:10px 14px 12px;color:var(--tx);font:400 14.5px/1.5 Anuphan,sans-serif}
+.plast b{font-weight:600;margin-right:4px}
+.plast .sub{display:block;font-size:13px;margin-top:2px}
+.pmore{border-radius:8px}
+/* ความคิดเห็น */
+.cmlist{max-height:46vh;overflow-y:auto;margin:12px 0 4px;display:flex;flex-direction:column;gap:12px}
+.cm{display:flex;gap:10px;align-items:flex-start}
+.cm .av{width:34px;height:34px;font-size:13px}
+.cmb{flex:1;min-width:0;background:var(--card2);border-radius:4px 12px 12px 12px;padding:7px 11px}
+.cmb b{font-weight:600}
+.cmb .sub{font-size:12px}
+.cmb p{margin:2px 0 0;font-size:15px;line-height:1.5;overflow-wrap:anywhere}
+.cmdel{background:none;border:0;color:var(--tx3);font-size:13px;padding:8px 4px;min-height:36px}
+.cmform{display:flex;gap:8px;position:sticky;bottom:0;background:var(--card);padding:10px 0 4px}
+.cmform input{flex:1;min-width:0;height:46px;border-radius:8px;border:1px solid var(--line2);background:var(--bg2);color:var(--tx);padding:0 12px;font:16px Anuphan,sans-serif}
+.cmform input:focus{outline:2px solid var(--sig);outline-offset:-1px}
+.cmform .btn{flex:none}
+
+/* แผ่นเด้ง */
+.sheet{background:var(--card);border-top:1px solid var(--line2);border-radius:14px 14px 0 0}
+.sheet .grab{background:var(--line2)}
+:focus-visible{outline:2px solid var(--sig);outline-offset:2px}
+#fcBody > .card:first-child,#fcBody > .warn + .card{background:none;border:0;padding:2px 2px 10px}
+.env>div{border-radius:4px}

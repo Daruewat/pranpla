@@ -18,12 +18,19 @@ service cloud.firestore {
       allow list, write: if isAdmin();
     }
     match /groups/{gid}/{col}/{id} {
-      function okCol() { return gid == 'all' && col in ['pins', 'catches', 'members']; }
+      function okCol() { return gid == 'all' && col in ['pins', 'catches', 'members', 'likes', 'comments']; }
       function mine() { return request.resource.data.uid == request.auth.uid; }
+      function react() { return col in ['likes', 'comments']; }
+      function valid() {
+        return !react() || (request.resource.data.post is string
+          && (col != 'likes' || id == request.resource.data.post + '_' + request.auth.uid)
+          && (col != 'comments' || (request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 500)));
+      }
+      function postOwner() { return react() && get(/databases/$(database)/documents/groups/all/catches/$(resource.data.post)).data.uid == request.auth.uid; }
       allow get, list: if signedIn() && okCol();
-      allow create: if signedIn() && okCol() && mine() && !isBanned();
-      allow update: if okCol() && ((signedIn() && resource.data.uid == request.auth.uid && mine() && !isBanned()) || isAdmin());
-      allow delete: if okCol() && ((signedIn() && resource.data.uid == request.auth.uid) || isAdmin());
+      allow create: if signedIn() && okCol() && mine() && valid() && !isBanned();
+      allow update: if okCol() && ((signedIn() && resource.data.uid == request.auth.uid && mine() && valid() && !isBanned()) || isAdmin());
+      allow delete: if okCol() && ((signedIn() && resource.data.uid == request.auth.uid) || isAdmin() || (signedIn() && postOwner()));
     }
   }
 }
