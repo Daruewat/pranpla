@@ -2299,3 +2299,5 @@ html {
 .radar-tiles{image-rendering:auto;filter:saturate(1.15)}
 body.radar-on .mapctl{bottom:calc(var(--nav) + var(--safe-b) + 230px)}
 body.radar-on #coordBar,body.radar-on .crosshair{display:none}
+.fut-img{filter:blur(5px)}
+.rd-legend i{background:linear-gradient(90deg,#88ddee,#0099cc,#0066aa,#004488,#ffee00,#ff8800,#cc1100)}

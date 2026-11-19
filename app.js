@@ -1017,7 +1017,6 @@ $('#seasonPill').onclick = () => { showTab('forecast'); setTimeout(() => $('#vie
 const gRain = L.layerGroup().addTo(map);
 const FUT = 6;
 const R = { on: false, grid: null, idx: 0, frames: [], layers: [], key: '', play: null, prevView: null };
-const rainStyle = (mm, pop) => mm >= 10 ? ['#dc2626', .5] : mm >= 4 ? ['#f59e0b', .5] : mm >= 1 ? ['#2563eb', .5] : mm >= 0.1 ? ['#3b82f6', .35] : pop >= 40 ? ['#60a5fa', .18] : null;
 const nPast = () => R.frames.length;
 async function loadRadar() {
   R.layers.forEach(l => map.removeLayer(l)); R.layers = []; R.frames = [];
@@ -1047,6 +1046,24 @@ function rainTicks() {
   $('#rdTicks').innerHTML = Array.from({ length: tot }, (_, i) => `<i class="${i < n - 1 ? 'p' : i === n - 1 ? 'now' : 'f'}"></i>`).join('');
   $('#rdNowLbl').style.left = n ? `${(n - 1) / Math.max(tot - 1, 1) * 100}%` : '0';
 }
+/* วาดพยากรณ์ฝนให้หน้าตาเหมือนภาพเรดาร์: ประมาณค่าระหว่างจุดให้ต่อเนื่อง แล้วลงสีชุดเดียวกับเรดาร์ (ไม่มีตัวเลข/ช่องสี่เหลี่ยม) */
+const RCOL = [[.05, [136, 221, 238]], [.5, [0, 153, 204]], [2, [0, 102, 170]], [5, [0, 68, 136]], [8, [255, 238, 0]], [15, [255, 136, 0]], [30, [204, 17, 0]]];
+function rainRGB(v) { let c = RCOL[0][1]; for (const [t, col] of RCOL) if (v >= t) c = col; return c; }
+function futImage(h) {
+  const nx = 6, ny = 8, W = 120, H = 160, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const g = cv.getContext('2d'), img = g.createImageData(W, H), d = img.data;
+  const val = (x, y) => { const c = R.grid[Math.min(ny - 1, Math.max(0, y)) * nx + Math.min(nx - 1, Math.max(0, x))]; const mm = c.mm[h] ?? 0, pop = (c.pop?.[h] ?? 0) / 100; return mm * Math.min(1, pop * 1.4) + (pop >= .5 ? .06 : 0); };
+  for (let py = 0; py < H; py++) for (let px = 0; px < W; px++) {
+    const gx = px / W * nx - .5, gy = (H - 1 - py) / H * ny - .5, x0 = Math.floor(gx), y0 = Math.floor(gy), fx = gx - x0, fy = gy - y0;
+    const v = val(x0, y0) * (1 - fx) * (1 - fy) + val(x0 + 1, y0) * fx * (1 - fy) + val(x0, y0 + 1) * (1 - fx) * fy + val(x0 + 1, y0 + 1) * fx * fy;
+    if (v < .05) continue;
+    const [r, gg, b] = rainRGB(v), k = (py * W + px) * 4;
+    d[k] = r; d[k + 1] = gg; d[k + 2] = b; d[k + 3] = Math.round(255 * Math.min(.8, .35 + v / 6));
+  }
+  g.putImageData(img, 0, 0);
+  const b = L.latLngBounds(R.grid[0].box[0], R.grid[R.grid.length - 1].box[1]);
+  return L.imageOverlay(cv.toDataURL(), b, { opacity: .85, interactive: false, className: 'radar-tiles fut-img' });
+}
 function drawRain() {
   gRain.clearLayers(); if (!R.on) return;
   const n = nPast(), i = R.idx, past = i < n;
@@ -1063,15 +1080,10 @@ function drawRain() {
     const h = i - n + 1; time = new Date(Date.now() + h * 3600e3);
     tag = `+${h} ชม.`; $('#rdTag').className = 'rd-tag fut';
     if (R.grid) {
-      let wet = 0;
-      R.grid.forEach(c => {
-        const mm = c.mm[h] ?? 0, pop = c.pop?.[h] ?? 0, st = rainStyle(mm, pop); if (!st) return; wet++;
-        L.rectangle(c.box, { stroke: false, fillColor: st[0], fillOpacity: st[1], interactive: false }).addTo(gRain);
-        const ctr = [(c.box[0][0] + c.box[1][0]) / 2, (c.box[0][1] + c.box[1][1]) / 2];
-        if (pop >= 30) L.marker(ctr, { interactive: false, icon: L.divIcon({ className: '', html: `<div class="rainlbl">${pop}%${mm >= 0.1 ? `<small>${mm.toFixed(1)}มม.</small>` : ''}</div>`, iconSize: [50, 30], iconAnchor: [25, 15] }) }).addTo(gRain);
-      });
+      R.fut = futImage(h); R.fut.addTo(gRain);
       time = new Date(R.grid[0].t[h]);
-      info = `พยากรณ์ (ไม่ใช่เรดาร์) · ${wet ? `มีโอกาสฝน ${wet}/${R.grid.length} ช่องในจอ` : 'ไม่น่ามีฝนในบริเวณที่เห็น'}`;
+      const me = S.pos ? L.latLng(S.pos.lat, S.pos.lng) : map.getCenter(), c = R.grid.find(c => L.latLngBounds(c.box).contains(me));
+      info = `พยากรณ์ฝน (ประมาณจากโมเดลอากาศ)${c ? ` · ${S.pos ? 'ตรงที่คุณอยู่' : 'กลางจอ'} โอกาส ${c.pop?.[h] ?? 0}%${(c.mm[h] ?? 0) >= 0.1 ? ` ~${c.mm[h].toFixed(1)} มม.` : ''}` : ''}`;
     } else info = navigator.onLine === false ? 'ต้องต่อเน็ต' : 'กำลังโหลดพยากรณ์…';
   }
   $('#rdTime').textContent = `${pad(time.getHours())}:${pad(time.getMinutes())}`;
