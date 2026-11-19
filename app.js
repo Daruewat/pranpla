@@ -93,9 +93,9 @@ const LAYERS = {
 const loadScript = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
 const curTheme = () => document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
 async function makeVec(styleFn) {   // โหลดตัววาดแผนที่เวกเตอร์เฉพาะตอนเลือกใช้
-  if (!window.maplibregl) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'lib/maplibre-gl.css'; document.head.appendChild(l); await loadScript('lib/maplibre-gl.js'); await loadScript('lib/leaflet-maplibre-gl.js'); await loadScript('vecstyle.js?v=72'); }
-  try { if (!window.pmtiles) await loadScript('lib/pmtiles.js?v=72'); if (!window._pmProto) { window._pmProto = new pmtiles.Protocol(); maplibregl.addProtocol('pmtiles', _pmProto.tile); } } catch {}   // รูปอาคาร Google+Microsoft
-  try { if (!window.mlcontour) await loadScript('lib/mlcontour.js?v=72'); if (!window._dem) { window._dem = new mlcontour.DemSource({ url: 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png', encoding: 'terrarium', maxzoom: 12, worker: true, cacheSize: 100 }); _dem.setupMaplibre(maplibregl); } } catch {}   // เส้นชั้นความสูง
+  if (!window.maplibregl) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'lib/maplibre-gl.css'; document.head.appendChild(l); await loadScript('lib/maplibre-gl.js'); await loadScript('lib/leaflet-maplibre-gl.js'); await loadScript('vecstyle.js?v=73'); }
+  try { if (!window.pmtiles) await loadScript('lib/pmtiles.js?v=73'); if (!window._pmProto) { window._pmProto = new pmtiles.Protocol(); maplibregl.addProtocol('pmtiles', _pmProto.tile); } } catch {}   // รูปอาคาร Google+Microsoft
+  try { if (!window.mlcontour) await loadScript('lib/mlcontour.js?v=73'); if (!window._dem) { window._dem = new mlcontour.DemSource({ url: 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png', encoding: 'terrarium', maxzoom: 12, worker: true, cacheSize: 100 }); _dem.setupMaplibre(maplibregl); } } catch {}   // เส้นชั้นความสูง
   if (!maplibregl.supported?.() && !document.createElement('canvas').getContext('webgl')) throw new Error('no webgl');
   fetch('https://tiles.openfreemap.org/planet').then(r => r.json()).then(j => { if (j.tiles?.[0]) { LAYERS.vec.urls = [j.tiles[0]]; LAYERS.hyb.urls = [LAYERS.hyb.urls[0], j.tiles[0]]; LAYERS.topo.urls = [LAYERS.topo.urls[0], j.tiles[0]]; } }).catch(() => {});
   return L.maplibreGL({ style: styleFn(), attribution: '© OpenStreetMap · OpenFreeMap · Esri' });
@@ -441,6 +441,7 @@ document.addEventListener('click', e => {
 });
 
 /* ---- spots ---- */
+const isFishSpot = s => ['fish', 'hot'].includes(s.type || 'fish');   // หมุดตกปลาเท่านั้นที่มีเรื่องปลา
 function spotForm(init) {
   const ex = init.id ? S.spots.find(s => s.id === init.id) : null;
   const d = ex ? { fee: '', hours: '', rules: '', tel: '', ...ex } : { id: uid(), type: 'fish', name: '', note: '', fish: '', fee: '', hours: '', rules: '', tel: '', photo: null, created: Date.now(), ...init };
@@ -450,7 +451,7 @@ function spotForm(init) {
     <label>ประเภท</label>
     <div class="types">${Object.entries(SPOT_TYPES).filter(([, t]) => !t.hidden).map(([k, t]) => `<button type="button" data-type="${k}" class="${k === d.type ? 'sel' : ''}">${t.icon} ${t.label}</button>`).join('')}</div>
     <label>ชื่อจุด</label><input name="name" value="${esc(d.name)}" placeholder="เช่น หนองบัว ฝั่งตอไม้">
-    <label>ปลาที่เจอ</label><input name="fish" value="${esc(d.fish)}" placeholder="ช่อน ชะโด นิล…">
+    <div class="fish-only"><label>ปลาที่เจอ</label><input name="fish" value="${esc(d.fish)}" placeholder="ช่อน ชะโด นิล…"></div>
     <label>โน้ต</label><textarea name="note" placeholder="ทางเข้า ความลึก เหยื่อที่ได้ผล ข้อควรระวัง">${esc(d.note)}</textarea>
     <div class="two"><div><label>ค่าบริการ / ค่าบ่อ</label><input name="fee" value="${esc(d.fee)}" placeholder="ฟรี, 100 บ./วัน"></div>
     <div><label>เวลาเปิด–ปิด</label><input name="hours" value="${esc(d.hours)}" placeholder="06:00–18:00"></div></div>
@@ -463,11 +464,13 @@ function spotForm(init) {
     <div class="row"><button class="btn block acc" id="spSave">บันทึกหมุด</button></div>
   </div>`);
   const r = $('#sheet');
-  $$('.types button', r).forEach(b => b.onclick = () => { d.type = b.dataset.type; $$('.types button', r).forEach(x => x.classList.toggle('sel', x === b)); });
-  bindPhoto(r, d); window.HOT && HOT.bindForm(r, d); draftBind(r, 'spot:' + (ex ? d.id : 'new'), d, ex ? { id: d.id } : { lat: d.lat, lng: d.lng });
+  const fishOnly = () => { const on = isFishSpot(d); $$('.fish-only, .hform', r).forEach(x => x.classList.toggle('hidden', !on)); };
+  $$('.types:not(.hchips) button', r).forEach(b => b.onclick = () => { d.type = b.dataset.type; $$('.types:not(.hchips) button', r).forEach(x => x.classList.toggle('sel', x === b)); fishOnly(); });
+  bindPhoto(r, d); window.HOT && HOT.bindForm(r, d); fishOnly(); draftBind(r, 'spot:' + (ex ? d.id : 'new'), d, ex ? { id: d.id } : { lat: d.lat, lng: d.lng });
   $('#spSave').onclick = () => {
     d.name = $('[name=name]', r).value.trim() || SPOT_TYPES[d.type].label;
     ['fish', 'note', 'fee', 'hours', 'rules', 'tel'].forEach(k => d[k] = $(`[name=${k}]`, r).value.trim());
+    if (!isFishSpot(d)) d.fish = '';
     if ($('[name=priv]', r)) d.private = $('[name=priv]', r).checked;
     const i = S.spots.findIndex(s => s.id === d.id);
     if (i >= 0) S.spots[i] = d; else S.spots.push(d);
@@ -479,7 +482,7 @@ const svBtn = p => `<a class="btn ghost" href="${svUrl(p)}" target="_blank" rel=
 function gmaps(p) { return `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}`; }
 function spotSheet(id) {
   const s = S.spots.find(x => x.id === id); if (!s) return;
-  const t = SPOT_TYPES[s.type] || SPOT_TYPES.other, n = S.catches.filter(c => c.spotId === id).length;
+  const t = SPOT_TYPES[s.type] || SPOT_TYPES.other, n = S.catches.filter(c => c.spotId === id).length, fishy = isFishSpot(s) || n > 0;
   openSheet(`<h3>${t.icon} ${esc(s.name)}</h3>
   <div class="sub">${t.label}${S.pos ? ' · ห่าง ' + fmtDist(dist(S.pos, s)) : ''}${s.private ? ' · 🔒 ส่วนตัว' : grp('joined') ? ' · 👥 ทุกคนเห็น' : ''}</div>
   ${window.HOT ? HOT.panel(s) : ''}
@@ -487,14 +490,14 @@ function spotSheet(id) {
   <div class="kv"><span>พิกัด</span><b class="mono">${s.lat.toFixed(5)}, ${s.lng.toFixed(5)}</b>
     ${s.fish ? `<span>ปลา</span><b>${esc(s.fish)}</b>` : ''}${s.note ? `<span>โน้ต</span><b>${esc(s.note)}</b>` : ''}
     ${s.fee ? `<span>ค่าบริการ</span><b>${esc(s.fee)}</b>` : ''}${s.hours ? `<span>เปิด–ปิด</span><b>${esc(s.hours)}</b>` : ''}${s.rules ? `<span>กฎ/ข้อห้าม</span><b style="color:var(--warn-tx)">⚠️ ${esc(s.rules)}</b>` : ''}${s.tel ? `<span>ติดต่อ</span><b><a href="tel:${esc(s.tel.replace(/[^0-9+]/g, ''))}" style="color:var(--link)">${esc(s.tel)}</a></b>` : ''}
-    <span>ปลาที่บันทึก</span><b>${n} ตัว</b></div>
+    ${fishy ? `<span>ปลาที่บันทึก</span><b>${n} ตัว</b>` : ''}</div>
   <div id="spDam"></div>
   <div class="row">
     <button class="btn acc" id="spNav">🧭 นำทางด้วยเข็มทิศ</button>
     <a class="btn ghost" href="${gmaps(s)}" target="_blank" rel="noopener">Google Maps</a>
     ${svBtn(s)}
     <button class="btn ghost" id="spFc">🌤️ พยากรณ์ที่นี่</button>
-    <button class="btn ghost" id="spCatch">🐟 บันทึกปลาที่นี่</button>
+    ${fishy ? '<button class="btn ghost" id="spCatch">🐟 บันทึกปลาที่นี่</button>' : ''}
     <button class="btn ghost" id="spShare">📤 แชร์หมุด</button>
     <button class="btn ghost" id="spEdit">แก้ไข</button>
     <button class="btn ghost" id="spMove">↔️ ย้ายตำแหน่ง</button>
@@ -504,7 +507,7 @@ function spotSheet(id) {
   $('#spMove').onclick = () => { closeSheet(); moveSpot(s); }; window.HOT && HOT.bindPanel(s, () => HOT.refreshPanel(s));
   $('#spNav').onclick = () => { setTarget({ lat: s.lat, lng: s.lng, name: s.name }); closeSheet(); showTab('tools'); };
   $('#spFc').onclick = () => { closeSheet(); loadForecast({ lat: s.lat, lng: s.lng, name: s.name }); showTab('forecast'); };
-  $('#spCatch').onclick = () => catchForm({ spotId: s.id });
+  if (fishy) $('#spCatch').onclick = () => catchForm({ spotId: s.id });
   $('#spEdit').onclick = () => spotForm({ id: s.id });
   $('#spShare').onclick = () => shareSpot(s);
   damNear(s, 4000).then(h => { const el = $('#spDam'); if (el && h) el.innerHTML = h; });
@@ -561,7 +564,7 @@ function catchForm(init = {}) {
     <div class="two"><div><label>ยาว (ซม.)</label><input name="len" type="number" inputmode="decimal" step="0.1" value="${d.len ?? ''}"></div>
     <div><label>หนัก (กก.)</label><input name="wt" type="number" inputmode="decimal" step="0.01" value="${d.wt ?? ''}"></div></div>
     <label>เหยื่อ / วิธีตก</label><input name="bait" placeholder="กบยาง, ไส้เดือน, ตกทุ่น…" value="${esc(d.bait)}">
-    <label>จุดที่ได้</label><select name="spot"><option value="">ตำแหน่งปัจจุบัน (GPS)</option>${S.spots.map(s => `<option value="${s.id}" ${s.id === d.spotId ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select>
+    <label>จุดที่ได้</label><select name="spot"><option value="">ตำแหน่งปัจจุบัน (GPS)</option>${S.spots.filter(s => isFishSpot(s) || s.id === d.spotId).map(s => `<option value="${s.id}" ${s.id === d.spotId ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select>
     <label>เวลา</label><input name="t" type="datetime-local" value="${now}">
     <label>รูปปลา</label><input name="photo" type="file" accept="image/*,.heic,.heif">
     <img class="photo-prev ${d.photo ? '' : 'hidden'}" src="${d.photo || ''}">
