@@ -93,9 +93,9 @@ const LAYERS = {
 const loadScript = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
 const curTheme = () => document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
 async function makeVec(styleFn) {   // โหลดตัววาดแผนที่เวกเตอร์เฉพาะตอนเลือกใช้
-  if (!window.maplibregl) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'lib/maplibre-gl.css'; document.head.appendChild(l); await loadScript('lib/maplibre-gl.js'); await loadScript('lib/leaflet-maplibre-gl.js'); await loadScript('vecstyle.js?v=85'); }
-  try { if (!window.pmtiles) await loadScript('lib/pmtiles.js?v=85'); if (!window._pmProto) { window._pmProto = new pmtiles.Protocol(); maplibregl.addProtocol('pmtiles', _pmProto.tile); } } catch {}   // รูปอาคาร Google+Microsoft
-  try { if (!window.mlcontour) await loadScript('lib/mlcontour.js?v=85'); if (!window._dem) { window._dem = new mlcontour.DemSource({ url: 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png', encoding: 'terrarium', maxzoom: 12, worker: true, cacheSize: 100 }); _dem.setupMaplibre(maplibregl); } } catch {}   // เส้นชั้นความสูง
+  if (!window.maplibregl) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'lib/maplibre-gl.css'; document.head.appendChild(l); await loadScript('lib/maplibre-gl.js'); await loadScript('lib/leaflet-maplibre-gl.js'); await loadScript('vecstyle.js?v=86'); }
+  try { if (!window.pmtiles) await loadScript('lib/pmtiles.js?v=86'); if (!window._pmProto) { window._pmProto = new pmtiles.Protocol(); maplibregl.addProtocol('pmtiles', _pmProto.tile); } } catch {}   // รูปอาคาร Google+Microsoft
+  try { if (!window.mlcontour) await loadScript('lib/mlcontour.js?v=86'); if (!window._dem) { window._dem = new mlcontour.DemSource({ url: 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png', encoding: 'terrarium', maxzoom: 12, worker: true, cacheSize: 100 }); _dem.setupMaplibre(maplibregl); } } catch {}   // เส้นชั้นความสูง
   if (!maplibregl.supported?.() && !document.createElement('canvas').getContext('webgl')) throw new Error('no webgl');
   fetch('https://tiles.openfreemap.org/planet').then(r => r.json()).then(j => { if (j.tiles?.[0]) { LAYERS.vec.urls = [j.tiles[0]]; LAYERS.hyb.urls = [LAYERS.hyb.urls[0], j.tiles[0]]; LAYERS.topo.urls = [LAYERS.topo.urls[0], j.tiles[0]]; } }).catch(() => {});
   return L.maplibreGL({ style: styleFn(), attribution: '© OpenStreetMap · OpenFreeMap · Esri' });
@@ -1068,10 +1068,13 @@ function rainOutlook(next) {
 function season(d = new Date()) { const m = d.getMonth() + 1; return SEASONS.find(s => s.m.includes(m)) || SEASONS[0]; }
 function renderAlert() {
   const el = $('#alertBar'), W = S.wx; if (!W) return;
-  const h3 = W.next.slice(0, 4), at = x => pad(x.t.getHours()) + ':00', msgs = [];
-  const th = h3.find(x => x.code >= 95), hv = h3.find(x => x.rain >= 5), gs = h3.find(x => x.gust >= 45 || x.wind >= 30), ht = h3.find(x => x.temp >= 38);
-  if (th) msgs.push(`⛈️ พายุฝนฟ้าคะนอง ~${at(th)} เก็บคัน ออกห่างน้ำและต้นไม้สูง`);
-  if (hv && !th) msgs.push(`🌧️ ฝนหนัก ~${at(hv)} (${hv.rain.toFixed(0)} มม./ชม.) ระวังน้ำป่า ทางลื่น`);
+  const now = Date.now(), h3 = W.next.filter(x => +x.t > now - 30 * 60e3).slice(0, 3), at = x => pad(x.t.getHours()) + ':00', msgs = [];   // ข้ามชั่วโมงที่ผ่านไปเกินครึ่งแล้ว
+  const pp = x => x.pop != null ? ` (โอกาส ${x.pop}%)` : '';
+  const thAll = h3.filter(x => x.code >= 95), th = thAll.find(x => (x.pop ?? 100) >= 50 || x.rain >= 1), thMaybe = !th && thAll.find(x => (x.pop ?? 0) >= 25);   // พายุ: โอกาสน้อยแค่ "อาจมี" ไม่ขึ้นเตือนแดง
+  const hv = h3.find(x => x.rain >= 5), gs = h3.find(x => x.gust >= 45 || x.wind >= 30), ht = h3.find(x => x.temp >= 38);
+  if (th) msgs.push(`⛈️ พายุฝนฟ้าคะนอง ~${at(th)}${pp(th)} เก็บคัน ออกห่างน้ำและต้นไม้สูง`);
+  else if (thMaybe) msgs.push(`🌩️ อาจมีพายุฝนฟ้าคะนอง ~${at(thMaybe)}${pp(thMaybe)} ถ้าได้ยินฟ้าร้องให้ขึ้นจากน้ำ`);
+  if (hv && !th && !thMaybe) msgs.push(`🌧️ ฝนหนัก ~${at(hv)} (${hv.rain.toFixed(0)} มม./ชม.) ระวังน้ำป่า ทางลื่น`);
   if (gs) msgs.push(`💨 ลมแรง ~${at(gs)} กระโชก ${Math.round(Math.max(gs.gust, gs.wind))} กม./ชม.`);
   if (ht) msgs.push(`🥵 ร้อนจัด ${Math.round(ht.temp)}° ~${at(ht)} ดื่มน้ำ หลบแดด`);
   el.classList.toggle('hidden', !msgs.length); el.classList.toggle('severe', !!th);
@@ -1157,6 +1160,7 @@ function renderForecast() {
 }
 $('#fcRefresh').onclick = () => { toast('กำลังรีเฟรช…'); loadForecast(); };
 $('#alertBar').onclick = () => showTab('forecast');
+setInterval(() => { if (S.wx) renderAlert(); }, 10 * 60e3);   // เวลาเดินไป เตือนที่ผ่านไปแล้วหายเอง
 (() => {   // วางเข็มทิศ/แถบเตือนใต้แถวป้ายจริง ๆ (ป้ายขึ้นสองบรรทัดบนจอเล็กหรือฟอนต์ใหญ่)
   const pills = $('.pills'), ab = $('#alertBar'), R = document.documentElement.style;
   const fit = () => { R.setProperty('--tb', Math.round(pills.getBoundingClientRect().bottom) + 'px'); R.setProperty('--ab', ab.classList.contains('hidden') || !ab.offsetHeight ? '0px' : Math.round(ab.offsetHeight + 8) + 'px'); };
