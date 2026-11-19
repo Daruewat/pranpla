@@ -2301,3 +2301,116 @@ body.radar-on .mapctl{bottom:calc(var(--nav) + var(--safe-b) + 230px)}
 body.radar-on #coordBar,body.radar-on .crosshair{display:none}
 .fut-img{filter:blur(5px)}
 .rd-legend i{background:linear-gradient(90deg,#88ddee,#0099cc,#0066aa,#004488,#ffee00,#ff8800,#cc1100)}
+
+/* =====================================================================
+   พรานปลา — "แผนที่ภูมิประเทศยามพลบค่ำ" (ดู DESIGN.md) ทับทุกชั้นข้างบน
+   ===================================================================== */
+:root{
+  --bog:#18210c; --floor:#212f0c; --moss:#314218; --fern:#3d521e; --lichen:#64754b;
+  --bg:#314218; --bg2:#212f0c; --card:#3d521e; --card2:#4a5f2a; --line:#56683c; --line2:#64754b;
+  --tx:#ffffff; --tx2:#d8dcd2; --tx3:#aab496;
+  --sig:#dc8c46; --sig-dim:rgba(220,140,70,.18); --sig-glow:rgba(220,140,70,.35);
+  --sel:#dc8c46; --blue:#dc8c46; --link:#efb07a; --act:#dc8c46; --act-tx:#18210c; --red:#e5533d;
+  --glass:rgba(24,33,12,.9); --track:#26360f; --navbg:#18210c; --wet-bg:#2b4a3a; --tick:#64754b;
+  --serif:"Fraunces","Trirong",Georgia,serif;
+  --disp:Anuphan,system-ui,sans-serif;
+}
+:root[data-theme=light]{
+  --bg:#efeee8; --bg2:#ffffff; --card:#ffffff; --card2:#e3e6dc; --line:#d3d8ca; --line2:#a9b19b;
+  --tx:#18210c; --tx2:#4b5540; --tx3:#6b745f;
+  --sig:#b0621f; --sig-dim:rgba(176,98,31,.12); --sig-glow:rgba(176,98,31,.25);
+  --sel:#b0621f; --blue:#b0621f; --link:#8f4d14; --act:#dc8c46; --act-tx:#18210c;
+  --glass:rgba(255,255,255,.94); --track:#dfe3d6; --navbg:#ffffff; --wet-bg:#dcebe4; --tick:#a9b19b;
+}
+body{font-variant-numeric:tabular-nums}
+/* พื้นหน้า: เส้นชั้นความสูงจางๆ แทนวงโซนาร์ */
+.view{background:
+  repeating-radial-gradient(ellipse 120% 80% at 85% -10%,transparent 0 46px,rgba(255,255,255,.045) 46px 47px) top right/100% 560px no-repeat,
+  var(--bg)}
+:root[data-theme=light] .view{background:repeating-radial-gradient(ellipse 120% 80% at 85% -10%,transparent 0 46px,rgba(49,66,24,.06) 46px 47px) top right/100% 560px no-repeat,var(--bg)}
+
+/* ตัวอักษร: หัวเรื่องมีเชิงแบบแผนที่เก่า */
+.vhead h1{font-family:var(--serif);font-weight:300;font-size:36px;line-height:1.05;letter-spacing:-.01em}
+.sheet h3{font-family:var(--serif);font-weight:400;font-size:26px;line-height:1.15;letter-spacing:-.005em}
+.fc-temp,.bob-num,.stats b,.pread b,.rd-time b,.pinfo b,.coords{font-family:var(--serif);font-weight:300;letter-spacing:-.01em;text-shadow:none}
+.stats b{color:var(--tx);font-size:30px}
+.pread b{color:var(--tx);font-size:22px}
+.pread b.t{font-family:Anuphan,sans-serif;font-weight:500}
+.card-h,.sect-h h2{font-family:Anuphan,sans-serif;letter-spacing:.01em}
+.sect-h h2{font-size:15px;font-weight:600;color:var(--tx2)}
+.sect-h h2::before{background:var(--sig);box-shadow:none;width:16px}
+
+/* รูปทรง: การ์ด 6px ปุ่มแคปซูล ยกชั้นด้วยสี ไม่มีเงา */
+.card,.stats,.item,.post,.ccard{background:var(--card);border:0;border-radius:6px;box-shadow:none}
+.ccard.add{background:none;border:1px dashed var(--line2)}
+.empty{border-radius:6px;border-color:var(--line2)}
+.btn,.btn.acc{border-radius:20px;background:var(--act);color:var(--act-tx);font-weight:600;box-shadow:none}
+.btn.ghost{background:transparent;color:var(--tx);box-shadow:inset 0 0 0 1px var(--line2)}
+.btn.danger{background:transparent;color:var(--red);box-shadow:inset 0 0 0 1px var(--red)}
+.iconbtn{border-radius:20px;background:var(--card);border:0;color:var(--tx)}
+.seg{background:var(--bg2);border:0;border-radius:20px;padding:3px}
+.seg button{border-radius:18px}
+.seg button.sel,.types button.sel,.mapctl button.on{background:var(--act);color:var(--act-tx);box-shadow:none}
+.chip,.types button,.good,.mchip{border-radius:6px}
+.form input,.form select,.form textarea{border-radius:6px;background:var(--bg2);border:1px solid var(--line)}
+.switch:checked{background:var(--act);border-color:var(--act)}
+.av{background-color:var(--fern);color:var(--sig);box-shadow:none}
+.av.big{box-shadow:0 0 0 2px var(--sig),0 0 0 8px var(--bg),0 0 0 9px var(--line2)}
+.avpen{background:var(--act)}.avpen svg{stroke:var(--act-tx)}
+.adm,.mchip i{background:var(--sig-dim);color:var(--link);box-shadow:none}
+.stats div{border-right:1px solid var(--line)}
+
+/* แถบเมนูล่าง */
+.tabbar{background:var(--navbg);border-top:0;box-shadow:none}
+.tabbar button{color:var(--tx3)}
+.tabbar button.active{color:var(--sig)}
+.tabbar button.active svg{filter:none}
+.tabbar button.active::before{top:auto;bottom:5px;width:16px;height:2px;margin-left:-8px;border-radius:1px;background:var(--sig);box-shadow:none}
+.tabbar .fab{border-radius:50%;background:var(--act);color:var(--act-tx);box-shadow:0 0 0 5px var(--navbg)}
+.tabbar .fab svg{stroke:var(--act-tx)}
+.tabbar [data-n]::after{background:var(--red)}
+
+/* แผนที่ */
+.search,.pill,.mapctl,.mapcompass,.coordbar,.crosslbl,.crosssv{background:var(--glass);border:0;box-shadow:0 2px 10px rgba(0,0,0,.25)}
+.search,.pill{border-radius:20px}
+.mapctl{border-radius:20px}
+.mapctl button{border-radius:16px}
+.mapctl .primary,.mapctl .primary.follow{background:var(--act);color:var(--act-tx)}
+.coordbar{color:var(--tx);border-radius:6px}
+
+/* พยากรณ์: จอโซนาร์เป็นเข็มทิศอำพันบนพื้นมอส */
+.sonar .face{fill:var(--floor)}
+:root[data-theme=light] .sonar .face{fill:#e3e6dc}
+.sonar .rg{stroke:var(--line2)}
+.sonar .ax{stroke:var(--line)}
+.bars div.now{box-shadow:inset 0 0 0 2px var(--tx)}
+
+/* ฟีด */
+.post{margin-bottom:14px}
+.pframe{border-radius:6px}
+.pframe::before,.pframe::after{display:none}
+.ptag{background:rgba(24,33,12,.82);border:0;border-radius:6px;font-family:Anuphan,sans-serif;font-weight:600}
+.pread{border:0;background:var(--bg2);border-radius:6px}
+.pread span{border-right:1px solid var(--line)}
+.pa.like.on{color:var(--red)}.pa.like.on svg{fill:var(--red);stroke:var(--red)}
+.pburst svg{fill:var(--red)}
+.plast{border-top:1px solid var(--line)}
+.cmb{background:var(--card2);border-radius:6px}
+.cmform input{border-radius:20px}
+
+/* แผ่นเด้ง = หน้ากระดาษสว่างบนพื้นมืด (แบบหน้าแผนที่ที่กางออก) */
+.sheet{
+  --bg:#eeeeee; --bg2:#ffffff; --card:#ffffff; --card2:#e3e6dc; --line:#d3d8ca; --line2:#a9b19b;
+  --tx:#18210c; --tx2:#4b5540; --tx3:#6b745f; --sig:#b0621f; --sig-dim:rgba(176,98,31,.12); --link:#8f4d14; --tick:#a9b19b;
+  background:#eeeeee;color:var(--tx);border:0;border-radius:14px 14px 0 0}
+.sheet .grab{background:#b9c0ad}
+.sheet-x{background:#e3e6dc;color:#18210c}
+.cmform{background:#eeeeee}
+
+/* เรดาร์ฝน */
+.rainbar.radar{background:var(--glass);border:0;border-radius:14px;box-shadow:0 6px 20px rgba(0,0,0,.3)}
+.rd-play{background:var(--act);box-shadow:none}.rd-play svg{fill:var(--act-tx)}
+.rd-ticks i.p{background:rgba(220,140,70,.45)}
+.rd-tag.fut{color:var(--link);box-shadow:inset 0 0 0 1px var(--sig)}
+:focus-visible{outline:2px solid var(--sig);outline-offset:2px}
+.tabbar .fab,.tabbar .fab *{color:var(--act-tx)}
