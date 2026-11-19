@@ -93,8 +93,8 @@ const LAYERS = {
 const loadScript = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
 const curTheme = () => document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
 async function makeVec(styleFn) {   // โหลดตัววาดแผนที่เวกเตอร์เฉพาะตอนเลือกใช้
-  if (!window.maplibregl) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'lib/maplibre-gl.css'; document.head.appendChild(l); await loadScript('lib/maplibre-gl.js'); await loadScript('lib/leaflet-maplibre-gl.js'); await loadScript('vecstyle.js?v=62'); }
-  try { if (!window.pmtiles) await loadScript('lib/pmtiles.js?v=62'); if (!window._pmProto) { window._pmProto = new pmtiles.Protocol(); maplibregl.addProtocol('pmtiles', _pmProto.tile); } } catch {}   // รูปอาคาร Google+Microsoft
+  if (!window.maplibregl) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'lib/maplibre-gl.css'; document.head.appendChild(l); await loadScript('lib/maplibre-gl.js'); await loadScript('lib/leaflet-maplibre-gl.js'); await loadScript('vecstyle.js?v=63'); }
+  try { if (!window.pmtiles) await loadScript('lib/pmtiles.js?v=63'); if (!window._pmProto) { window._pmProto = new pmtiles.Protocol(); maplibregl.addProtocol('pmtiles', _pmProto.tile); } } catch {}   // รูปอาคาร Google+Microsoft
   if (!maplibregl.supported?.() && !document.createElement('canvas').getContext('webgl')) throw new Error('no webgl');
   fetch('https://tiles.openfreemap.org/planet').then(r => r.json()).then(j => { if (j.tiles?.[0]) { LAYERS.vec.urls = [j.tiles[0]]; LAYERS.hyb.urls = [LAYERS.hyb.urls[0], j.tiles[0]]; } }).catch(() => {});
   return L.maplibreGL({ style: styleFn(), attribution: '© OpenStreetMap · OpenFreeMap · Esri' });
@@ -194,28 +194,41 @@ $('#btnLocate').onclick = () => {
   if (!S.pos) { toast('ยังไม่ได้ตำแหน่ง GPS'); startGeo(); return; }
   S.follow = true; $('#btnLocate').classList.add('follow'); map.setView([S.pos.lat, S.pos.lng], Math.max(map.getZoom(), 15));
 };
+const MT_THUMB = {   // ภาพตัวอย่างประเภทแผนที่ (วาดเอง)
+  vec: `<svg viewBox="0 0 80 80"><rect width="80" height="80" fill="#eef1ea"/><path d="M0 0h34c-6 14-2 26 8 34-14 4-26 2-42-4z" fill="#a7d3f2"/><path d="M48 0h32v38c-14-2-26-10-32-38z" fill="#bfe3c3"/><path d="M-4 66C20 52 44 50 84 30" stroke="#fff" stroke-width="9" fill="none"/><path d="M-4 66C20 52 44 50 84 30" stroke="#ffd98a" stroke-width="5" fill="none"/><path d="M30 84C34 62 40 46 62 -4" stroke="#fff" stroke-width="5" fill="none"/><g fill="#d9d0c1"><rect x="50" y="56" width="9" height="7"/><rect x="62" y="52" width="8" height="9"/><rect x="58" y="66" width="10" height="7"/><rect x="10" y="40" width="8" height="7"/></g></svg>`,
+  hyb: `<svg viewBox="0 0 80 80"><rect width="80" height="80" fill="#4b5a3c"/><path d="M0 10l30 6 6 30-36 6z" fill="#6b7a4a"/><path d="M50 0h30v30L56 40z" fill="#2f4a32"/><path d="M40 50l40-6v36H34z" fill="#8a7b55"/><circle cx="20" cy="66" r="10" fill="#355a5e"/><path d="M-4 40C24 34 50 46 84 20" stroke="#cfc8b8" stroke-width="6" fill="none"/><path d="M-4 40C24 34 50 46 84 20" stroke="#fff" stroke-width="1.2" stroke-dasharray="4 4" fill="none"/><g fill="#c9c2b3"><rect x="40" y="10" width="6" height="5"/><rect x="48" y="14" width="5" height="6"/><rect x="14" y="22" width="6" height="5"/></g></svg>`,
+  topo: `<svg viewBox="0 0 80 80"><rect width="80" height="80" fill="#e6ead8"/><g fill="none" stroke="#b9a37c" stroke-width="1.4"><path d="M8 80c4-22 20-40 40-44s32-18 32-36"/><path d="M22 80c4-16 16-28 32-32s26-14 26-26"/><path d="M38 80c4-10 12-18 24-20s18-10 18-18"/><path d="M0 52c12-2 22-12 24-26S32 4 40 0"/><path d="M0 38c8-2 14-10 16-20S22 2 26 0"/></g><path d="M0 70C20 66 26 50 44 48s24-14 40-12" stroke="#7fb6e6" stroke-width="2.5" fill="none"/><path d="M60 80C58 60 70 44 84 40" stroke="#fff" stroke-width="4" fill="none"/></svg>`
+};
+const MT_ORDER = ['vec', 'hyb', 'topo'];
 function mapOptSheet() {
-  const sw = (k, ico, title, sub) => `<label class="optrow"><span class="oi">${ico}</span><span class="ot"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</span><input type="checkbox" class="switch" data-opt="${k}" ${OPT[k] ? 'checked' : ''}></label>`;
-  openSheet(`<h3>ตัวเลือกแผนที่</h3>
-  <div class="card-h" style="font-size:15px;margin-top:6px">รูปแบบแผนที่</div>
-  <div class="stylegrid">${Object.entries(LAYERS).filter(([, o]) => !o.hidden).map(([k, o]) => `<button data-layer="${k}" class="${k === S.layer ? 'sel' : ''}"><span>${o.ico}</span>${o.short || o.name}</button>`).join('')}</div>
-  <div class="card-h" style="font-size:15px;margin-top:14px">กรองหมุด</div>
+  const det = (k, ico, title) => `<button type="button" class="mt-det ${OPT[k] ? 'sel' : ''}" data-opt="${k}" aria-pressed="${!!OPT[k]}"><span class="mt-ic">${ico}</span><span class="mt-lb">${title}</span></button>`;
+  const types = MT_ORDER.filter(k => LAYERS[k] && !LAYERS[k].hidden).concat(Object.keys(LAYERS).filter(k => !LAYERS[k].hidden && !MT_ORDER.includes(k)));
+  openSheet(`<h3 class="mt-h1">ประเภทแผนที่</h3>
+  <div class="mt-types">${types.map(k => { const o = LAYERS[k]; return `<button type="button" data-layer="${k}" class="mt-type ${k === S.layer ? 'sel' : ''}"><span class="mt-th">${MT_THUMB[k] || `<span class="mt-emo">${o.ico}</span>`}</span><span class="mt-lb">${o.short || o.name}</span></button>`; }).join('')}</div>
+  <hr class="mt-hr">
+  <h3 class="mt-h2">รายละเอียดแผนที่</h3>
+  <div class="mt-dets">
+    ${det('water', '💧', 'แหล่งน้ำ<br>ระดับน้ำ')}
+    ${grp('joined') ? det('friends', '👥', 'หมุดของ<br>คนอื่น') : ''}
+    ${det('catches', '🐟', 'ปลาที่ฉัน<br>จับได้')}
+    ${det('heat', '🔥', 'ฮีตแมป<br>ของฉัน')}
+    ${det('cross', '🎯', 'เส้นเล็ง')}
+  </div>
+  <hr class="mt-hr">
+  <h3 class="mt-h2">กรองหมุด</h3>
   <div class="types" id="optTypes">${Object.entries(SPOT_TYPES).filter(([, t]) => !t.hidden).map(([k, t]) => `<button type="button" data-type="${k}" class="${!OPT.types || OPT.types.includes(k) ? 'sel' : ''}">${t.icon} ${t.label}</button>`).join('')}</div>
-  ${sw('catches', '🐟', 'ปลาที่ฉันจับได้', '')}
-  ${sw('heat', '🔥', 'ฮีตแมปของฉัน', 'จากสมุดบันทึกของคุณ')}
-  ${grp('joined') ? sw('friends', '👥', 'หมุดของคนอื่น', '') : ''}
-  ${sw('water', '💧', 'แหล่งน้ำและระดับน้ำ', '')}
-  ${sw('cross', '🎯', 'เส้นเล็ง', '')}
-  <button class="menu-item" id="offOpen"><span class="mi">⬇️</span><span><b>เตรียมออฟไลน์สำหรับบริเวณนี้</b><span class="sub">แผนที่ แหล่งน้ำ พยากรณ์</span></span></button>`);
+  <button class="menu-item" id="offOpen" style="margin-top:12px"><span class="mi">⬇️</span><span><b>เตรียมออฟไลน์สำหรับบริเวณนี้</b><span class="sub">แผนที่ แหล่งน้ำ พยากรณ์</span></span></button>`);
+  $('#sheet').classList.add('mt-sheet');
   $('#offOpen').onclick = offlineSheet;
   $$('#sheet [data-layer]').forEach(b => b.onclick = () => { setLayer(b.dataset.layer); $$('#sheet [data-layer]').forEach(x => x.classList.toggle('sel', x === b)); });
   $$('#optTypes button').forEach(b => b.onclick = () => {
     b.classList.toggle('sel'); const on = $$('#optTypes button.sel').map(x => x.dataset.type);
     OPT.types = on.length === Object.values(SPOT_TYPES).filter(t => !t.hidden).length ? null : on; saveOpt(); renderSpots();
   });
-  $$('#sheet [data-opt]').forEach(x => x.onchange = () => {
-    OPT[x.dataset.opt] = x.checked; saveOpt(); renderSpots(); updateCoordBar();
-    if (x.dataset.opt === 'heat' && x.checked && !S.catches.some(c => c.lat != null)) toast('ยังไม่มีปลาในสมุดบันทึก ฮีตแมปจะขึ้นเมื่อบันทึกปลาพร้อมตำแหน่ง');
+  $$('#sheet [data-opt]').forEach(x => x.onclick = () => {
+    const k = x.dataset.opt; OPT[k] = !OPT[k]; x.classList.toggle('sel', OPT[k]); x.setAttribute('aria-pressed', OPT[k]);
+    saveOpt(); renderSpots(); updateCoordBar();
+    if (k === 'heat' && OPT[k] && !S.catches.some(c => c.lat != null)) toast('ยังไม่มีปลาในสมุดบันทึก ฮีตแมปจะขึ้นเมื่อบันทึกปลาพร้อมตำแหน่ง');
   });
 }
 $('#btnLayer').onclick = mapOptSheet;
@@ -345,7 +358,7 @@ $('#targetClear').onclick = () => setTarget(null);
 /* ============ sheets ============ */
 let sheetHist = false, backPending = false;   // backPending: สั่งย้อนประวัติไปแล้วแต่ยังไม่เสร็จ (ปิดแผ่นหนึ่งแล้วเปิดอีกแผ่นทันที)
 function openSheet(html) {
-  const sh = $('#sheet'); sh.oninput = sh.onchange = null; delete sh.dataset.form;
+  const sh = $('#sheet'); sh.oninput = sh.onchange = null; sh.classList.remove('mt-sheet'); delete sh.dataset.form;
   $('#sheet').innerHTML = '<div class="grab"></div><button class="sheet-x" data-act="close" aria-label="ปิด">✕</button>' + html;
   $('#sheet').classList.add('open'); $('#sheetBg').classList.remove('hidden'); $('#sheet').scrollTop = 0;
   if (!sheetHist && !backPending) { try { history.pushState({ sheet: 1 }, ''); sheetHist = true; } catch {} }   // ให้ปุ่มย้อนกลับของมือถือปิดหน้าต่างนี้

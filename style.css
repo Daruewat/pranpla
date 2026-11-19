@@ -2392,3 +2392,23 @@ body.radar-on #coordBar,body.radar-on .crosshair{display:none}
 .hform{margin:6px 0 4px;border-radius:14px;background:var(--card2);padding:10px 12px}
 .hform summary{cursor:pointer;font-weight:600;min-height:32px;display:flex;align-items:center}
 .hchips{flex-wrap:wrap}
+
+/* ---- ประเภทแผนที่ (แบบ Google Maps) ---- */
+.mt-sheet h3.mt-h1{margin:2px 0 18px;font-size:22px}
+.mt-sheet h3.mt-h2{margin:0 0 14px;font-size:19px}
+.mt-types{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;justify-items:center}
+.mt-type,.mt-det{background:none;border:0;padding:0;color:var(--tx);display:flex;flex-direction:column;align-items:center;gap:8px;font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.mt-th{width:76px;height:76px;border-radius:18px;overflow:hidden;display:block;outline:3px solid transparent;outline-offset:3px;transition:outline-color .15s}
+.mt-th svg{width:100%;height:100%;display:block}
+.mt-emo{display:grid;place-items:center;width:100%;height:100%;background:var(--card2);font-size:34px}
+.mt-type .mt-lb,.mt-det .mt-lb{font-size:14px;line-height:1.3;text-align:center;color:var(--tx2)}
+.mt-type.sel .mt-th{outline-color:var(--acc)}
+.mt-type.sel .mt-lb,.mt-det.sel .mt-lb{color:var(--acc);font-weight:600}
+.mt-hr{border:0;border-top:1px solid var(--line);margin:20px -4px 18px}
+.mt-dets{display:grid;grid-template-columns:repeat(4,1fr);gap:16px 6px;justify-items:center}
+.mt-ic{width:60px;height:60px;border-radius:16px;background:var(--card2);display:grid;place-items:center;font-size:28px;border:2px solid transparent;transition:border-color .15s,background .15s}
+.mt-det.sel .mt-ic{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 16%,var(--card2))}
+.mt-type:focus-visible .mt-th,.mt-det:focus-visible .mt-ic{outline:2px solid var(--link);outline-offset:2px}
+.look-e .mt-type.sel .mt-th{outline-color:var(--sig)}
+.look-e .mt-type.sel .mt-lb,.look-e .mt-det.sel .mt-lb{color:var(--sig)}
+.look-e .mt-det.sel .mt-ic{border-color:var(--sig);background:color-mix(in srgb,var(--sig) 14%,var(--card2))}
