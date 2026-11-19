@@ -2491,3 +2491,60 @@ a.btn,a.btn:visited{text-decoration:none}
 .gbtn:focus-visible{outline:3px solid var(--sig);outline-offset:3px}
 .lhero small{display:block;margin-top:12px;color:var(--tx3);font-size:12.5px}
 @media (prefers-reduced-motion:reduce){.lrings i{animation:none!important}}
+
+/* =====================  ชุมชนแบบไอจี  ===================== */
+.stories{display:flex;gap:12px;overflow-x:auto;margin:0 -14px;padding:4px 14px 12px;scrollbar-width:none;border-bottom:1px solid var(--line)}
+.stories::-webkit-scrollbar{display:none}
+.story{flex:none;width:70px;display:flex;flex-direction:column;align-items:center;gap:6px;background:none;border:0;padding:0;color:var(--tx2);font:inherit;font-size:12px;cursor:pointer}
+.story>span:last-child{max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ring{display:inline-grid;place-items:center;border-radius:50%;padding:3px;background:conic-gradient(from 210deg,#ff7d1f,#ffbe4d,#3df2c4,#ff7d1f);flex:none}
+.ring .av{width:100%;height:100%;border-radius:50%;border:3px solid var(--bg);box-sizing:border-box;margin:0}
+.ring.seen{background:var(--line2)}
+.story .ring{width:64px;height:64px}
+.ring.add{background:none;border:2px dashed var(--line2);padding:2px}
+.ring.add .av{border:0;background:var(--card);color:var(--sig);font-size:26px;display:grid;place-items:center}
+.igtabs{display:flex;margin:0 -14px 2px;border-bottom:1px solid var(--line)}
+.igtabs.hidden{display:none}
+.igtabs button{flex:1;background:none;border:0;padding:12px;font:500 15px var(--disp,Prompt),sans-serif;color:var(--tx3);cursor:pointer;box-shadow:none}
+.igtabs button.sel{color:var(--tx);box-shadow:inset 0 -2px var(--sig)}
+/* โพสต์ */
+#feedList .post.ig{margin:0 -14px 18px;border-radius:0;background:none;padding:0;overflow:visible;border:0}
+.post.ig header{display:flex;align-items:center;gap:10px;padding:12px 14px 10px}
+.post.ig header .ring{width:38px;height:38px;padding:2px}.post.ig header .ring .av{border-width:2px;font-size:14px}
+.post.ig header b{font:600 15px var(--disp,Prompt),sans-serif;display:block;color:var(--tx)}
+.post.ig header .sub{font-size:12.5px}
+.post.ig header>div{flex:1;min-width:0}
+.post.ig .pmore{margin-left:auto;font-size:22px;letter-spacing:1px}
+.post.ig .pframe{margin:0;border-radius:0;position:relative;background:var(--card)}
+.post.ig .pimg{width:100%;aspect-ratio:4/5;max-height:72vh;object-fit:cover;display:block;border-radius:0}
+.post.ig .pimg.none{display:grid;place-items:center;font-size:64px;aspect-ratio:4/3}
+.post.ig .ptag{position:absolute;left:12px;bottom:12px;top:auto;right:auto;background:rgba(3,21,26,.72);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);border-radius:999px;padding:6px 12px;font:500 13px var(--disp,Prompt),sans-serif;color:#fff;display:flex;gap:8px;align-items:center}
+.post.ig .ptag em{font-style:normal;color:#ffbe4d}
+.post.ig .pburst svg{fill:#fff}
+.post.ig .pact{display:flex;align-items:center;gap:4px;padding:6px 8px 2px;border:0}
+.post.ig .pa{min-width:44px;justify-content:center;color:var(--tx)}
+.post.ig .pa svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.post.ig .pa.like.on{color:#ff4d6d}.post.ig .pa.like.on svg{fill:#ff4d6d;stroke:#ff4d6d}
+.post.ig .pa.map{margin-left:auto;color:var(--sig);font-size:14px;gap:6px}.post.ig .pa.map svg{width:22px;height:22px}
+.pcap{display:block;width:100%;text-align:left;background:none;border:0;padding:2px 14px;font:inherit;font-size:14.5px;line-height:1.5;color:var(--tx);cursor:default}
+button.pcap{cursor:pointer}
+.pcap b{font-weight:600}
+.pcap.more{color:var(--tx3)}
+.pcap .tagw{color:var(--sig)}
+.post.ig .plast{margin:0;border:0;background:none}
+.post.ig.hit .pframe{animation:pflash 1.2s ease-out}
+@keyframes pflash{0%{box-shadow:0 0 0 3px var(--sig)}100%{box-shadow:0 0 0 0 transparent}}
+/* ของฉัน */
+.igprof{display:flex;align-items:center;gap:18px;padding:16px 4px}
+.igprof .ring.big{width:88px;height:88px}.igprof .ring .av{font-size:28px}
+.igprof>div{flex:1;min-width:0}
+.igprof>div>b{font:600 18px var(--disp,Prompt),sans-serif;color:var(--tx)}
+.igstat{display:flex;justify-content:space-between;margin-top:8px;text-align:center}
+.igstat b{display:block;font:500 19px var(--disp,Prompt),sans-serif;color:var(--tx)}
+.igstat span{font-size:11.5px;color:var(--tx2)}
+.iggrid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;margin:0 -14px}
+.iggrid button{aspect-ratio:1;border:0;padding:0;background:var(--card) center/cover;position:relative;cursor:pointer}
+.iggrid button i{font-size:30px;font-style:normal}
+.iggrid button span{position:absolute;left:5px;bottom:5px;max-width:calc(100% - 10px);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font:500 11px var(--disp,Prompt),sans-serif;background:rgba(3,21,26,.72);color:#fff;border-radius:8px;padding:2px 6px}
+@media (prefers-reduced-motion:reduce){.post.ig.hit .pframe{animation:none}}
+.iggrid .gfish svg{width:40px;height:40px;fill:none;stroke:var(--tx3);stroke-width:1.6}

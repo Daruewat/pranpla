@@ -261,13 +261,13 @@ const GRP = (() => {
       return;
     }
     const note = [st.banned ? 'บัญชีนี้ถูกระงับการแชร์ หมุดและปลาของคุณจะไม่ถูกส่งขึ้นไป' : '', st.err, !st.ready && !st.err ? 'กำลังเชื่อม…' : navigator.onLine === false ? 'ออฟไลน์ · จะซิงก์เมื่อมีเน็ต' : ''].filter(Boolean);
-    el.classList.toggle('hidden', !note.length && !st.admin);
-    el.innerHTML = `${note.map(n => `<div class="warn" style="margin:0 0 8px">${esc(n)}</div>`).join('')}${st.admin ? adminHtml() : ''}`;
-    $$('#groupCard [data-ban]').forEach(b => b.onclick = () => { const m = st.members.find(x => x.uid === b.dataset.ban) || st.bannedList.find(x => x.id === b.dataset.ban); ban(b.dataset.ban, m?.name, b.dataset.on === '1'); });
-    $$('#groupCard [data-wipe]').forEach(b => armBtn(b, 'แตะอีกครั้ง: ลบทั้งหมดของคนนี้', () => wipe(b.dataset.wipe)));
+    el.classList.toggle('hidden', !note.length);
+    el.innerHTML = note.map(n => `<div class="warn" style="margin:0 0 8px">${esc(n)}</div>`).join('');
+    if ($('#sheet.open #admBox')) peopleSheet();   // แผงแอดมินเปิดอยู่: อัปเดตตามข้อมูลใหม่
   }
   const SVG_HEART = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.3S3.5 15 3.5 9.1A4.6 4.6 0 0 1 12 6.6a4.6 4.6 0 0 1 8.5 2.5C20.5 15 12 20.3 12 20.3Z"/></svg>';
   const SVG_CM = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h16v10.5H10l-4.5 3.5V16H4Z"/></svg>';
+  const SVG_SHARE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12v7h16v-7M12 3v12M7 8l5-5 5 5"/></svg>';
   const SVG_PIN = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-6.2 7-11a7 7 0 0 0-14 0c0 4.8 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>';
   const likesOf = id => st.likes.filter(l => l.post === id);
   const cmsOf = id => st.comments.filter(c => c.post === id).sort((a, b) => a.t - b.t);
@@ -351,29 +351,64 @@ const GRP = (() => {
   $('#feedBell')?.addEventListener('click', () => notiSheet());
   if (location.hash === '#noti') { history.replaceState(null, '', location.pathname + location.search); setTimeout(() => { showTab('feed'); notiSheet(); }, 1500); }
   navigator.serviceWorker?.addEventListener('message', e => { if (e.data?.openNoti) { showTab('feed'); notiSheet(); } });
+  const ringAv = (url, name, cls = '') => `<span class="ring ${cls}">${avatar(url, name)}</span>`;
+  function renderStories() {   // แถววงกลมด้านบน: คนที่โพสต์ปลาล่าสุด วงสีคือยังไม่ได้ดู
+    const box = $('#feedStories'); if (!box) return;
+    if (!st.user) { box.classList.add('hidden'); return; }
+    const seen = ls.get('storySeen', {}), latest = new Map();
+    st.catches.slice().sort((a, b) => b.t - a.t).forEach(c => { if (!latest.has(c.uid)) latest.set(c.uid, c); });
+    const list = [...latest.values()].filter(c => Date.now() - c.t < 30 * 864e5).slice(0, 15)
+      .map(c => ({ c, fresh: Date.now() - c.t < 3 * 864e5 && (seen[c.uid] || 0) < c.t })).sort((a, b) => b.fresh - a.fresh || b.c.t - a.c.t);
+    box.classList.remove('hidden');
+    box.innerHTML = `<button class="story" id="stAdd"><span class="ring add"><i class="av">＋</i></span><span>บันทึกปลา</span></button>` +
+      list.map(({ c, fresh }) => `<button class="story" data-story="${c.id}" data-u="${c.uid}">${ringAv(avOf(c.uid, c.av), nameOf(c.uid, c.by), fresh ? '' : 'seen')}<span>${esc(c.uid === st.uid ? 'ของฉัน' : nameOf(c.uid, c.by))}</span></button>`).join('');
+    $('#stAdd').onclick = () => window.catchForm && catchForm({});
+    $$('#feedStories [data-story]').forEach(b => b.onclick = () => {
+      const sn = ls.get('storySeen', {}); sn[b.dataset.u] = Date.now(); ls.set('storySeen', sn);
+      if (feedMode !== 'all') { feedMode = 'all'; $$('#feedSeg button').forEach(x => x.classList.toggle('sel', x.dataset.feed === 'all')); }
+      renderFeed();
+      const el = document.querySelector(`#feedList [data-post="${b.dataset.story}"]`); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); }
+    });
+  }
+  function sharePost(c) {
+    const link = `${location.origin}${location.pathname}`, text = `${nameOf(c.uid, c.by)} ได้${c.species}${c.wt ? ' ' + c.wt + ' กก.' : ''}${c.len ? ' ' + c.len + ' ซม.' : ''}${c.bait ? ' เหยื่อ' + c.bait : ''} 🎣\nดูในพรานปลา ${link}`;
+    if (navigator.share) navigator.share({ text }).catch(() => {}); else copy(text, 'คัดลอกแล้ว ส่งทาง LINE ได้เลย');
+  }
   function renderFeed() {
     const el = $('#feedList'); if (!el) return;
-    badge();
+    badge(); renderStories();
     if (!st.user) { el.innerHTML = ''; return; }
-    const posts = st.catches.filter(c => feedMode === 'all' || c.uid === st.uid).sort((a, b) => b.t - a.t).slice(0, 60);
-    if (!posts.length) { el.innerHTML = `<div class="empty">${feedMode === 'mine' ? 'ยังไม่มีปลาที่แชร์ กด ＋ เพื่อบันทึกปลาตัวแรก' : 'ยังไม่มีใครโพสต์ปลา เป็นคนแรกเลย กด ＋ บันทึกปลา'}</div>`; return; }
+    el.classList.toggle('mine', feedMode === 'mine');
+    if (feedMode === 'mine') return renderMine(el);
+    const posts = st.catches.slice().sort((a, b) => b.t - a.t).slice(0, 60);
+    if (!posts.length) { el.innerHTML = `<div class="empty">ยังไม่มีใครโพสต์ปลา เป็นคนแรกเลย กด ＋ บันทึกปลา แล้วเปิดแชร์ไว้</div>`; return; }
     el.innerHTML = posts.map(c => { const name = nameOf(c.uid, c.by), av = avOf(c.uid, c.av), place = placeOf(c), nl = likesOf(c.id).length, cms = cmsOf(c.id), last = cms[cms.length - 1];
-      const rd = [c.wt ? `<span><small>หนัก</small><b>${c.wt}</b><i>กก.</i></span>` : '', c.len ? `<span><small>ยาว</small><b>${c.len}</b><i>ซม.</i></span>` : '', c.bait ? `<span class="wide"><small>เหยื่อ</small><b class="t">${esc(c.bait)}</b></span>` : ''].join('');
-      return `<article class="post" data-post="${c.id}">
-        <header>${avatar(av, name)}<div><b>${esc(name)}</b><span class="sub">${ago(c.t)}${place ? ' · ' + esc(place) : ''}</span></div>${c.uid === st.uid || st.admin ? `<button class="pmore" data-pmore="${c.id}" aria-label="เพิ่มเติม">⋮</button>` : ''}</header>
-        <div class="pframe">${c.photo ? `<img class="pimg" loading="lazy" src="${c.photo}" alt="${esc(c.species)}">` : `<div class="pimg none">🐟</div>`}<span class="ptag">${esc(c.species)}${c.released ? ' · ปล่อยคืนน้ำ' : ''}</span><i class="pburst">${SVG_HEART}</i></div>
-        ${rd ? `<div class="pread">${rd}</div>` : ''}
-        ${c.note ? `<p class="pnote">${esc(c.note)}</p>` : ''}
-        <div class="pact"><button class="pa like${iLike(c.id) ? ' on' : ''}" data-like="${c.id}" aria-pressed="${iLike(c.id)}" aria-label="ถูกใจ">${SVG_HEART}<span>${nl || ''}</span></button><button class="pa" data-cm="${c.id}" aria-label="ความคิดเห็น">${SVG_CM}<span>${cms.length || ''}</span></button>${c.lat != null ? `<button class="pa map" data-pmap="${c.id}">${SVG_PIN}<span>ดูจุด</span></button>` : ''}</div>
-        ${last ? `<button class="plast" data-cm="${c.id}"><b>${esc(nameOf(last.uid, last.by))}</b> ${esc(last.text)}${cms.length > 1 ? `<span class="sub">ดูทั้งหมด ${cms.length} ความคิดเห็น</span>` : ''}</button>` : ''}
+      const tag = [`<b>${esc(c.species)}</b>`, c.wt ? `<em>${c.wt} กก.</em>` : '', c.len ? `${c.len} ซม.` : '', c.released ? 'ปล่อยคืน' : ''].filter(Boolean).join(' ');
+      return `<article class="post ig" data-post="${c.id}">
+        <header>${ringAv(av, name)}<div><b>${esc(name)}</b><span class="sub">${place ? esc(place) + ' · ' : ''}${ago(c.t)}</span></div>${c.uid === st.uid || st.admin ? `<button class="pmore" data-pmore="${c.id}" aria-label="เพิ่มเติม">⋯</button>` : ''}</header>
+        <div class="pframe">${c.photo ? `<img class="pimg" loading="lazy" src="${c.photo}" alt="${esc(c.species)}">` : `<div class="pimg none">🐟</div>`}<span class="ptag">${tag}</span><i class="pburst">${SVG_HEART}</i></div>
+        <div class="pact"><button class="pa like${iLike(c.id) ? ' on' : ''}" data-like="${c.id}" aria-pressed="${iLike(c.id)}" aria-label="ถูกใจ">${SVG_HEART}</button><button class="pa" data-cm="${c.id}" aria-label="ความคิดเห็น">${SVG_CM}</button><button class="pa" data-share="${c.id}" aria-label="แชร์">${SVG_SHARE}</button>${c.lat != null ? `<button class="pa map" data-pmap="${c.id}">${SVG_PIN}<span>ดูหมาย</span></button>` : ''}</div>
+        ${nl ? `<div class="pcap"><b>ถูกใจ ${nl} คน</b></div>` : ''}
+        ${c.note || c.bait ? `<div class="pcap"><b>${esc(name)}</b> ${esc(c.note || '')}${c.bait ? ` <span class="tagw">#เหยื่อ${esc(c.bait.replace(/\s+/g, ''))}</span>` : ''}</div>` : ''}
+        ${cms.length > 1 ? `<button class="pcap more" data-cm="${c.id}">ดูความคิดเห็นทั้ง ${cms.length} รายการ</button>` : ''}
+        ${last ? `<button class="pcap plast" data-cm="${c.id}"><b>${esc(nameOf(last.uid, last.by))}</b> ${esc(last.text)}</button>` : ''}
       </article>`; }).join('');
     $$('#feedList .pframe').forEach(x => { let tm = null; x.onclick = () => { const id = x.closest('[data-post]').dataset.post;
       if (tm) { clearTimeout(tm); tm = null; if (!iLike(id)) toggleLike(id); const b = x.querySelector('.pburst'); b.classList.remove('go'); void b.offsetWidth; b.classList.add('go'); return; }
       tm = setTimeout(() => { tm = null; openPost(id); }, 280); }; });
     $$('#feedList [data-like]').forEach(b => b.onclick = () => toggleLike(b.dataset.like));
     $$('#feedList [data-cm]').forEach(b => b.onclick = () => openComments(b.dataset.cm));
+    $$('#feedList [data-share]').forEach(b => b.onclick = () => { const c = st.catches.find(x => x.id === b.dataset.share); if (c) sharePost(c); });
     $$('#feedList [data-pmap]').forEach(b => b.onclick = () => { const c = st.catches.find(x => x.id === b.dataset.pmap); if (!c) return; showTab('map'); S.follow = false; map.setView([c.lat, c.lng], 15); });
     $$('#feedList [data-pmore]').forEach(b => b.onclick = () => openPost(b.dataset.pmore));
+  }
+  function renderMine(el) {   // แท็บ "ของฉัน": หน้าโปรไฟล์ + ตารางรูป 3 ช่อง
+    const mine = st.catches.filter(c => c.uid === st.uid).sort((a, b) => b.t - a.t);
+    const big = mine.reduce((m, c) => Math.max(m, +c.wt || 0), 0), likes = st.likes.filter(l => mine.some(c => c.id === l.post)).length;
+    el.innerHTML = `<div class="igprof">${ringAv(myAv(), st.me, 'big')}<div><b>${esc(st.me || 'ฉัน')}</b><div class="igstat"><div><b>${mine.length}</b><span>โพสต์</span></div><div><b>${new Set(mine.map(c => c.species)).size}</b><span>ชนิดปลา</span></div><div><b>${big || '-'}</b><span>กก. ใหญ่สุด</span></div><div><b>${likes}</b><span>ถูกใจ</span></div></div></div></div>` +
+      (mine.length ? `<div class="iggrid">${mine.map(c => `<button data-g="${c.id}" ${c.photo ? `style="background-image:url('${esc(c.photo)}')"` : ''}>${c.photo ? '' : '<i class="gfish"><svg viewBox="0 0 24 24"><path d="M3 12c3-4.5 8-6 12-3.5L20 6v12l-5-2.5C11 18 6 16.5 3 12Z"/><circle cx="8" cy="11.5" r="1"/></svg></i>'}<span>${esc(c.species)}${c.wt ? ' ' + c.wt : ''}</span></button>`).join('')}</div>`
+        : '<div class="empty">ยังไม่มีปลาที่แชร์ กด ＋ เพื่อบันทึกปลาตัวแรก</div>');
+    $$('#feedList [data-g]').forEach(b => b.onclick = () => openPost(b.dataset.g));
   }
   function openPost(id) {
     const c = st.catches.find(x => x.id === id); if (!c) return;
@@ -381,7 +416,16 @@ const GRP = (() => {
     catchSheetF(id);
   }
   $$('#feedSeg [data-feed]').forEach(b => b.onclick = () => { feedMode = b.dataset.feed; $$('#feedSeg button').forEach(x => x.classList.toggle('sel', x === b)); renderFeed(); });
-  $('#feedInv')?.addEventListener('click', () => invite());
+  function peopleSheet() {   // ปุ่ม 👥: ชวนเพื่อน (+ แผงจัดการผู้ใช้สำหรับแอดมิน)
+    if (!st.admin) return invite();
+    const keep = $('#sheet.open #admBox') ? $('#sheet').scrollTop : 0;
+    openSheet(`<h3>ผู้ใช้</h3><button class="btn acc block" id="pplInv">ชวนเพื่อนมาใช้พรานปลา</button><div id="admBox" style="margin-top:16px">${adminHtml()}</div>`);
+    $('#sheet').scrollTop = keep;
+    $('#pplInv').onclick = () => invite();
+    $$('#admBox [data-ban]').forEach(b => b.onclick = () => { const m = st.members.find(x => x.uid === b.dataset.ban) || st.bannedList.find(x => x.id === b.dataset.ban); ban(b.dataset.ban, m?.name, b.dataset.on === '1'); });
+    $$('#admBox [data-wipe]').forEach(b => armBtn(b, 'แตะอีกครั้ง: ลบทั้งหมดของคนนี้', () => wipe(b.dataset.wipe)));
+  }
+  $('#feedInv')?.addEventListener('click', () => peopleSheet());
   function adminHtml() {
     const banned = new Set(st.bannedList.map(b => b.id));
     const rows = st.members.filter(m => m.uid !== st.uid).map(m => {
