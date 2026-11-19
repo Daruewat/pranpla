@@ -93,9 +93,9 @@ const LAYERS = {
 const loadScript = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
 const curTheme = () => document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
 async function makeVec(styleFn) {   // โหลดตัววาดแผนที่เวกเตอร์เฉพาะตอนเลือกใช้
-  if (!window.maplibregl) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'lib/maplibre-gl.css'; document.head.appendChild(l); await loadScript('lib/maplibre-gl.js'); await loadScript('lib/leaflet-maplibre-gl.js'); await loadScript('vecstyle.js?v=79'); }
-  try { if (!window.pmtiles) await loadScript('lib/pmtiles.js?v=79'); if (!window._pmProto) { window._pmProto = new pmtiles.Protocol(); maplibregl.addProtocol('pmtiles', _pmProto.tile); } } catch {}   // รูปอาคาร Google+Microsoft
-  try { if (!window.mlcontour) await loadScript('lib/mlcontour.js?v=79'); if (!window._dem) { window._dem = new mlcontour.DemSource({ url: 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png', encoding: 'terrarium', maxzoom: 12, worker: true, cacheSize: 100 }); _dem.setupMaplibre(maplibregl); } } catch {}   // เส้นชั้นความสูง
+  if (!window.maplibregl) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'lib/maplibre-gl.css'; document.head.appendChild(l); await loadScript('lib/maplibre-gl.js'); await loadScript('lib/leaflet-maplibre-gl.js'); await loadScript('vecstyle.js?v=80'); }
+  try { if (!window.pmtiles) await loadScript('lib/pmtiles.js?v=80'); if (!window._pmProto) { window._pmProto = new pmtiles.Protocol(); maplibregl.addProtocol('pmtiles', _pmProto.tile); } } catch {}   // รูปอาคาร Google+Microsoft
+  try { if (!window.mlcontour) await loadScript('lib/mlcontour.js?v=80'); if (!window._dem) { window._dem = new mlcontour.DemSource({ url: 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png', encoding: 'terrarium', maxzoom: 12, worker: true, cacheSize: 100 }); _dem.setupMaplibre(maplibregl); } } catch {}   // เส้นชั้นความสูง
   if (!maplibregl.supported?.() && !document.createElement('canvas').getContext('webgl')) throw new Error('no webgl');
   fetch('https://tiles.openfreemap.org/planet').then(r => r.json()).then(j => { if (j.tiles?.[0]) { LAYERS.vec.urls = [j.tiles[0]]; LAYERS.hyb.urls = [LAYERS.hyb.urls[0], j.tiles[0]]; LAYERS.topo.urls = [LAYERS.topo.urls[0], j.tiles[0]]; } }).catch(() => {});
   return L.maplibreGL({ style: styleFn(), attribution: '© OpenStreetMap · OpenFreeMap · Esri' });
@@ -947,7 +947,22 @@ async function pickTambon() {
     placeCache[loc.lat.toFixed(2) + ',' + loc.lng.toFixed(2)] = p; ls.set('places4', placeCache); loc.place = p; showPlace(); closeSheet();
   });
 }
-$('#fcPlace').onclick = pickTambon;
+function fcWhere() {   // เลือกที่จะดูพยากรณ์: ตำแหน่งตัวเอง / หมุดของฉัน / กลางแผนที่
+  const sp = S.spots.filter(s => isFishSpot(s)).map(s => ({ s, d: S.pos ? dist(S.pos, s) : null })).sort((a, b) => (a.d ?? 0) - (b.d ?? 0) || (b.s.created || 0) - (a.s.created || 0)).slice(0, 12);
+  openSheet(`<h3>ดูพยากรณ์ที่ไหน?</h3>
+    <button class="menu-item" data-w="me"><span class="mi">📍</span><span><b>ตำแหน่งของฉัน</b><span class="sub">${S.pos ? 'ใช้ GPS ตอนนี้' : 'ยังไม่มีสัญญาณ GPS'}</span></span></button>
+    <button class="menu-item" data-w="center"><span class="mi">🎯</span><span><b>จุดกลางแผนที่ตอนนี้</b><span class="sub">เลื่อนแผนที่ไปที่หมายก่อน แล้วกดอันนี้</span></span></button>
+    ${sp.length ? `<div class="card-h set-h">หมายของฉัน</div>` + sp.map((x, i) => `<button class="menu-item" data-w="s${i}"><span class="mi">${(SPOT_TYPES[x.s.type] || SPOT_TYPES.other).icon}</span><span><b>${esc(x.s.name)}</b><span class="sub">${x.d != null ? 'ห่าง ' + fmtDist(x.d) : 'จุดตกปลา'}</span></span></button>`).join('') : ''}
+    ${S.fcLoc ? '<button class="link" id="wTb" style="margin-top:12px">ชื่อตำบลไม่ตรง? แก้ชื่อตำบล</button>' : ''}`);
+  $$('#sheet [data-w]').forEach(b => b.onclick = () => {
+    const w = b.dataset.w; closeSheet();
+    if (w === 'me') { if (!S.pos) return toast('ยังไม่มีสัญญาณ GPS'); loadForecast({ lat: S.pos.lat, lng: S.pos.lng, name: 'ตำแหน่งของฉัน', auto: true }); }
+    else if (w === 'center') { const c = map.getCenter(); loadForecast({ lat: c.lat, lng: c.lng, name: 'กลางแผนที่' }); }
+    else { const s = sp[+w.slice(1)].s; loadForecast({ lat: s.lat, lng: s.lng, name: s.name }); }
+  });
+  const tb = $('#wTb'); if (tb) tb.onclick = () => { closeSheet(); setTimeout(pickTambon, 350); };
+}
+$('#fcPlace').onclick = fcWhere;
 
 /* ============ forecast & fish score ============ */
 const wmo = (c, night) => { const w = WMO[c] || WMO[[0, 1, 2, 3, 45, 51, 61, 80, 95].reduce((a, b) => Math.abs(b - c) < Math.abs(a - c) ? b : a)]; return { txt: w[0], ico: night ? w[2] : w[1] }; };

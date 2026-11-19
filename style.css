@@ -2470,3 +2470,4 @@ a.btn,a.btn:visited{text-decoration:none}
 .kmchips button.sel{background:var(--sig);color:#03151a;font-weight:600}
 .flt-act{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:22px}
 .flt-act .btn{margin:0;justify-content:center;padding:14px}
+#fcPlace::after{content:' ▾';opacity:.7}
