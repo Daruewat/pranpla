@@ -56,4 +56,4 @@ const WMO = {
 };
 
 // บัญชีทีมพรานปลา (โชว์ป้าย "ทีมพรานปลา" ข้างชื่อ) ใส่ uid ของบัญชีทางการ
-const TEAM_UIDS = [];
+const TEAM_UIDS = ['GSpvuqbezFeomeS4WTTmvpQQJT23'];
