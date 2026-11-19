@@ -2548,3 +2548,22 @@ button.pcap{cursor:pointer}
 .iggrid button span{position:absolute;left:5px;bottom:5px;max-width:calc(100% - 10px);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font:500 11px var(--disp,Prompt),sans-serif;background:rgba(3,21,26,.72);color:#fff;border-radius:8px;padding:2px 6px}
 @media (prefers-reduced-motion:reduce){.post.ig.hit .pframe{animation:none}}
 .iggrid .gfish svg{width:40px;height:40px;fill:none;stroke:var(--tx3);stroke-width:1.6}
+/* ---- ป้ายทีม + อันดับ ---- */
+.teamb{display:inline-flex;align-items:center;margin-left:6px;padding:1px 8px;border-radius:999px;background:rgba(255,125,31,.16);color:#ff9a4a;font:600 11px var(--disp,Prompt),sans-serif;vertical-align:2px;white-space:nowrap}
+.uidc{display:block;padding:8px 10px;border-radius:10px;background:var(--card2);font-size:12px;word-break:break-all;color:var(--tx2)}
+.igtabs button{padding:12px 6px}
+.rankhd{display:flex;gap:8px;margin:14px 0 4px}
+.rkm{border:0;border-radius:999px;padding:8px 16px;background:var(--card2);color:var(--tx2);font:inherit;font-size:14px;cursor:pointer;min-height:40px}
+.rkm.sel{background:var(--sig);color:#03151a;font-weight:600}
+.rank-t{font:600 18px var(--disp,Prompt),sans-serif;margin:12px 2px 10px;color:var(--tx)}
+.rksp{margin-bottom:12px}.rksp button{padding:8px 14px;min-height:38px;font-size:14px}
+.ranks{display:flex;flex-direction:column;gap:8px}
+.rkrow{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:0;border-radius:18px;padding:10px 12px;background:var(--card);color:var(--tx);font:inherit;cursor:pointer}
+.rkrow.top{background:linear-gradient(90deg,rgba(255,125,31,.14),var(--card) 60%)}
+.rmed{flex:none;width:30px;text-align:center;font-size:24px}
+.rmed .rk{font:600 16px var(--disp,Prompt),sans-serif;color:var(--tx3)}
+.rkrow .ring{width:44px;height:44px;padding:2px}.rkrow .ring .av{border-width:2px}
+.rinfo{flex:1;min-width:0}.rinfo b{display:block;font:600 15px var(--disp,Prompt),sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rinfo small{color:var(--tx2);font-size:12.5px}
+.rwt{flex:none;font:600 20px var(--disp,Prompt),sans-serif;color:#ffbe4d}.rwt i{font-style:normal;font-size:12px;color:var(--tx2);margin-left:2px}
+.rph{flex:none;width:48px;height:48px;border-radius:12px;background:var(--card2) center/cover}

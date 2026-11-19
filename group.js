@@ -272,6 +272,8 @@ const GRP = (() => {
   const likesOf = id => st.likes.filter(l => l.post === id);
   const cmsOf = id => st.comments.filter(c => c.post === id).sort((a, b) => a.t - b.t);
   const iLike = id => st.likes.some(l => l.post === id && l.uid === st.uid);
+  const isTeam = uid => typeof TEAM_UIDS !== 'undefined' && TEAM_UIDS.includes(uid);
+  const teamB = uid => isTeam(uid) ? '<span class="teamb" title="บัญชีทางการ">✓ ทีมพรานปลา</span>' : '';
   const nameOf = (uid, fb) => uid === st.uid ? (st.me || fb) : (st.members.find(x => x.uid === uid)?.name || fb);
   const avOf = (uid, fb) => (uid === st.uid ? myAv() : st.members.find(x => x.uid === uid)?.av) || fb;
   async function toggleLike(id) {
@@ -296,7 +298,7 @@ const GRP = (() => {
     const el = $('#cmList'); if (!el || !cmOpen) return;
     const post = st.catches.find(x => x.id === cmOpen), list = cmsOf(cmOpen);
     el.innerHTML = list.length ? list.map(m => { const can = m.uid === st.uid || st.admin || post?.uid === st.uid;
-      return `<div class="cm">${avatar(avOf(m.uid, m.av), nameOf(m.uid, m.by))}<div class="cmb"><div><b>${esc(nameOf(m.uid, m.by))}</b> <span class="sub">${ago(m.t)}</span></div><p>${esc(m.text)}</p></div>${can ? `<button class="cmdel" data-cmdel="${m.id}" aria-label="ลบความคิดเห็น">ลบ</button>` : ''}</div>`; }).join('')
+      return `<div class="cm">${avatar(avOf(m.uid, m.av), nameOf(m.uid, m.by))}<div class="cmb"><div><b>${esc(nameOf(m.uid, m.by))}</b>${teamB(m.uid)} <span class="sub">${ago(m.t)}</span></div><p>${esc(m.text)}</p></div>${can ? `<button class="cmdel" data-cmdel="${m.id}" aria-label="ลบความคิดเห็น">ลบ</button>` : ''}</div>`; }).join('')
       : '<div class="empty small">ยังไม่มีความคิดเห็น เริ่มคุยเป็นคนแรก</div>';
     $$('#cmList [data-cmdel]').forEach(b => armBtn(b, 'ลบเลย?', () => col('comments').doc(b.dataset.cmdel).delete().catch(e => toast(e.message))));
     el.scrollTop = el.scrollHeight;
@@ -380,12 +382,13 @@ const GRP = (() => {
     if (!st.user) { el.innerHTML = ''; return; }
     el.classList.toggle('mine', feedMode === 'mine');
     if (feedMode === 'mine') return renderMine(el);
+    if (feedMode === 'rank') return renderRank(el);
     const posts = st.catches.slice().sort((a, b) => b.t - a.t).slice(0, 60);
     if (!posts.length) { el.innerHTML = `<div class="empty">ยังไม่มีใครโพสต์ปลา เป็นคนแรกเลย กด ＋ บันทึกปลา แล้วเปิดแชร์ไว้</div>`; return; }
     el.innerHTML = posts.map(c => { const name = nameOf(c.uid, c.by), av = avOf(c.uid, c.av), place = placeOf(c), nl = likesOf(c.id).length, cms = cmsOf(c.id), last = cms[cms.length - 1];
       const tag = [`<b>${esc(c.species)}</b>`, c.wt ? `<em>${c.wt} กก.</em>` : '', c.len ? `${c.len} ซม.` : '', c.released ? 'ปล่อยคืน' : ''].filter(Boolean).join(' ');
       return `<article class="post ig" data-post="${c.id}">
-        <header>${ringAv(av, name)}<div><b>${esc(name)}</b><span class="sub">${place ? esc(place) + ' · ' : ''}${ago(c.t)}</span></div>${c.uid === st.uid || st.admin ? `<button class="pmore" data-pmore="${c.id}" aria-label="เพิ่มเติม">⋯</button>` : ''}</header>
+        <header>${ringAv(av, name)}<div><b>${esc(name)}${teamB(c.uid)}</b><span class="sub">${place ? esc(place) + ' · ' : ''}${ago(c.t)}</span></div>${c.uid === st.uid || st.admin ? `<button class="pmore" data-pmore="${c.id}" aria-label="เพิ่มเติม">⋯</button>` : ''}</header>
         <div class="pframe">${c.photo ? `<img class="pimg" loading="lazy" src="${c.photo}" alt="${esc(c.species)}">` : `<div class="pimg none">🐟</div>`}<span class="ptag">${tag}</span><i class="pburst">${SVG_HEART}</i></div>
         <div class="pact"><button class="pa like${iLike(c.id) ? ' on' : ''}" data-like="${c.id}" aria-pressed="${iLike(c.id)}" aria-label="ถูกใจ">${SVG_HEART}</button><button class="pa" data-cm="${c.id}" aria-label="ความคิดเห็น">${SVG_CM}</button><button class="pa" data-share="${c.id}" aria-label="แชร์">${SVG_SHARE}</button>${c.lat != null ? `<button class="pa map" data-pmap="${c.id}">${SVG_PIN}<span>ดูหมาย</span></button>` : ''}</div>
         ${nl ? `<div class="pcap"><b>ถูกใจ ${nl} คน</b></div>` : ''}
@@ -401,6 +404,26 @@ const GRP = (() => {
     $$('#feedList [data-share]').forEach(b => b.onclick = () => { const c = st.catches.find(x => x.id === b.dataset.share); if (c) sharePost(c); });
     $$('#feedList [data-pmap]').forEach(b => b.onclick = () => { const c = st.catches.find(x => x.id === b.dataset.pmap); if (!c) return; showTab('map'); S.follow = false; map.setView([c.lat, c.lng], 15); });
     $$('#feedList [data-pmore]').forEach(b => b.onclick = () => openPost(b.dataset.pmore));
+  }
+  let rankMonth = 0, rankSp = '';
+  function renderRank(el) {   // ตัวใหญ่สุดประจำเดือน: นับเฉพาะโพสต์ที่มีรูป + น้ำหนัก คนละ 1 ตัว (ตัวใหญ่สุด)
+    const d = new Date(), m0 = new Date(d.getFullYear(), d.getMonth() - rankMonth, 1).getTime(), m1 = new Date(d.getFullYear(), d.getMonth() - rankMonth + 1, 1).getTime();
+    const mon = new Date(m0).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' });
+    const pool = st.catches.filter(c => c.t >= m0 && c.t < m1 && c.photo && +c.wt > 0);
+    const sps = [...new Set(pool.map(c => c.species))].slice(0, 8);
+    const best = new Map();
+    pool.filter(c => !rankSp || c.species === rankSp).forEach(c => { const b = best.get(c.uid); if (!b || +c.wt > +b.wt || (+c.wt === +b.wt && (+c.len || 0) > (+b.len || 0))) best.set(c.uid, c); });
+    const list = [...best.values()].sort((a, b) => b.wt - a.wt || (b.len || 0) - (a.len || 0) || a.t - b.t).slice(0, 20);
+    const medal = i => ['🥇', '🥈', '🥉'][i] || `<span class="rk">${i + 1}</span>`;
+    el.innerHTML = `<div class="rankhd"><button class="rkm${rankMonth === 0 ? ' sel' : ''}" data-rm="0">เดือนนี้</button><button class="rkm${rankMonth === 1 ? ' sel' : ''}" data-rm="1">เดือนที่แล้ว</button></div>
+      <h3 class="rank-t">ตัวใหญ่สุด · ${mon}</h3>
+      ${sps.length > 1 ? `<div class="kmchips rksp"><button data-rs="" class="${rankSp ? '' : 'sel'}">ทุกชนิด</button>${sps.map(x => `<button data-rs="${esc(x)}" class="${rankSp === x ? 'sel' : ''}">${esc(x)}</button>`).join('')}</div>` : ''}
+      ${list.length ? `<div class="ranks">${list.map((c, i) => `<button class="rkrow${i < 3 ? ' top' : ''}" data-rp="${c.id}"><span class="rmed">${medal(i)}</span>${ringAv(avOf(c.uid, c.av), nameOf(c.uid, c.by))}<span class="rinfo"><b>${esc(nameOf(c.uid, c.by))}${teamB(c.uid)}</b><small>${esc(c.species)}${c.len ? ' · ' + c.len + ' ซม.' : ''} · ${new Date(c.t).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}</small></span><span class="rwt">${c.wt}<i>กก.</i></span>${c.photo ? `<span class="rph" style="background-image:url('${esc(c.photo)}')"></span>` : ''}</button>`).join('')}</div>`
+        : `<div class="empty">ยังไม่มีใครลงปลา${rankSp ? esc(rankSp) : ''}ใน${rankMonth ? 'เดือนที่แล้ว' : 'เดือนนี้'} ลงปลาพร้อมรูปและน้ำหนัก ขึ้นอันดับ 1 ได้เลย</div>`}
+      <div class="sub" style="margin:12px 2px">นับคนละ 1 ตัวที่ใหญ่สุด เฉพาะโพสต์ที่มีรูปและน้ำหนัก แตะเพื่อดูรูปเต็ม</div>`;
+    $$('#feedList [data-rm]').forEach(b => b.onclick = () => { rankMonth = +b.dataset.rm; rankSp = ''; renderFeed(); });
+    $$('#feedList [data-rs]').forEach(b => b.onclick = () => { rankSp = b.dataset.rs; renderFeed(); });
+    $$('#feedList [data-rp]').forEach(b => b.onclick = () => openPost(b.dataset.rp));
   }
   function renderMine(el) {   // แท็บ "ของฉัน": หน้าโปรไฟล์ + ตารางรูป 3 ช่อง
     const mine = st.catches.filter(c => c.uid === st.uid).sort((a, b) => b.t - a.t);
@@ -419,7 +442,9 @@ const GRP = (() => {
   function peopleSheet() {   // ปุ่ม 👥: ชวนเพื่อน (+ แผงจัดการผู้ใช้สำหรับแอดมิน)
     if (!st.admin) return invite();
     const keep = $('#sheet.open #admBox') ? $('#sheet').scrollTop : 0;
-    openSheet(`<h3>ผู้ใช้</h3><button class="btn acc block" id="pplInv">ชวนเพื่อนมาใช้พรานปลา</button><div id="admBox" style="margin-top:16px">${adminHtml()}</div>`);
+    openSheet(`<h3>ผู้ใช้</h3><button class="btn acc block" id="pplInv">ชวนเพื่อนมาใช้พรานปลา</button><div id="admBox" style="margin-top:16px">${adminHtml()}</div>
+      ${isTeam(st.uid) ? '' : `<div class="card" style="margin-top:14px"><b>เปิดป้าย "ทีมพรานปลา" ให้บัญชีนี้</b><div class="sub" style="margin:4px 0 10px">คัดลอกรหัสนี้ส่งให้ Claude</div><code class="uidc">${esc(st.uid)}</code><button class="btn small ghost" id="cpUid" style="margin-top:8px">คัดลอกรหัส</button></div>`}`);
+    if ($('#cpUid')) $('#cpUid').onclick = () => copy(st.uid, 'คัดลอกแล้ว');
     $('#sheet').scrollTop = keep;
     $('#pplInv').onclick = () => invite();
     $$('#admBox [data-ban]').forEach(b => b.onclick = () => { const m = st.members.find(x => x.uid === b.dataset.ban) || st.bannedList.find(x => x.id === b.dataset.ban); ban(b.dataset.ban, m?.name, b.dataset.on === '1'); });
