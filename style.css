@@ -2412,3 +2412,13 @@ body.radar-on #coordBar,body.radar-on .crosshair{display:none}
 .look-e .mt-type.sel .mt-th{outline-color:var(--sig)}
 .look-e .mt-type.sel .mt-lb,.look-e .mt-det.sel .mt-lb{color:var(--sig)}
 .look-e .mt-det.sel .mt-ic{border-color:var(--sig);background:color-mix(in srgb,var(--sig) 14%,var(--card2))}
+
+/* ---- ย้ายหมุด ---- */
+#moveUi{position:fixed;inset:0;pointer-events:none;z-index:900}
+#moveUi .mv-tip{position:absolute;top:calc(var(--safe-t) + 150px);left:50%;transform:translateX(-50%);background:var(--glass);color:var(--tx);padding:10px 16px;border-radius:14px;font-size:14px;white-space:nowrap;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+#moveUi .mv-pin{position:absolute;left:50%;top:50%;transform:translate(-17px,-34px);filter:drop-shadow(0 6px 6px rgba(0,0,0,.45))}
+#moveUi .mv-pin::after{content:'';position:absolute;left:13px;top:30px;width:8px;height:8px;border-radius:50%;background:#fff;box-shadow:0 0 0 2px rgba(0,0,0,.5)}
+#moveUi .mv-bar{position:absolute;left:12px;right:12px;bottom:calc(var(--nav) + var(--safe-b) + 14px);background:var(--bg2);border-radius:18px;padding:12px 14px;display:flex;align-items:center;gap:10px;pointer-events:auto;box-shadow:0 6px 20px rgba(0,0,0,.4)}
+#moveUi .mv-d{flex:1;font-size:14px;color:var(--tx2)}
+#moveUi .mv-btns{display:flex;gap:8px}
+#moveUi .mv-btns .btn{margin:0}

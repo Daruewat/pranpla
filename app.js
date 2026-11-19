@@ -93,9 +93,9 @@ const LAYERS = {
 const loadScript = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
 const curTheme = () => document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
 async function makeVec(styleFn) {   // โหลดตัววาดแผนที่เวกเตอร์เฉพาะตอนเลือกใช้
-  if (!window.maplibregl) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'lib/maplibre-gl.css'; document.head.appendChild(l); await loadScript('lib/maplibre-gl.js'); await loadScript('lib/leaflet-maplibre-gl.js'); await loadScript('vecstyle.js?v=66'); }
-  try { if (!window.pmtiles) await loadScript('lib/pmtiles.js?v=66'); if (!window._pmProto) { window._pmProto = new pmtiles.Protocol(); maplibregl.addProtocol('pmtiles', _pmProto.tile); } } catch {}   // รูปอาคาร Google+Microsoft
-  try { if (!window.mlcontour) await loadScript('lib/mlcontour.js?v=66'); if (!window._dem) { window._dem = new mlcontour.DemSource({ url: 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png', encoding: 'terrarium', maxzoom: 12, worker: true, cacheSize: 100 }); _dem.setupMaplibre(maplibregl); } } catch {}   // เส้นชั้นความสูง
+  if (!window.maplibregl) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'lib/maplibre-gl.css'; document.head.appendChild(l); await loadScript('lib/maplibre-gl.js'); await loadScript('lib/leaflet-maplibre-gl.js'); await loadScript('vecstyle.js?v=67'); }
+  try { if (!window.pmtiles) await loadScript('lib/pmtiles.js?v=67'); if (!window._pmProto) { window._pmProto = new pmtiles.Protocol(); maplibregl.addProtocol('pmtiles', _pmProto.tile); } } catch {}   // รูปอาคาร Google+Microsoft
+  try { if (!window.mlcontour) await loadScript('lib/mlcontour.js?v=67'); if (!window._dem) { window._dem = new mlcontour.DemSource({ url: 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png', encoding: 'terrarium', maxzoom: 12, worker: true, cacheSize: 100 }); _dem.setupMaplibre(maplibregl); } } catch {}   // เส้นชั้นความสูง
   if (!maplibregl.supported?.() && !document.createElement('canvas').getContext('webgl')) throw new Error('no webgl');
   fetch('https://tiles.openfreemap.org/planet').then(r => r.json()).then(j => { if (j.tiles?.[0]) { LAYERS.vec.urls = [j.tiles[0]]; LAYERS.hyb.urls = [LAYERS.hyb.urls[0], j.tiles[0]]; LAYERS.topo.urls = [LAYERS.topo.urls[0], j.tiles[0]]; } }).catch(() => {});
   return L.maplibreGL({ style: styleFn(), attribution: '© OpenStreetMap · OpenFreeMap · Esri' });
@@ -134,7 +134,7 @@ const saveOpt = () => ls.set('mapopt', OPT);
 const gCatch = L.layerGroup().addTo(map), gHeat = L.layerGroup().addTo(map);
 function renderSpots() {
   gSpots.clearLayers(); gCatch.clearLayers(); gHeat.clearLayers();
-  S.spots.filter(s => !OPT.types || OPT.types.includes(s.type === 'hot' ? 'fish' : s.type)).forEach(s => L.marker([s.lat, s.lng], { icon: spotIcon(s.type, window.HOT ? HOT.markClass(s) : '') }).on('click', () => spotSheet(s.id)).addTo(gSpots));
+  S.spots.filter(s => !(MV && MV.s.id === s.id)).filter(s => !OPT.types || OPT.types.includes(s.type === 'hot' ? 'fish' : s.type)).forEach(s => L.marker([s.lat, s.lng], { icon: spotIcon(s.type, window.HOT ? HOT.markClass(s) : '') }).on('click', () => spotSheet(s.id)).addTo(gSpots));
   const C = S.catches.filter(c => c.lat != null);
   if (OPT.catches) C.forEach(c => L.marker([c.lat + (Math.random() - .5) * 8e-5, c.lng + (Math.random() - .5) * 8e-5], { icon: L.divIcon({ className: '', html: '<div class="cmk">🐟</div>', iconSize: [26, 26], iconAnchor: [13, 13] }) }).on('click', () => catchSheet(c.id)).addTo(gCatch));
   if (OPT.heat) C.forEach(c => L.marker([c.lat, c.lng], { interactive: false, zIndexOffset: -1000, icon: L.divIcon({ className: '', html: '<div class="heat"></div>', iconSize: [110, 110], iconAnchor: [55, 55] }) }).addTo(gHeat));
@@ -497,9 +497,11 @@ function spotSheet(id) {
     <button class="btn ghost" id="spCatch">🐟 บันทึกปลาที่นี่</button>
     <button class="btn ghost" id="spShare">📤 แชร์หมุด</button>
     <button class="btn ghost" id="spEdit">แก้ไข</button>
+    <button class="btn ghost" id="spMove">↔️ ย้ายตำแหน่ง</button>
     <button class="btn danger" id="spDel">ลบ</button>
   </div>`);
-  grp('setHotOpen', s); window.HOT && HOT.bindPanel(s, () => HOT.refreshPanel(s));
+  grp('setHotOpen', s);
+  $('#spMove').onclick = () => { closeSheet(); moveSpot(s); }; window.HOT && HOT.bindPanel(s, () => HOT.refreshPanel(s));
   $('#spNav').onclick = () => { setTarget({ lat: s.lat, lng: s.lng, name: s.name }); closeSheet(); showTab('tools'); };
   $('#spFc').onclick = () => { closeSheet(); loadForecast({ lat: s.lat, lng: s.lng, name: s.name }); showTab('forecast'); };
   $('#spCatch').onclick = () => catchForm({ spotId: s.id });
@@ -512,6 +514,35 @@ function spotSheet(id) {
     S.spots = S.spots.filter(x => x.id !== id); save('spots'); renderSpots(); renderLog(); closeSheet(); toast('ลบหมุดแล้ว'); grp('delSpot', id);
   };
   map.panTo([s.lat, s.lng]);
+}
+
+/* ---- ย้ายหมุด: เลื่อนแผนที่ให้หมุดกลางจอไปอยู่ตรงจุดใหม่ ---- */
+let MV = null;
+function moveSpot(s) {
+  if (MV) moveEnd(false);
+  const t = SPOT_TYPES[s.type] || SPOT_TYPES.other, from = { lat: s.lat, lng: s.lng };
+  MV = { s, from, hide: true }; renderSpots();
+  const ghost = L.marker([from.lat, from.lng], { interactive: false, opacity: .45, icon: spotIcon(s.type) }).addTo(map);
+  const el = document.createElement('div'); el.id = 'moveUi';
+  el.innerHTML = `<div class="mv-tip">เลื่อนแผนที่ให้หมุดตรงกลางไปอยู่จุดใหม่</div>
+    <div class="mv-pin"><div class="mk" style="background:${t.color}"><span>${t.icon}</span></div></div>
+    <div class="mv-bar"><span class="mv-d" id="mvD">ยังไม่ได้ขยับ</span><div class="mv-btns"><button class="btn ghost" id="mvNo">ยกเลิก</button><button class="btn acc" id="mvOk">ใช้ตำแหน่งนี้</button></div></div>`;
+  document.body.appendChild(el); MV.ghost = ghost; MV.el = el;
+  const upd = () => { const c = map.getCenter(), d = dist(from, { lat: c.lat, lng: c.lng }); $('#mvD').textContent = d < 1 ? 'ยังไม่ได้ขยับ' : 'ขยับไป ' + fmtDist(d); };
+  MV.upd = upd; map.on('move', upd);
+  map.setView([from.lat, from.lng], Math.max(map.getZoom(), 18), { animate: false }); upd();
+  $('#mvNo').onclick = () => moveEnd(false);
+  $('#mvOk').onclick = () => moveEnd(true);
+}
+function moveEnd(ok) {
+  if (!MV) return; const { s, from } = MV;
+  map.off('move', MV.upd); map.removeLayer(MV.ghost); MV.el.remove(); MV = null;
+  if (ok) {
+    const c = map.getCenter(); s.lat = +c.lat.toFixed(6); s.lng = +c.lng.toFixed(6); s.updated = Date.now();
+    save('spots'); grp('pushSpot', s); toast('ย้ายหมุดแล้ว');
+  }
+  renderSpots(); renderLog();
+  if (!ok) map.panTo([from.lat, from.lng]);
 }
 
 /* ---- catches ---- */
