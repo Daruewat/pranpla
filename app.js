@@ -988,6 +988,10 @@ function barInfo(i) {
 }
 // ทุ่นตกปลา: ปลากินมาก ทุ่นยิ่งจมและมีวงน้ำกระเพื่อม
 function bobberSvg(score) {   // จอโซนาร์: ยิ่งปลากินดี ยิ่งเห็นเป้าปลาบนจอมาก
+  if (document.documentElement.classList.contains('look-e')) {   // แบบ B: วงแหวนคะแนน
+    const col = scoreColor(score), len = Math.round(314 * Math.max(0, Math.min(100, score)) / 100);
+    return `<svg class="ring-g" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="50" fill="none" stroke="var(--card2)" stroke-width="11"/><circle cx="60" cy="60" r="50" fill="none" stroke="${col}" stroke-width="11" stroke-linecap="round" stroke-dasharray="${len} 314" transform="rotate(-90 60 60)"/><text x="60" y="69" text-anchor="middle" font-family="Prompt,sans-serif" font-weight="300" font-size="30" fill="var(--tx)">${score}</text></svg>`;
+  }
   const lv = scoreLevel(score), col = scoreColor(score), n = lv + 1;
   const pos = [[88, 40], [42, 86], [92, 82], [36, 44]].slice(0, n);
   const ang = ([x, y]) => (Math.atan2(y - 64, x - 64) * 180 / Math.PI + 90 + 360) % 360;   // หน่วงให้เป้ากะพริบตอนลำแสงกวาดผ่าน

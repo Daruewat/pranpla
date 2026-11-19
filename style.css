@@ -2301,3 +2301,61 @@ body.radar-on .mapctl{bottom:calc(var(--nav) + var(--safe-b) + 230px)}
 body.radar-on #coordBar,body.radar-on .crosshair{display:none}
 .fut-img{filter:blur(5px)}
 .rd-legend i{background:linear-gradient(90deg,#88ddee,#0099cc,#0066aa,#004488,#ffee00,#ff8800,#cc1100)}
+
+/* =====================================================================
+   แบบ E = โครงแบบ B (มุมมน นุ่ม วงแหวนคะแนน ฟอนต์ Prompt/Sarabun) + สีแบบ A (โซนาร์)
+   เปิดดูด้วย ?look=e  ปิดด้วย ?look=off
+   ===================================================================== */
+:root.look-e{--disp:Prompt,Anuphan,sans-serif;--r:20px}
+.look-e body{font-family:Sarabun,Anuphan,sans-serif}
+.look-e .view{background:var(--bg)}
+.look-e .vhead h1,.look-e .sheet h3{font-family:Prompt,sans-serif;font-weight:500;letter-spacing:0}
+.look-e .vhead h1{font-size:32px}
+.look-e .fc-temp,.look-e .stats b,.look-e .pread b,.look-e .rd-time b,.look-e .bob-num{font-family:Prompt,sans-serif;font-weight:300;text-shadow:none;letter-spacing:0}
+.look-e .stats b{color:var(--tx)}
+.look-e .pread b{color:var(--tx)}
+.look-e .card-h,.look-e .sect-h h2{font-family:Prompt,sans-serif;font-weight:500}
+.look-e .sect-h h2::before{display:none}
+/* การ์ดมน ไม่มีขอบ ไม่มีมุมเล็ง */
+.look-e .card,.look-e .stats,.look-e .item,.look-e .post,.look-e .ccard{background:var(--card);border:0;border-radius:20px}
+.look-e .ccard.add{background:none;border:1.5px dashed var(--line2)}
+.look-e .empty{border-radius:20px}
+.look-e .stats div{border-right:0}
+/* ปุ่ม/แท็บ/ชิป ทรงแคปซูล */
+.look-e .btn,.look-e .btn.acc{border-radius:999px}
+.look-e .btn.ghost{box-shadow:none;background:var(--card2)}
+.look-e .iconbtn{border-radius:50%;border:0;background:var(--card)}
+.look-e .seg{border:0;background:var(--card);border-radius:999px;padding:4px}
+.look-e .seg button{border-radius:999px}
+.look-e .seg button.sel,.look-e .types button.sel{background:var(--sig);color:#03151a;box-shadow:none}
+.look-e .chip,.look-e .types button,.look-e .good,.look-e .mchip{border-radius:999px}
+.look-e .good{font-family:Sarabun,sans-serif;font-weight:500}
+.look-e .form input,.look-e .form select,.look-e .form textarea{border-radius:14px}
+/* วงแหวนคะแนน */
+.look-e .ring-g{width:116px;height:116px;flex:none}
+.look-e .score-row .bob-num{display:none}
+/* ฟีด */
+.look-e .post{overflow:hidden}
+.look-e .pframe{border-radius:16px;margin:0 12px}
+.look-e .pframe::before,.look-e .pframe::after{display:none}
+.look-e .ptag{border:0;border-radius:999px;background:rgba(0,0,0,.6);font-family:Sarabun,sans-serif}
+.look-e .pread{border:0;background:transparent;margin:12px 6px 0}
+.look-e .pread span{border-right:0}
+.look-e .plast{border-top:1px solid var(--line)}
+.look-e .cmb{border-radius:16px}
+.look-e .cmform input{border-radius:999px}
+/* แถบล่าง + แผนที่ */
+.look-e .tabbar{border-top:1px solid var(--line);box-shadow:none}
+.look-e .tabbar button.active svg{filter:none}
+.look-e .tabbar button.active::before{display:none}
+.look-e .tabbar .fab{border-radius:50%;box-shadow:0 0 0 5px var(--navbg)}
+.look-e .search,.look-e .pill{border-radius:999px;border:0}
+.look-e .mapctl{border-radius:24px;border:0}
+.look-e .mapctl button{border-radius:50%}
+.look-e .mapcompass{border:0}
+.look-e .coordbar{border-radius:999px;border:0;font-family:Sarabun,sans-serif}
+.look-e .rainbar.radar{border-radius:24px;border:0}
+.look-e .rd-x{border-radius:50%}
+.look-e .sheet{border-radius:28px 28px 0 0;border-top:0}
+.look-e .av.big{box-shadow:0 0 0 3px var(--sig),0 0 0 9px var(--bg)}
+.look-e .adm,.look-e .mchip i{border-radius:999px}

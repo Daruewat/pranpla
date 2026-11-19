@@ -6,15 +6,15 @@
 <meta name="theme-color" content="#03151a">
 <meta name="color-scheme" content="dark">
 <title>พรานปลา – แผนที่ตกปลา & เอาชีวิตรอด</title>
-<script>try{var t=JSON.parse(localStorage.getItem("theme")||'"dark"');if(t==="auto")t=matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";document.documentElement.dataset.theme=t}catch(e){}</script>
+<script>try{var t=JSON.parse(localStorage.getItem("theme")||'"dark"');if(t==="auto")t=matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";document.documentElement.dataset.theme=t;var q=new URLSearchParams(location.search).get("look");if(q)localStorage.setItem("look",q==="off"?"":q);var l=localStorage.getItem("look");if(l)document.documentElement.classList.add("look-"+l)}catch(e){}</script>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;500;600;700&family=Chakra+Petch:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="lib/leaflet.css?v=50">
-<link rel="stylesheet" href="style.css?v=50">
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;500;600;700&family=Chakra+Petch:wght@500;600;700&family=Prompt:wght@300;400;500;600&family=Sarabun:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lib/leaflet.css?v=51">
+<link rel="stylesheet" href="style.css?v=51">
 </head>
 <body>
 <div id="app">
@@ -218,12 +218,12 @@
   <div id="flash" class="flash hidden"></div>
 </div>
 
-<script src="lib/leaflet.js?v=50"></script>
-<script src="lib/suncalc.js?v=50"></script>
-<script src="data.js?v=50"></script>
-<script src="icons.js?v=50"></script>
-<script src="firebase-config.js?v=50"></script>
-<script src="app.js?v=50"></script>
-<script src="group.js?v=50"></script>
+<script src="lib/leaflet.js?v=51"></script>
+<script src="lib/suncalc.js?v=51"></script>
+<script src="data.js?v=51"></script>
+<script src="icons.js?v=51"></script>
+<script src="firebase-config.js?v=51"></script>
+<script src="app.js?v=51"></script>
+<script src="group.js?v=51"></script>
 </body>
 </html>
