@@ -1012,60 +1012,104 @@ $('#alertBar').onclick = () => showTab('forecast');
 $('#wxPill').onclick = () => showTab('forecast');
 $('#seasonPill').onclick = () => { showTab('forecast'); setTimeout(() => $('#view-forecast').scrollTo({ top: 99999, behavior: 'smooth' }), 80); };
 
-/* ============ ฝนบนแผนที่: เรดาร์ล่าสุด + พยากรณ์รายชั่วโมงเป็นตาราง ============ */
+/* ============ ฝนบนแผนที่: เรดาร์ย้อนหลัง 2 ชม. (ทุก 10 นาที) + พยากรณ์ฝนรายชั่วโมง 6 ชม. ข้างหน้า ============
+   เรดาร์จาก RainViewer (ฟรี ซูมได้ถึงระดับ 7 ไม่มีภาพอนาคต) ส่วนอนาคตใช้พยากรณ์ Open-Meteo เป็นตาราง */
 const gRain = L.layerGroup().addTo(map);
-const R = { on: false, grid: null, hour: 0, radar: null, radarTime: null, key: '' };
+const FUT = 6;
+const R = { on: false, grid: null, idx: 0, frames: [], layers: [], key: '', play: null, prevView: null };
 const rainStyle = (mm, pop) => mm >= 10 ? ['#dc2626', .5] : mm >= 4 ? ['#f59e0b', .5] : mm >= 1 ? ['#2563eb', .5] : mm >= 0.1 ? ['#3b82f6', .35] : pop >= 40 ? ['#60a5fa', .18] : null;
+const nPast = () => R.frames.length;
 async function loadRadar() {
+  R.layers.forEach(l => map.removeLayer(l)); R.layers = []; R.frames = [];
   try {
-    const j = await (await fetch('https://api.rainviewer.com/public/weather-maps.json')).json(), f = j.radar.past[j.radar.past.length - 1];
-    if (R.radar) map.removeLayer(R.radar);
-    R.radar = L.tileLayer(`${j.host}${f.path}/256/{z}/{x}/{y}/2/1_1.png`, { opacity: .65, maxNativeZoom: 7, maxZoom: 19, zIndex: 300, attribution: 'RainViewer' });
-    R.radarTime = new Date(f.time * 1000);
-  } catch { R.radar = null; R.radarTime = null; }
+    const j = await (await fetch('https://api.rainviewer.com/public/weather-maps.json', { cache: 'no-store' })).json();
+    R.frames = (j.radar?.past || []).slice(-13);
+    R.layers = R.frames.map(f => L.tileLayer(`${j.host}${f.path}/256/{z}/{x}/{y}/2/1_1.png`, { opacity: 0, maxNativeZoom: 7, maxZoom: 19, zIndex: 300, attribution: 'เรดาร์ © RainViewer', className: 'radar-tiles' }).addTo(map));   // โหลดทุกภาพไว้ก่อน เล่นได้ลื่น
+  } catch { R.frames = []; }
 }
 async function loadRainGrid() {
-  const b = map.getBounds().pad(.05), nx = 5, ny = 6, la = [], lo = [], cells = [];
+  const b = map.getBounds().pad(.05), nx = 6, ny = 8, la = [], lo = [], cells = [];
   const dLat = (b.getNorth() - b.getSouth()) / ny, dLng = (b.getEast() - b.getWest()) / nx;
   for (let y = 0; y < ny; y++) for (let x = 0; x < nx; x++) {
     const s = b.getSouth() + y * dLat, w = b.getWest() + x * dLng;
     cells.push([[s, w], [s + dLat, w + dLng]]); la.push((s + dLat / 2).toFixed(3)); lo.push((w + dLng / 2).toFixed(3));
   }
   const key = la[0] + lo[0] + la[la.length - 1] + lo[lo.length - 1]; if (key === R.key && R.grid) return; R.key = key;
-  $('#rainLabel').textContent = 'กำลังโหลดพยากรณ์ฝน…';
   try {
-    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${la.join(',')}&longitude=${lo.join(',')}&hourly=precipitation,precipitation_probability&forecast_hours=13&timezone=auto`);
+    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${la.join(',')}&longitude=${lo.join(',')}&hourly=precipitation,precipitation_probability&forecast_hours=${FUT + 1}&timezone=auto`);
     if (!r.ok) throw 0; const js = await r.json(); if (key !== R.key) return;
     R.grid = (Array.isArray(js) ? js : [js]).map((d, i) => ({ box: cells[i], t: d.hourly.time, mm: d.hourly.precipitation, pop: d.hourly.precipitation_probability }));
-  } catch { R.grid = null; R.key = ''; $('#rainLabel').textContent = 'โหลดพยากรณ์ฝนไม่ได้ (ต้องต่อเน็ต)'; return; }
-  drawRain();
+  } catch { R.grid = null; R.key = ''; }
+  if (R.on) drawRain();
+}
+function rainTicks() {
+  const n = nPast(), tot = n + FUT; $('#rainSlider').max = Math.max(tot - 1, 0);
+  $('#rdTicks').innerHTML = Array.from({ length: tot }, (_, i) => `<i class="${i < n - 1 ? 'p' : i === n - 1 ? 'now' : 'f'}"></i>`).join('');
+  $('#rdNowLbl').style.left = n ? `${(n - 1) / Math.max(tot - 1, 1) * 100}%` : '0';
 }
 function drawRain() {
   gRain.clearLayers(); if (!R.on) return;
-  const h = R.hour;
-  if (R.radar) { if (h === 0) R.radar.addTo(map); else map.removeLayer(R.radar); }
-  if (!R.grid) return;
-  let wet = 0;
-  R.grid.forEach(c => {
-    const mm = c.mm[h] ?? 0, pop = c.pop?.[h] ?? 0, st = rainStyle(mm, pop); if (!st) return; wet++;
-    L.rectangle(c.box, { stroke: false, fillColor: st[0], fillOpacity: st[1], interactive: false }).addTo(gRain);
-    const ctr = [(c.box[0][0] + c.box[1][0]) / 2, (c.box[0][1] + c.box[1][1]) / 2];
-    L.marker(ctr, { interactive: false, icon: L.divIcon({ className: '', html: `<div class="rainlbl">${pop}%${mm >= 0.1 ? `<small>${mm.toFixed(1)}มม.</small>` : ''}</div>`, iconSize: [50, 30], iconAnchor: [25, 15] }) }).addTo(gRain);
-  });
-  const t = new Date(R.grid[0].t[h]);
-  $('#rainLabel').innerHTML = `<b>${h === 0 ? 'ตอนนี้' : '+' + h + ' ชม.'} · ${pad(t.getHours())}:00</b> ${wet ? `มีโอกาสฝน ${wet}/${R.grid.length} ช่อง` : 'ไม่มีฝนในบริเวณที่เห็น'}${h === 0 ? (R.radarTime ? ` · เรดาร์ ${hm(R.radarTime)}` : ' · ไม่มีภาพเรดาร์') : ''}`;
+  const n = nPast(), i = R.idx, past = i < n;
+  R.layers.forEach((l, k) => l.setOpacity(k === i ? .78 : 0));
+  $('#rainSlider').value = i;
+  let time, tag, info;
+  if (past) {
+    const f = R.frames[i]; time = new Date(f.time * 1000);
+    const live = i === n - 1, mins = Math.round((Date.now() - time) / 60000);
+    tag = live ? 'สด' : `${mins} นาทีก่อน`;
+    info = live ? `ภาพเรดาร์ล่าสุด · อัปเดต ${mins} นาทีที่แล้ว` : 'ภาพเรดาร์ย้อนหลัง';
+    $('#rdTag').className = 'rd-tag' + (live ? ' live' : '');
+  } else {
+    const h = i - n + 1; time = new Date(Date.now() + h * 3600e3);
+    tag = `+${h} ชม.`; $('#rdTag').className = 'rd-tag fut';
+    if (R.grid) {
+      let wet = 0;
+      R.grid.forEach(c => {
+        const mm = c.mm[h] ?? 0, pop = c.pop?.[h] ?? 0, st = rainStyle(mm, pop); if (!st) return; wet++;
+        L.rectangle(c.box, { stroke: false, fillColor: st[0], fillOpacity: st[1], interactive: false }).addTo(gRain);
+        const ctr = [(c.box[0][0] + c.box[1][0]) / 2, (c.box[0][1] + c.box[1][1]) / 2];
+        if (pop >= 30) L.marker(ctr, { interactive: false, icon: L.divIcon({ className: '', html: `<div class="rainlbl">${pop}%${mm >= 0.1 ? `<small>${mm.toFixed(1)}มม.</small>` : ''}</div>`, iconSize: [50, 30], iconAnchor: [25, 15] }) }).addTo(gRain);
+      });
+      time = new Date(R.grid[0].t[h]);
+      info = `พยากรณ์ (ไม่ใช่เรดาร์) · ${wet ? `มีโอกาสฝน ${wet}/${R.grid.length} ช่องในจอ` : 'ไม่น่ามีฝนในบริเวณที่เห็น'}`;
+    } else info = navigator.onLine === false ? 'ต้องต่อเน็ต' : 'กำลังโหลดพยากรณ์…';
+  }
+  $('#rdTime').textContent = `${pad(time.getHours())}:${pad(time.getMinutes())}`;
+  $('#rdTag').textContent = tag;
+  $('#rainLabel').textContent = n || !past ? info : 'โหลดภาพเรดาร์ไม่ได้ · เลื่อนไปดูพยากรณ์ข้างหน้าได้';
+}
+function rainPlay(on) {
+  clearInterval(R.play); R.play = null;
+  $('#rdPlayIco').setAttribute('d', on ? 'M7 5h4v14H7zM13 5h4v14h-4z' : 'M8 5v14l11-7Z');
+  $('#rdPlay').setAttribute('aria-label', on ? 'หยุด' : 'เล่นภาพเคลื่อนไหว');
+  if (!on) return;
+  let hold = 0;
+  R.play = setInterval(() => {
+    const last = nPast() + FUT - 1;
+    if (R.idx >= last) { if (++hold < 3) return; hold = 0; R.idx = 0; } else R.idx++;
+    drawRain();
+  }, 650);
 }
 async function setRain(on) {
-  if (on && navigator.onLine === false) return toast('แผนที่ฝนต้องใช้เน็ต · ดูโอกาสฝนรายชั่วโมงที่เก็บไว้ได้ในหน้าพยากรณ์', 4500);
-  R.on = on; $('#btnRain').classList.toggle('on', on); $('#rainBar').classList.toggle('hidden', !on);
-  if (!on) { gRain.clearLayers(); if (R.radar) map.removeLayer(R.radar); return; }
-  R.hour = 0; $('#rainSlider').value = 0; R.key = '';
-  await Promise.all([loadRadar(), loadRainGrid()]); drawRain();
+  if (on && navigator.onLine === false) return toast('เรดาร์ฝนต้องใช้เน็ต · ดูโอกาสฝนรายชั่วโมงที่เก็บไว้ได้ในหน้าพยากรณ์', 4500);
+  R.on = on; $('#btnRain').classList.toggle('on', on); $('#rainBar').classList.toggle('hidden', !on); document.body.classList.toggle('radar-on', on);
+  if (!on) {
+    rainPlay(false); gRain.clearLayers(); R.layers.forEach(l => map.removeLayer(l)); R.layers = [];
+    if (R.prevView) { map.setView(R.prevView[0], R.prevView[1]); R.prevView = null; }
+    return;
+  }
+  if (map.getZoom() > 9) { R.prevView = [map.getCenter(), map.getZoom()]; map.setView(map.getCenter(), 9); }   // เรดาร์ต้องเห็นกว้างถึงจะรู้ว่าฝนมาจากไหน
+  R.key = ''; $('#rainLabel').textContent = 'กำลังโหลดเรดาร์…';
+  await loadRadar(); rainTicks();
+  R.idx = Math.max(nPast() - 1, 0); drawRain(); loadRainGrid();
+  if (nPast() > 1) rainPlay(true);
 }
 $('#btnRain').onclick = () => setRain(!R.on);
 $('#rainClose').onclick = () => setRain(false);
-$('#rainSlider').oninput = e => { R.hour = +e.target.value; drawRain(); };
+$('#rdPlay').onclick = () => rainPlay(!R.play);
+$('#rainSlider').oninput = e => { rainPlay(false); R.idx = +e.target.value; drawRain(); };
 let rainDeb; map.on('moveend', () => { if (!R.on) return; clearTimeout(rainDeb); rainDeb = setTimeout(loadRainGrid, 700); });
+map.on('dragstart', () => { if (R.on) R.prevView = null; });   // ผู้ใช้เลื่อนแผนที่เองแล้ว ไม่ต้องดีดกลับตอนปิด
 
 /* ============ survival tools ============ */
 function renderTools() {

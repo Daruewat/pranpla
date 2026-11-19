@@ -13,8 +13,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;500;600;700&family=Chakra+Petch:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="lib/leaflet.css?v=44">
-<link rel="stylesheet" href="style.css?v=44">
+<link rel="stylesheet" href="lib/leaflet.css?v=45">
+<link rel="stylesheet" href="style.css?v=45">
 </head>
 <body>
 <div id="app">
@@ -61,11 +61,13 @@
     <div class="rain-top"><span id="measLabel">แตะแผนที่เพื่อวางจุดแรก</span><button id="measClose">✕</button></div>
     <div class="row" style="margin-top:8px"><button class="btn ghost small" id="measMe">◎ เริ่มจากตัวฉัน</button><button class="btn ghost small" id="measUndo">↶ ย้อนจุด</button></div>
   </div>
-  <div id="rainBar" class="rainbar hidden">
-    <div class="rain-top"><span id="rainLabel">ฝน</span><button id="rainClose">✕</button></div>
-    <input id="rainSlider" type="range" min="0" max="12" step="1" value="0">
-    <div class="rain-axis"><span>ตอนนี้</span><span>+3</span><span>+6</span><span>+9</span><span>+12 ชม.</span></div>
-    <div class="rain-legend"><i style="background:#60a5fa"></i>มีโอกาส<i style="background:#2563eb"></i>ฝนเบา<i style="background:#f59e0b"></i>ฝนหนัก<i style="background:#dc2626"></i>หนักมาก</div>
+  <div id="rainBar" class="rainbar radar hidden">
+    <div class="rd-top"><div class="rd-time"><b id="rdTime">--:--</b><span id="rdTag" class="rd-tag">สด</span></div><button id="rainClose" class="rd-x" aria-label="ปิดเรดาร์ฝน">✕</button></div>
+    <div class="rd-row"><button id="rdPlay" class="rd-play" aria-label="เล่นภาพเคลื่อนไหว"><svg viewBox="0 0 24 24" aria-hidden="true"><path id="rdPlayIco" d="M8 5v14l11-7Z"/></svg></button>
+      <div class="rd-track"><div id="rdTicks" class="rd-ticks"></div><input id="rainSlider" type="range" min="0" max="18" step="1" value="12" aria-label="เลื่อนเวลา"></div></div>
+    <div class="rd-axis"><span>-2 ชม.</span><span id="rdNowLbl">ตอนนี้</span><span>+6 ชม.</span></div>
+    <div class="rd-info" id="rainLabel">กำลังโหลดเรดาร์…</div>
+    <div class="rd-legend"><span>เบา</span><i></i><span>หนัก</span></div>
   </div>
   <div id="coordBar" class="coordbar mono">กำลังหาตำแหน่ง GPS…</div>
   <div id="crosshair" class="crosshair hidden"><svg viewBox="0 0 48 48"><path d="M24 4v14M24 30v14M4 24h14M30 24h14"/><circle cx="24" cy="24" r="2.5"/></svg><div class="crossrow"><button id="crossLbl" class="crosslbl"></button><a id="crossSV" class="crosssv" href="https://www.google.com/maps" target="_blank" rel="noopener" aria-label="ดูภาพถนนตรงนี้" title="ดูภาพถนนตรงนี้">🚶</a></div></div>
@@ -216,12 +218,12 @@
   <div id="flash" class="flash hidden"></div>
 </div>
 
-<script src="lib/leaflet.js?v=44"></script>
-<script src="lib/suncalc.js?v=44"></script>
-<script src="data.js?v=44"></script>
-<script src="icons.js?v=44"></script>
-<script src="firebase-config.js?v=44"></script>
-<script src="app.js?v=44"></script>
-<script src="group.js?v=44"></script>
+<script src="lib/leaflet.js?v=45"></script>
+<script src="lib/suncalc.js?v=45"></script>
+<script src="data.js?v=45"></script>
+<script src="icons.js?v=45"></script>
+<script src="firebase-config.js?v=45"></script>
+<script src="app.js?v=45"></script>
+<script src="group.js?v=45"></script>
 </body>
 </html>
