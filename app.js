@@ -93,9 +93,9 @@ const LAYERS = {
 const loadScript = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
 const curTheme = () => document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
 async function makeVec(styleFn) {   // โหลดตัววาดแผนที่เวกเตอร์เฉพาะตอนเลือกใช้
-  if (!window.maplibregl) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'lib/maplibre-gl.css'; document.head.appendChild(l); await loadScript('lib/maplibre-gl.js'); await loadScript('lib/leaflet-maplibre-gl.js'); await loadScript('vecstyle.js?v=68'); }
-  try { if (!window.pmtiles) await loadScript('lib/pmtiles.js?v=68'); if (!window._pmProto) { window._pmProto = new pmtiles.Protocol(); maplibregl.addProtocol('pmtiles', _pmProto.tile); } } catch {}   // รูปอาคาร Google+Microsoft
-  try { if (!window.mlcontour) await loadScript('lib/mlcontour.js?v=68'); if (!window._dem) { window._dem = new mlcontour.DemSource({ url: 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png', encoding: 'terrarium', maxzoom: 12, worker: true, cacheSize: 100 }); _dem.setupMaplibre(maplibregl); } } catch {}   // เส้นชั้นความสูง
+  if (!window.maplibregl) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'lib/maplibre-gl.css'; document.head.appendChild(l); await loadScript('lib/maplibre-gl.js'); await loadScript('lib/leaflet-maplibre-gl.js'); await loadScript('vecstyle.js?v=69'); }
+  try { if (!window.pmtiles) await loadScript('lib/pmtiles.js?v=69'); if (!window._pmProto) { window._pmProto = new pmtiles.Protocol(); maplibregl.addProtocol('pmtiles', _pmProto.tile); } } catch {}   // รูปอาคาร Google+Microsoft
+  try { if (!window.mlcontour) await loadScript('lib/mlcontour.js?v=69'); if (!window._dem) { window._dem = new mlcontour.DemSource({ url: 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png', encoding: 'terrarium', maxzoom: 12, worker: true, cacheSize: 100 }); _dem.setupMaplibre(maplibregl); } } catch {}   // เส้นชั้นความสูง
   if (!maplibregl.supported?.() && !document.createElement('canvas').getContext('webgl')) throw new Error('no webgl');
   fetch('https://tiles.openfreemap.org/planet').then(r => r.json()).then(j => { if (j.tiles?.[0]) { LAYERS.vec.urls = [j.tiles[0]]; LAYERS.hyb.urls = [LAYERS.hyb.urls[0], j.tiles[0]]; LAYERS.topo.urls = [LAYERS.topo.urls[0], j.tiles[0]]; } }).catch(() => {});
   return L.maplibreGL({ style: styleFn(), attribution: '© OpenStreetMap · OpenFreeMap · Esri' });
@@ -1327,6 +1327,7 @@ function renderStats() {
 }
 
 /* ============ log ============ */
+let spotsAll = false;
 function renderLog() {
   grp('render');
   if (OPT.catches || OPT.heat) renderSpots();
@@ -1336,10 +1337,13 @@ function renderLog() {
     const d = new Date(c.t), s = S.spots.find(x => x.id === c.spotId);
     return `<div class="ccard" data-act="catch" data-id="${c.id}"><div class="cimg" ${c.photo ? `style="background-image:url(${c.photo})"` : ''}>${c.photo ? '' : '🐟'}${c.private ? '<span class="lock">🔒</span>' : ''}</div><b>${esc(c.species)}</b><span class="sub">${[c.wt && c.wt + ' กก.', c.len && c.len + ' ซม.'].filter(Boolean).join(' · ') || esc(c.bait || '')}</span><span class="sub">${d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}${s ? ' · ' + esc(s.name) : ''}</span></div>`;
   }).join('') + '<div class="ccard add" data-act="new-catch"><span>＋</span>บันทึกปลา</div></div>' : '<div class="ccard first" data-act="new-catch"><span>📷</span><b>ปลาตัวแรกรอคุณอยู่</b><span class="sub">บันทึกไว้ แล้วจะมาแปะที่นี่</span></div>';
-  $('#spotList').innerHTML = S.spots.length ? S.spots.map(s => {
+  const SPOT_SHOW = 4, list = S.spots.slice().sort((a, b) => S.pos ? dist(S.pos, a) - dist(S.pos, b) : (b.created || 0) - (a.created || 0));   // ใกล้สุดก่อน (ไม่มี GPS = ใหม่สุดก่อน)
+  const shown = spotsAll ? list : list.slice(0, SPOT_SHOW);
+  $('#spotList').innerHTML = S.spots.length ? shown.map(s => {
     const t = SPOT_TYPES[s.type] || SPOT_TYPES.other;
     return `<div class="item" data-act="spot" data-id="${s.id}"><div class="th" ${s.photo ? `style="background-image:url(${s.photo})"` : `style="background:${t.color}33"`}>${s.photo ? '' : t.icon}</div><div class="mid"><b>${esc(s.name)}</b><div class="sub">${t.label}${S.pos ? ' · ' + fmtDist(dist(S.pos, s)) : ''}</div>${s.note ? `<div class="sub">${esc(s.note)}</div>` : ''}</div></div>`;
-  }).join('') : '<div class="empty">ยังไม่มีหมุด กดค้างบนแผนที่เพื่อปักหมุด</div>';
+  }).join('') + (list.length > SPOT_SHOW ? `<button class="morebtn" id="spotMore">${spotsAll ? 'ย่อรายการ ▲' : `ดูทั้งหมด ${list.length} หมุด ▼`}</button>` : '') : '<div class="empty">ยังไม่มีหมุด กดค้างบนแผนที่เพื่อปักหมุด</div>';
+  const mb = $('#spotMore'); if (mb) mb.onclick = () => { spotsAll = !spotsAll; renderLog(); if (!spotsAll) $('#spotList').scrollIntoView({ block: 'nearest' }); };
   renderTrackUI(); renderStats();
 }
 $('#exportBtn').onclick = () => {

@@ -2422,3 +2422,5 @@ body.radar-on #coordBar,body.radar-on .crosshair{display:none}
 #moveUi .mv-d{flex:1;font-size:14px;color:var(--tx2)}
 #moveUi .mv-btns{display:flex;gap:8px}
 #moveUi .mv-btns .btn{margin:0}
+.morebtn{display:block;width:100%;margin:4px 0 8px;padding:14px;border-radius:16px;border:1px solid var(--line);background:var(--card);color:var(--tx2);font:inherit;font-size:15px;cursor:pointer}
+.look-e .morebtn{color:var(--sig)}
