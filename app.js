@@ -93,9 +93,9 @@ const LAYERS = {
 const loadScript = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
 const curTheme = () => document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
 async function makeVec(styleFn) {   // โหลดตัววาดแผนที่เวกเตอร์เฉพาะตอนเลือกใช้
-  if (!window.maplibregl) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'lib/maplibre-gl.css'; document.head.appendChild(l); await loadScript('lib/maplibre-gl.js'); await loadScript('lib/leaflet-maplibre-gl.js'); await loadScript('vecstyle.js?v=77'); }
-  try { if (!window.pmtiles) await loadScript('lib/pmtiles.js?v=77'); if (!window._pmProto) { window._pmProto = new pmtiles.Protocol(); maplibregl.addProtocol('pmtiles', _pmProto.tile); } } catch {}   // รูปอาคาร Google+Microsoft
-  try { if (!window.mlcontour) await loadScript('lib/mlcontour.js?v=77'); if (!window._dem) { window._dem = new mlcontour.DemSource({ url: 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png', encoding: 'terrarium', maxzoom: 12, worker: true, cacheSize: 100 }); _dem.setupMaplibre(maplibregl); } } catch {}   // เส้นชั้นความสูง
+  if (!window.maplibregl) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'lib/maplibre-gl.css'; document.head.appendChild(l); await loadScript('lib/maplibre-gl.js'); await loadScript('lib/leaflet-maplibre-gl.js'); await loadScript('vecstyle.js?v=78'); }
+  try { if (!window.pmtiles) await loadScript('lib/pmtiles.js?v=78'); if (!window._pmProto) { window._pmProto = new pmtiles.Protocol(); maplibregl.addProtocol('pmtiles', _pmProto.tile); } } catch {}   // รูปอาคาร Google+Microsoft
+  try { if (!window.mlcontour) await loadScript('lib/mlcontour.js?v=78'); if (!window._dem) { window._dem = new mlcontour.DemSource({ url: 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png', encoding: 'terrarium', maxzoom: 12, worker: true, cacheSize: 100 }); _dem.setupMaplibre(maplibregl); } } catch {}   // เส้นชั้นความสูง
   if (!maplibregl.supported?.() && !document.createElement('canvas').getContext('webgl')) throw new Error('no webgl');
   fetch('https://tiles.openfreemap.org/planet').then(r => r.json()).then(j => { if (j.tiles?.[0]) { LAYERS.vec.urls = [j.tiles[0]]; LAYERS.hyb.urls = [LAYERS.hyb.urls[0], j.tiles[0]]; LAYERS.topo.urls = [LAYERS.topo.urls[0], j.tiles[0]]; } }).catch(() => {});
   return L.maplibreGL({ style: styleFn(), attribution: '© OpenStreetMap · OpenFreeMap · Esri' });
@@ -359,7 +359,7 @@ $('#targetClear').onclick = () => setTarget(null);
 /* ============ sheets ============ */
 let sheetHist = false, backPending = false;   // backPending: สั่งย้อนประวัติไปแล้วแต่ยังไม่เสร็จ (ปิดแผ่นหนึ่งแล้วเปิดอีกแผ่นทันที)
 function openSheet(html) {
-  const sh = $('#sheet'); sh.oninput = sh.onchange = null; sh.classList.remove('mt-sheet'); delete sh.dataset.form;
+  const sh = $('#sheet'), sb = $('#sheet #setBox'); if (sb) $('#setHome').appendChild(sb);   // คืนกล่องตั้งค่ากลับที่เดิมก่อนเปลี่ยนเนื้อหา sh.oninput = sh.onchange = null; sh.classList.remove('mt-sheet'); delete sh.dataset.form;
   $('#sheet').innerHTML = '<div class="grab"></div><button class="sheet-x" data-act="close" aria-label="ปิด">✕</button>' + html;
   $('#sheet').classList.add('open'); $('#sheetBg').classList.remove('hidden'); $('#sheet').scrollTop = 0;
   if (!sheetHist && !backPending) { try { history.pushState({ sheet: 1 }, ''); sheetHist = true; } catch {} }   // ให้ปุ่มย้อนกลับของมือถือปิดหน้าต่างนี้
@@ -421,7 +421,7 @@ function bindPhoto(root, holder) {
 /* ---- FAB menu ---- */
 $('#fab').onclick = () => { openSheet(`
   <h3>อยากทำอะไร?</h3>
-  <button class="menu-item" id="fabTools"><span class="mi">🧭</span><span><b>เอาตัวรอด</b><span class="sub">เข็มทิศ พิกัด ไฟฉาย SOS เบอร์ฉุกเฉิน</span></span></button>
+  <button class="menu-item" id="fabTools"><span class="mi">🧭</span><span><b>เครื่องมือภาคสนาม</b><span class="sub">เข็มทิศ พิกัด ไฟฉาย SOS เบอร์ฉุกเฉิน</span></span></button>
   <button class="menu-item" data-act="new-catch"><span class="mi">🐟</span><span><b>บันทึกปลาที่จับได้</b></span></button>
   <button class="menu-item" data-act="new-spot-here"><span class="mi">📍</span><span><b>ปักหมุดตรงที่ฉันยืน</b></span></button>
   <button class="menu-item" data-act="new-spot-center"><span class="mi">🎯</span><span><b>ปักหมุดกลางแผนที่</b></span></button>
@@ -1337,6 +1337,15 @@ function showUpdateBar() {
   $('#updGo').onclick = () => location.reload();
   $('#updX').onclick = () => el.remove();
 }
+
+function settingsSheet() {
+  openSheet('<h3>ตั้งค่า</h3><div id="setSlot"></div>');
+  $('#setSlot').replaceWith($('#setBox'));
+  const on = grp('joined');
+  $('#bkLine').innerHTML = on ? '✅ เข้าสู่ระบบแล้ว หมุดและปลาสำรองบนคลาวด์อัตโนมัติ เปลี่ยนเครื่องแล้วล็อกอินข้อมูลก็ตามมา<br>ไฟล์ .json ไว้เก็บสำรองเพิ่มเองหรือย้ายข้อมูล'
+    : '⚠️ ยังไม่ได้เข้าสู่ระบบ ข้อมูลอยู่ในเครื่องนี้เท่านั้น ถ้าล้างเบราว์เซอร์หรือเปลี่ยนเครื่องจะหาย<br>เข้าสู่ระบบด้วย Google ที่หน้าสมุดบันทึก เพื่อสำรองอัตโนมัติ';
+}
+$('#setBtn').onclick = settingsSheet;
 
 /* ============ log ============ */
 let spotsAll = false;
