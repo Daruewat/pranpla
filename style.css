@@ -2442,3 +2442,21 @@ a.btn,a.btn:visited{text-decoration:none}
 @keyframes mepulse{0%{transform:scale(1);opacity:.9}100%{transform:scale(3.2);opacity:0}}
 .leaflet-marker-icon .me .cone{position:absolute;left:50%;top:50%;width:70px;height:70px;margin:-35px 0 0 -35px;bottom:auto;transform-origin:50% 50%;border-radius:50%;background:conic-gradient(rgba(255,125,31,.6) 0deg 32deg,transparent 32deg 328deg,rgba(255,125,31,.6) 328deg);-webkit-mask:radial-gradient(circle,#000 30%,transparent 70%);mask:radial-gradient(circle,#000 30%,transparent 70%);border:0;z-index:0;filter:none;opacity:1}
 @media (prefers-reduced-motion:reduce){.leaflet-marker-icon .me::before{animation:none;opacity:.35;transform:scale(1.8)}}
+#updBar{position:fixed;left:12px;right:12px;top:calc(var(--safe-t) + 10px);z-index:2000;display:flex;align-items:center;gap:10px;padding:10px 10px 10px 16px;border-radius:18px;background:var(--bg2);border:1px solid var(--line2);box-shadow:0 8px 24px rgba(0,0,0,.45);font-size:15px;color:var(--tx)}
+#updBar span{flex:1}
+#updBar .btn{margin:0;padding:10px 16px}
+#updBar .updx{background:none;border:0;color:var(--tx2);font-size:18px;width:40px;height:40px;cursor:pointer}
+/* ---- การแจ้งเตือน ---- */
+.vh-act{display:flex;gap:8px}
+#feedBell{position:relative}
+#feedBell[data-n]::after{content:attr(data-n);position:absolute;top:-2px;right:-2px;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:var(--act);color:#fff;font:600 11px/18px var(--disp);text-align:center;box-shadow:0 0 0 2px var(--bg)}
+.notis{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+.noti{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:none;border:0;border-radius:16px;padding:10px;color:var(--tx);font:inherit;cursor:pointer}
+.noti.new{background:var(--card2)}
+.noti .av{flex:none;width:40px;height:40px}
+.noti .nt{flex:1;font-size:14.5px;line-height:1.45}
+.noti .nt small{display:block;color:var(--tx3);font-size:12.5px;margin-top:2px}
+.noti .nk{flex:none;font-size:18px}
+.noti .nk svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8}
+.noti .nk-like{color:#ff4d6d}.noti .nk-like svg{fill:currentColor}
+.noti .nk-cm{color:var(--sig)}

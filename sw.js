@@ -1,5 +1,5 @@
 /* พรานปลา service worker: ตัวแอปใช้ออฟไลน์ได้ + เก็บแผนที่ที่เคยเปิดดู + แผนที่ที่ดาวน์โหลดไว้ */
-const V = 'pranpla-v76', TILES = 'pranpla-tiles2', OFFLINE = 'pranpla-offline', FONTS = 'pranpla-fonts';
+const V = 'pranpla-v77', TILES = 'pranpla-tiles2', OFFLINE = 'pranpla-offline', FONTS = 'pranpla-fonts';
 const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'data.js', 'icons.js', 'group.js', 'spots.js', 'firebase-config.js', 'lib/fb/firebase-app-compat.js', 'lib/fb/firebase-auth-compat.js', 'lib/fb/firebase-firestore-compat.js', 'vecstyle.js', 'waterfix.json', 'lib/pmtiles.js', 'lib/mlcontour.js', 'tambon.json', 'lib/leaflet.js', 'lib/maplibre-gl.js', 'lib/maplibre-gl.css', 'lib/leaflet-maplibre-gl.js', 'lib/leaflet.css', 'lib/suncalc.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
 const TILE_HOSTS = ['tile.openstreetmap.org', 'server.arcgisonline.com', 'tile.opentopomap.org'];
 const TILE_MAX = 5000;
@@ -35,4 +35,13 @@ self.addEventListener('fetch', e => {
   if (url.origin === location.origin) {
     e.respondWith(fetch(req.url, { cache: 'no-cache' }).then(r => { if (r.ok) { const cp = r.clone(); caches.open(V).then(c => c.put(req, cp)); } return r; }).catch(() => caches.match(req, { ignoreSearch: true }).then(r => r || caches.match('index.html'))));
   }
+});
+
+self.addEventListener('notificationclick', e => {   // แตะแจ้งเตือน: กลับไปที่แอปแล้วเปิดรายการแจ้งเตือน
+  e.notification.close();
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cs => {
+    const c = cs.find(x => x.url.includes(self.registration.scope)) || cs[0];
+    if (c) { c.postMessage({ openNoti: true }); return c.focus(); }
+    return self.clients.openWindow(e.notification.data?.url || './#noti');
+  }));
 });

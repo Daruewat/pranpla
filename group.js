@@ -9,7 +9,7 @@ const GRP = (() => {
   const enabled = () => !!(window.FB_CONFIG && FB_CONFIG.apiKey);
   const col = n => st.db.collection('groups').doc(st.gid).collection(n);
   const fp = o => { const s = JSON.stringify(o); let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return s.length + ':' + h; };
-  const initial = n => (n || '?').trim().charAt(0).toUpperCase();
+  const initial = n => ((n || '?').trim().replace(/^[เแโใไ]/, '') || '?').charAt(0).toUpperCase();   // ข้ามสระหน้า เช่น เพื่อน → พ
   const myAv = () => ls.get('myAv', '') || st.user?.photoURL || '';            // รูปโปรไฟล์ที่ตั้งเอง ไม่มีก็ใช้รูป Google
   const docAv = () => ls.get('myAv', '') ? '' : (st.user?.photoURL || '');      // ในโพสต์เก็บแค่ลิงก์ Google รูปที่ตั้งเองอ่านจากข้อมูลสมาชิก (ไม่ให้โพสต์ใหญ่)
 
@@ -303,13 +303,49 @@ const GRP = (() => {
     await col('comments').add({ uid: st.uid, by: st.me || 'ไม่ระบุชื่อ', av: docAv(), post: id, text, t: Date.now() }).catch(e => { inp.value = text; toast('ส่งไม่ได้: ' + e.message); });
   }
   /* จุดแจ้งเตือนบนแท็บชุมชน: มีคนไลก์/คอมเมนต์ปลาของเราตั้งแต่เปิดดูครั้งล่าสุด */
-  function badge() {
-    const seen = ls.get('feedSeen', 0), mine = new Set(st.catches.filter(c => c.uid === st.uid).map(c => c.id));
-    const n = [...st.likes, ...st.comments].filter(x => x.uid !== st.uid && mine.has(x.post) && x.t > seen).length;
-    const tab = document.querySelector('.tabbar [data-tab=feed]'); if (!tab) return;
-    if ($('#view-feed')?.classList.contains('show') && n) { ls.set('feedSeen', Date.now()); return tab.removeAttribute('data-n'); }
-    n ? tab.setAttribute('data-n', n > 9 ? '9+' : n) : tab.removeAttribute('data-n');
+  /* ---------- การแจ้งเตือน: มีคนถูกใจ/คอมเมนต์ปลาของเรา หรือโหวตหมายของเราว่ายังกินอยู่ ---------- */
+  function notis() {
+    const mc = new Map(st.catches.filter(c => c.uid === st.uid).map(c => [c.id, c])), mp = new Map(st.pins.filter(p => p.uid === st.uid).map(p => [p.id, p]));
+    const nm = uid => st.members.find(m => m.uid === uid)?.name || 'มีคน', out = [];
+    st.likes.forEach(l => { if (l.uid !== st.uid && mc.has(l.post)) out.push({ k: 'like', t: l.t || 0, uid: l.uid, who: nm(l.uid), post: l.post, txt: `ถูกใจ${mc.get(l.post).species || 'ปลา'}ของคุณ` }); });
+    st.comments.forEach(c => { if (c.uid !== st.uid && mc.has(c.post)) out.push({ k: 'cm', t: c.t || 0, uid: c.uid, who: c.by || nm(c.uid), post: c.post, txt: `คอมเมนต์${mc.get(c.post).species || 'ปลา'}ของคุณ: “${(c.text || '').slice(0, 80)}”` }); });
+    st.votes.forEach(v => { if (v.uid !== st.uid && mp.has(v.post) && v.v > 0) out.push({ k: 'vote', t: v.t || 0, uid: v.uid, who: nm(v.uid), pin: v.post, txt: `บอกว่าหมาย “${mp.get(v.post).name}” ของคุณยังกินอยู่` }); });
+    return out.sort((a, b) => b.t - a.t).slice(0, 60);
   }
+  function badge() {
+    const all = notis(), nSeen = ls.get('notiSeen', ls.get('feedSeen', 0));
+    if ($('#view-feed')?.classList.contains('show')) ls.set('feedSeen', Date.now());   // เปิดหน้าชุมชนแล้ว ป้ายบนแท็บหาย (กระดิ่งยังนับจนกว่าจะเปิดดู)
+    const tSeen = Math.max(nSeen, ls.get('feedSeen', 0)), set = (el, n) => { if (el) n ? el.setAttribute('data-n', n > 9 ? '9+' : n) : el.removeAttribute('data-n'); };
+    set(document.querySelector('.tabbar [data-tab=feed]'), all.filter(x => x.t > tSeen).length);
+    set($('#feedBell'), all.filter(x => x.t > nSeen).length);
+    sysNotify(all);
+  }
+  function sysNotify(all) {   // แจ้งเตือนบนเครื่อง ตอนแอปเปิดค้างไว้แต่อยู่เบื้องหลัง
+    let last = ls.get('notiPushed', 0); if (!last) { ls.set('notiPushed', Date.now()); return; }
+    const fresh = all.filter(x => x.t > last); if (!fresh.length) return;
+    ls.set('notiPushed', Math.max(...fresh.map(x => x.t)));
+    if (!document.hidden || typeof Notification === 'undefined' || Notification.permission !== 'granted' || !navigator.serviceWorker) return;
+    const x = fresh[0], more = fresh.length > 1 ? ` และอีก ${fresh.length - 1} รายการ` : '';
+    navigator.serviceWorker.ready.then(r => r.showNotification('พรานปลา', { body: `${x.who} ${x.txt}${more}`, icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', tag: 'pranpla-noti', renotify: true, data: { url: './#noti' } })).catch(() => {});
+  }
+  function notiSheet() {
+    const seen = ls.get('notiSeen', ls.get('feedSeen', 0)), all = notis();
+    ls.set('notiSeen', Date.now()); badge();
+    const canAsk = typeof Notification !== 'undefined' && Notification.permission === 'default';
+    openSheet(`<h3>การแจ้งเตือน</h3>
+      ${!st.user ? '<div class="empty">เข้าสู่ระบบก่อน จะรู้ได้ว่ามีใครถูกใจหรือคอมเมนต์ปลาของคุณ</div>' : all.length ? `<div class="notis">${all.map((x, i) => `<button class="noti${x.t > seen ? ' new' : ''}" data-ni="${i}">${avatar(avOf(x.uid, ''), x.who)}<span class="nt"><b>${esc(x.who)}</b> ${esc(x.txt)}<small>${ago(x.t)}</small></span><span class="nk nk-${x.k}">${x.k === 'like' ? SVG_HEART : x.k === 'cm' ? SVG_CM : '🔥'}</span></button>`).join('')}</div>` : '<div class="empty">ยังไม่มีการแจ้งเตือน พอมีคนถูกใจ คอมเมนต์ปลาของคุณ หรือโหวตหมายของคุณ จะขึ้นที่นี่</div>'}
+      ${canAsk ? '<button class="btn ghost block" id="notiAsk" style="margin-top:12px">🔔 แจ้งเตือนบนมือถือด้วย</button><div class="sub" style="margin-top:6px">แจ้งตอนแอปยังเปิดค้างอยู่เบื้องหลัง</div>' : ''}`);
+    $$('#sheet [data-ni]').forEach(b => b.onclick = () => {
+      const x = all[+b.dataset.ni]; closeSheet();
+      if (x.k === 'cm') setTimeout(() => openComments(x.post), 350);
+      else if (x.k === 'like') setTimeout(() => openPost(x.post), 350);
+      else { const p = st.pins.find(q => q.id === x.pin); if (p) { showTab('map'); S.follow = false; map.setView([p.lat, p.lng], 16); if (S.spots.some(s => s.id === p.id)) setTimeout(() => spotSheet(p.id), 350); } }
+    });
+    const a = $('#notiAsk'); if (a) a.onclick = () => Notification.requestPermission().then(r => { toast(r === 'granted' ? 'เปิดแจ้งเตือนแล้ว' : 'ไม่ได้เปิดแจ้งเตือน (เปิดได้ในตั้งค่าเบราว์เซอร์)'); if (r === 'granted') a.remove(); });
+  }
+  $('#feedBell')?.addEventListener('click', () => notiSheet());
+  if (location.hash === '#noti') { history.replaceState(null, '', location.pathname + location.search); setTimeout(() => { showTab('feed'); notiSheet(); }, 1500); }
+  navigator.serviceWorker?.addEventListener('message', e => { if (e.data?.openNoti) { showTab('feed'); notiSheet(); } });
   function renderFeed() {
     const el = $('#feedList'); if (!el) return;
     badge();
