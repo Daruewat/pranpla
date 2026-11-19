@@ -93,12 +93,28 @@ const LAYERS = {
 const loadScript = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
 const curTheme = () => document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
 async function makeVec(styleFn) {   // โหลดตัววาดแผนที่เวกเตอร์เฉพาะตอนเลือกใช้
-  if (!window.maplibregl) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'lib/maplibre-gl.css'; document.head.appendChild(l); await loadScript('lib/maplibre-gl.js'); await loadScript('lib/leaflet-maplibre-gl.js'); await loadScript('vecstyle.js?v=60'); }
+  if (!window.maplibregl) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'lib/maplibre-gl.css'; document.head.appendChild(l); await loadScript('lib/maplibre-gl.js'); await loadScript('lib/leaflet-maplibre-gl.js'); await loadScript('vecstyle.js?v=61'); }
   if (!maplibregl.supported?.() && !document.createElement('canvas').getContext('webgl')) throw new Error('no webgl');
   fetch('https://tiles.openfreemap.org/planet').then(r => r.json()).then(j => { if (j.tiles?.[0]) { LAYERS.vec.urls = [j.tiles[0]]; LAYERS.hyb.urls = [LAYERS.hyb.urls[0], j.tiles[0]]; } }).catch(() => {});
   return L.maplibreGL({ style: styleFn(), attribution: '© OpenStreetMap · OpenFreeMap · Esri' });
 }
-function vecRestyle() {}
+function vecRestyle() { addOpenBuildings(); }
+const OPEN_BLD = 'https://data.source.coop/vida/google-microsoft-open-buildings/pmtiles/go_ms_building_footprints.pmtiles';
+let bldTry = 0;
+async function addOpenBuildings() {   // รูปอาคารจากชุดข้อมูลเปิดของ Google + Microsoft (เติมบ้านที่ OSM ยังไม่มี)
+  try {
+    const m = LAYERS.vec.l?.getMaplibreMap?.(); if (!m) { if (bldTry++ < 20) setTimeout(addOpenBuildings, 300); return; }
+    if (!window.pmtiles) await loadScript('lib/pmtiles.js?v=61');
+    if (!window._pmProto) { window._pmProto = new pmtiles.Protocol(); maplibregl.addProtocol('pmtiles', _pmProto.tile); }
+    const go = async () => {
+      if (m.getSource('gb')) return;
+      const meta = await new pmtiles.PMTiles(OPEN_BLD).getMetadata(), sl = meta?.vector_layers?.[0]?.id; if (!sl || m.getSource('gb')) return;
+      m.addSource('gb', { type: 'vector', url: 'pmtiles://' + OPEN_BLD, attribution: 'อาคาร: Google Open Buildings · Microsoft' });
+      m.addLayer({ id: 'gbld', type: 'fill', source: 'gb', 'source-layer': sl, minzoom: 14, paint: { 'fill-color': VEC_PAL.light.bld, 'fill-outline-color': VEC_PAL.light.bldo } }, m.getLayer('bld') ? 'bld' : undefined);
+    };
+    m.isStyleLoaded() ? go() : m.once('load', go);
+  } catch (e) { console.warn('open buildings', e); }
+}
 let layerSeq = 0;
 async function setLayer(k) {
   const seq = ++layerSeq, o = LAYERS[k];
