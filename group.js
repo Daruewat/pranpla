@@ -92,12 +92,13 @@ const GRP = (() => {
     tomb[kind + ':' + id] = Date.now(); ls.set('grpDeleted', tomb);
     if (!st.ready) return;
     const remote = st[kind].find(x => x.id === id);
-    if (remote && remote.uid === st.uid) { await clearReactions(id); await col(kind).doc(id).delete().catch(() => {}); }
+    if (!remote || remote.uid === st.uid) { if (remote) await clearReactions(id).catch(() => {}); await col(kind).doc(id).delete().catch(e => console.warn('ลบไม่สำเร็จ จะลองใหม่ตอนเปิดแอป', e)); }
     delete pushed[kind + ':' + id]; ls.set('grpPushed', pushed);
   }
   async function syncAll(kind) {      // ส่งของในเครื่องที่ยังไม่ขึ้น และดึงของเราจากเซิร์ฟเวอร์ที่เครื่องนี้ไม่มี (เช่น เปลี่ยนเครื่อง/ล้างเบราว์เซอร์)
     if (!st.ready) return;
     const local = kind === 'pins' ? S.spots : S.catches, ids = new Set(local.map(x => x.id));
+    st[kind].filter(r => r.uid === st.uid && tomb[kind + ':' + r.id] && !ids.has(r.id)).forEach(r => drop(kind, r.id));   // ลบค้าง: เคยลบในเครื่องแต่บนเซิร์ฟเวอร์ยังอยู่ (ตอนลบเน็ตหลุด/ยังไม่ล็อกอิน) ลบให้ใหม่
     const back = st[kind].filter(r => r.uid === st.uid && !ids.has(r.id) && !tomb[kind + ':' + r.id]);
     if (back.length) {
       back.forEach(r => { const { uid, by, av, updated, ...x } = r; if (kind === 'pins') S.spots.push(x); else { if (x.spot && !S.spots.some(s => s.name === x.spot)) x.note = [x.note, 'จุด: ' + x.spot].filter(Boolean).join(' · '); delete x.spot; S.catches.push(x); } });
@@ -213,9 +214,10 @@ const GRP = (() => {
     ${c.photo ? `<img class="photo-prev" src="${c.photo}">` : ''}
     <div class="kv">${c.len ? `<span>ยาว</span><b>${c.len} ซม.</b>` : ''}${c.wt ? `<span>หนัก</span><b>${c.wt} กก.</b>` : ''}${c.bait ? `<span>เหยื่อ</span><b>${esc(c.bait)}</b>` : ''}
       ${c.spot ? `<span>จุด</span><b>${esc(c.spot)}</b>` : ''}${c.lat != null ? `<span>พิกัด</span><b class="mono">${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}</b>` : ''}${c.note ? `<span>โน้ต</span><b>${esc(c.note)}</b>` : ''}</div>
-    <div class="row"><button class="btn ghost" id="fcCm">ความคิดเห็น ${st.comments.filter(x => x.post === c.id).length || ''}</button>${c.lat != null ? `<button class="btn acc" id="fcMap">🗺️ ดูบนแผนที่</button><button class="btn ghost" id="fcNav">🧭 นำทางไปจุดนี้</button>` : ''}${st.admin ? '<button class="btn danger" id="fcDel">ลบ (แอดมิน)</button>' : ''}</div>`);
+    <div class="row"><button class="btn ghost" id="fcCm">ความคิดเห็น ${st.comments.filter(x => x.post === c.id).length || ''}</button>${c.lat != null ? `<button class="btn acc" id="fcMap">🗺️ ดูบนแผนที่</button><button class="btn ghost" id="fcNav">🧭 นำทางไปจุดนี้</button>` : ''}${c.uid === st.uid ? '<button class="btn danger" id="fcDel">ลบโพสต์นี้</button>' : st.admin ? '<button class="btn danger" id="fcDel">ลบ (แอดมิน)</button>' : ''}</div>`);
     $('#fcCm').onclick = () => openComments(c.id);
-    if (st.admin) armBtn($('#fcDel'), 'แตะอีกครั้งเพื่อลบ', () => { adminDel('catches', c.id); closeSheet(); });
+    if (c.uid === st.uid) armBtn($('#fcDel'), 'แตะอีกครั้งเพื่อลบ', () => { S.catches = S.catches.filter(x => x.id !== c.id); save('catches'); renderLog(); drop('catches', c.id).then(() => toast('ลบแล้ว')); closeSheet(); });
+    else if (st.admin) armBtn($('#fcDel'), 'แตะอีกครั้งเพื่อลบ', () => { adminDel('catches', c.id); closeSheet(); });
     if (c.lat != null) {
       $('#fcMap').onclick = () => { closeSheet(); showTab('map'); S.follow = false; map.setView([c.lat, c.lng], 15); };
       $('#fcNav').onclick = () => { setTarget({ lat: c.lat, lng: c.lng, name: c.species + ' ของ ' + c.by }); closeSheet(); showTab('tools'); };
