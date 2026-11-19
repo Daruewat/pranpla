@@ -2463,3 +2463,10 @@ a.btn,a.btn:visited{text-decoration:none}
 .set-h{font-size:15px;margin:14px 0 8px}
 #setBox .foot{margin-top:14px}
 #bkLine{line-height:1.6;margin-bottom:10px}
+/* ---- กรองแผนที่ ---- */
+.menu-item .chev{margin-left:auto;font-size:22px;color:var(--tx3);padding-left:8px}
+.kmchips{display:flex;flex-wrap:wrap;gap:10px}
+.kmchips button{border:0;border-radius:999px;padding:10px 18px;background:var(--card2);color:var(--tx2);font:inherit;font-size:15px;cursor:pointer;min-height:44px}
+.kmchips button.sel{background:var(--sig);color:#03151a;font-weight:600}
+.flt-act{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:22px}
+.flt-act .btn{margin:0;justify-content:center;padding:14px}

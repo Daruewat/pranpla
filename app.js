@@ -93,9 +93,9 @@ const LAYERS = {
 const loadScript = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
 const curTheme = () => document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
 async function makeVec(styleFn) {   // โหลดตัววาดแผนที่เวกเตอร์เฉพาะตอนเลือกใช้
-  if (!window.maplibregl) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'lib/maplibre-gl.css'; document.head.appendChild(l); await loadScript('lib/maplibre-gl.js'); await loadScript('lib/leaflet-maplibre-gl.js'); await loadScript('vecstyle.js?v=78'); }
-  try { if (!window.pmtiles) await loadScript('lib/pmtiles.js?v=78'); if (!window._pmProto) { window._pmProto = new pmtiles.Protocol(); maplibregl.addProtocol('pmtiles', _pmProto.tile); } } catch {}   // รูปอาคาร Google+Microsoft
-  try { if (!window.mlcontour) await loadScript('lib/mlcontour.js?v=78'); if (!window._dem) { window._dem = new mlcontour.DemSource({ url: 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png', encoding: 'terrarium', maxzoom: 12, worker: true, cacheSize: 100 }); _dem.setupMaplibre(maplibregl); } } catch {}   // เส้นชั้นความสูง
+  if (!window.maplibregl) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'lib/maplibre-gl.css'; document.head.appendChild(l); await loadScript('lib/maplibre-gl.js'); await loadScript('lib/leaflet-maplibre-gl.js'); await loadScript('vecstyle.js?v=79'); }
+  try { if (!window.pmtiles) await loadScript('lib/pmtiles.js?v=79'); if (!window._pmProto) { window._pmProto = new pmtiles.Protocol(); maplibregl.addProtocol('pmtiles', _pmProto.tile); } } catch {}   // รูปอาคาร Google+Microsoft
+  try { if (!window.mlcontour) await loadScript('lib/mlcontour.js?v=79'); if (!window._dem) { window._dem = new mlcontour.DemSource({ url: 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png', encoding: 'terrarium', maxzoom: 12, worker: true, cacheSize: 100 }); _dem.setupMaplibre(maplibregl); } } catch {}   // เส้นชั้นความสูง
   if (!maplibregl.supported?.() && !document.createElement('canvas').getContext('webgl')) throw new Error('no webgl');
   fetch('https://tiles.openfreemap.org/planet').then(r => r.json()).then(j => { if (j.tiles?.[0]) { LAYERS.vec.urls = [j.tiles[0]]; LAYERS.hyb.urls = [LAYERS.hyb.urls[0], j.tiles[0]]; LAYERS.topo.urls = [LAYERS.topo.urls[0], j.tiles[0]]; } }).catch(() => {});
   return L.maplibreGL({ style: styleFn(), attribution: '© OpenStreetMap · OpenFreeMap · Esri' });
@@ -129,13 +129,15 @@ function spotIcon(type, cls = '') {
   const t = SPOT_TYPES[type] || SPOT_TYPES.other;
   return L.divIcon({ className: '', html: `<div class="mk${cls}" style="background:${t.color}"><span>${t.icon}</span></div>`, iconSize: [34, 34], iconAnchor: [17, 34] });
 }
-const OPT = Object.assign({ types: null, catches: false, cross: false, heat: false, water: true, friends: true }, ls.get('mapopt', {}));
+const OPT = Object.assign({ types: null, catches: false, cross: false, heat: false, water: true, friends: true, mine: true, maxKm: 0 }, ls.get('mapopt', {}));
+let rangeAt = null;   // ตำแหน่งที่ใช้กรองระยะครั้งล่าสุด
+const inRange = p => !OPT.maxKm || !S.pos || dist(S.pos, p) <= OPT.maxKm * 1000;   // กรองระยะรอบตัว (ยังไม่มี GPS = แสดงทั้งหมด)
 const saveOpt = () => ls.set('mapopt', OPT);
 const gCatch = L.layerGroup().addTo(map), gHeat = L.layerGroup().addTo(map);
 function renderSpots() {
   gSpots.clearLayers(); gCatch.clearLayers(); gHeat.clearLayers();
-  S.spots.filter(s => !(MV && MV.s.id === s.id)).filter(s => !OPT.types || OPT.types.includes(s.type === 'hot' ? 'fish' : s.type)).forEach(s => L.marker([s.lat, s.lng], { icon: spotIcon(s.type, window.HOT ? HOT.markClass(s) : '') }).on('click', () => spotSheet(s.id)).addTo(gSpots));
-  const C = S.catches.filter(c => c.lat != null);
+  S.spots.filter(s => OPT.mine !== false && !(MV && MV.s.id === s.id) && inRange(s)).filter(s => !OPT.types || OPT.types.includes(s.type === 'hot' ? 'fish' : s.type)).forEach(s => L.marker([s.lat, s.lng], { icon: spotIcon(s.type, window.HOT ? HOT.markClass(s) : '') }).on('click', () => spotSheet(s.id)).addTo(gSpots));
+  const C = S.catches.filter(c => c.lat != null && inRange(c));
   if (OPT.catches) C.forEach(c => L.marker([c.lat + (Math.random() - .5) * 8e-5, c.lng + (Math.random() - .5) * 8e-5], { icon: L.divIcon({ className: '', html: '<div class="cmk">🐟</div>', iconSize: [26, 26], iconAnchor: [13, 13] }) }).on('click', () => catchSheet(c.id)).addTo(gCatch));
   if (OPT.heat) C.forEach(c => L.marker([c.lat, c.lng], { interactive: false, zIndexOffset: -1000, icon: L.divIcon({ className: '', html: '<div class="heat"></div>', iconSize: [110, 110], iconAnchor: [55, 55] }) }).addTo(gHeat));
   if (OPT.water) { if (!map.hasLayer(gWater)) gWater.addTo(map); } else map.removeLayer(gWater);
@@ -170,6 +172,7 @@ function updateMe() {
 function onPos(p) {
   S.pos = { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy, alt: p.coords.altitude, spd: p.coords.speed, t: p.timestamp };
   updateCoordBar();
+  if (OPT.maxKm && (!rangeAt || dist(rangeAt, S.pos) > 300)) { rangeAt = { lat: S.pos.lat, lng: S.pos.lng }; renderSpots(); }   // เดินไกลขึ้น อัปเดตหมุดในระยะ
   if (!S.firstFix) {
     S.firstFix = true;
     if (!S.noCenter) { map.setView([S.pos.lat, S.pos.lng], Math.max(map.getZoom(), 14)); $('#btnLocate').classList.add('follow'); }
@@ -201,6 +204,46 @@ const MT_THUMB = {   // ภาพตัวอย่างประเภทแ�
   topo: `<svg viewBox="0 0 80 80"><rect width="80" height="80" fill="#e2f4e8"/><path d="M14 0c10 14 4 26 18 34s20 22 14 46H80V0z" fill="#8fae9a" opacity=".55"/><path d="M40 0c6 12 2 20 12 28s14 18 10 52h18V0z" fill="#557a64" opacity=".5"/><g fill="none" stroke="#5d7a68" stroke-opacity=".5" stroke-width="1"><path d="M22 0c8 14 4 24 16 32s16 24 12 48"/><path d="M50 0c4 10 2 18 10 26s10 22 8 54"/></g><path d="M0 62C18 58 30 48 46 50s22-6 34-10" stroke="#86c1e8" stroke-width="2" fill="none"/><path d="M-2 30C20 34 36 46 82 70" stroke="#fff" stroke-width="4" fill="none"/><path d="M-2 30C20 34 36 46 82 70" stroke="#cfd6d2" stroke-width="1" fill="none"/></svg>`
 };
 const MT_ORDER = ['vec', 'hyb', 'topo'];
+const visTypes = () => Object.entries(SPOT_TYPES).filter(([, t]) => !t.hidden);
+function fltSummary() {
+  const p = [];
+  if (OPT.types) p.push(`หมุด ${OPT.types.length}/${visTypes().length} แบบ`);
+  if (OPT.mine === false) p.push('ซ่อนหมุดของฉัน');
+  if (OPT.friends === false) p.push('ซ่อนหมุดคนอื่น');
+  if (OPT.catches) p.push('โชว์ปลาที่จับได้');
+  if (OPT.maxKm) p.push(`ในระยะ ${OPT.maxKm} กม.`);
+  return p.length ? p.join(' · ') : 'แสดงทุกอย่าง ไม่จำกัดระยะ';
+}
+function filterSheet() {   // กรองแผนที่: เลือกแล้วกด "ใช้" ถึงจะมีผล
+  const D = { types: OPT.types ? [...OPT.types] : visTypes().map(([k]) => k), mine: OPT.mine !== false, friends: OPT.friends !== false, catches: !!OPT.catches, maxKm: OPT.maxKm || 0 };
+  const sw = (k, ico, title, sub, on) => `<label class="optrow"><span class="oi">${ico}</span><span class="ot"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</span><input type="checkbox" class="switch" data-f="${k}" ${on ? 'checked' : ''}></label>`;
+  const KM = [5, 10, 25, 50, 100, 0];
+  openSheet(`<h3 class="mt-h1" style="margin-bottom:4px">กรองแผนที่</h3><div class="sub">แสดงเฉพาะสิ่งที่อยากเห็น</div>
+  <h3 class="mt-h2" style="margin-top:18px">ประเภทหมุด</h3>
+  <div class="mt-dets-list">${visTypes().map(([k, t]) => sw('t:' + k, t.icon, t.label, '', D.types.includes(k))).join('')}</div>
+  <h3 class="mt-h2" style="margin-top:18px">ของใคร</h3>
+  <div class="mt-dets-list">
+    ${sw('mine', '📍', 'หมุดของฉัน', '', D.mine)}
+    ${grp('joined') ? sw('friends', '👥', 'หมุดของคนอื่น', 'หมุดที่เพื่อนในชุมชนแชร์', D.friends) : ''}
+    ${sw('catches', '🐟', 'ปลาที่ฉันจับได้', 'จุดที่บันทึกว่าจับปลาได้', D.catches)}
+  </div>
+  <h3 class="mt-h2" style="margin-top:18px">ระยะทางสูงสุด</h3>
+  <div class="sub" style="margin:-6px 0 10px">แสดงเฉพาะหมุดรอบตำแหน่งของคุณ${S.pos ? '' : ' (ต้องเปิด GPS ก่อน ไม่งั้นแสดงทั้งหมด)'}</div>
+  <div class="kmchips">${KM.map(k => `<button type="button" data-km="${k}" class="${k === D.maxKm ? 'sel' : ''}">${k ? k + ' กม.' : 'ไม่จำกัด'}</button>`).join('')}</div>
+  <div class="row flt-act"><button class="btn ghost" id="fltReset">รีเซ็ต</button><button class="btn acc" id="fltApply">ใช้</button></div>`);
+  $$('#sheet [data-f]').forEach(x => x.onchange = () => {
+    const k = x.dataset.f;
+    if (k.startsWith('t:')) { const t = k.slice(2); D.types = x.checked ? [...new Set([...D.types, t])] : D.types.filter(y => y !== t); }
+    else D[k] = x.checked;
+  });
+  $$('#sheet [data-km]').forEach(b => b.onclick = () => { D.maxKm = +b.dataset.km; $$('#sheet [data-km]').forEach(y => y.classList.toggle('sel', y === b)); });
+  $('#fltReset').onclick = () => { Object.assign(D, { types: visTypes().map(([k]) => k), mine: true, friends: true, catches: false, maxKm: 0 }); $$('#sheet [data-f]').forEach(x => x.checked = x.dataset.f === 'catches' ? false : true); $$('#sheet [data-km]').forEach(y => y.classList.toggle('sel', y.dataset.km === '0')); };
+  $('#fltApply').onclick = () => {
+    OPT.types = D.types.length === visTypes().length ? null : D.types; OPT.mine = D.mine; OPT.friends = D.friends; OPT.catches = D.catches; OPT.maxKm = D.maxKm; rangeAt = S.pos ? { lat: S.pos.lat, lng: S.pos.lng } : null;
+    saveOpt(); renderSpots(); closeSheet(); toast(fltSummary() === 'แสดงทุกอย่าง ไม่จำกัดระยะ' ? 'แสดงทุกอย่างแล้ว' : 'กรองแล้ว: ' + fltSummary());
+    if (OPT.maxKm && S.pos) map.fitBounds(L.latLng(S.pos.lat, S.pos.lng).toBounds(OPT.maxKm * 2000), { maxZoom: 15 });
+  };
+}
 function mapOptSheet() {
   const det = (k, ico, title, sub) => `<label class="optrow"><span class="oi">${ico}</span><span class="ot"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</span><input type="checkbox" class="switch" data-opt="${k}" ${OPT[k] ? 'checked' : ''}></label>`;
   const types = MT_ORDER.filter(k => LAYERS[k] && !LAYERS[k].hidden).concat(Object.keys(LAYERS).filter(k => !LAYERS[k].hidden && !MT_ORDER.includes(k)));
@@ -210,22 +253,16 @@ function mapOptSheet() {
   <h3 class="mt-h2">รายละเอียดแผนที่</h3>
   <div class="mt-dets-list">
     ${det('water', '💧', 'แหล่งน้ำ / ระดับน้ำ', 'หมุดอ่างเก็บน้ำ แตะดูระดับน้ำ')}
-    ${grp('joined') ? det('friends', '👥', 'หมุดของคนอื่น', 'หมุดที่เพื่อนในชุมชนแชร์') : ''}
-    ${det('catches', '🐟', 'ปลาที่ฉันจับได้', 'จุดที่บันทึกว่าจับปลาได้')}
     ${det('heat', '🔥', 'ฮีตแมปของฉัน', 'วงสีตรงที่จับปลาได้บ่อย')}
     ${det('cross', '🎯', 'เส้นเล็ง', 'กากบาทกลางจอ ไว้เล็งจุดปักหมุด')}
   </div>
   <hr class="mt-hr">
-  <h3 class="mt-h2">กรองหมุด</h3>
-  <div class="types" id="optTypes">${Object.entries(SPOT_TYPES).filter(([, t]) => !t.hidden).map(([k, t]) => `<button type="button" data-type="${k}" class="${!OPT.types || OPT.types.includes(k) ? 'sel' : ''}">${t.icon} ${t.label}</button>`).join('')}</div>
+  <button class="menu-item" id="fltOpen"><span class="mi">🎚️</span><span><b>กรองแผนที่</b><span class="sub" id="fltSum">${fltSummary()}</span></span><span class="chev">›</span></button>
   <button class="menu-item" id="offOpen" style="margin-top:12px"><span class="mi">⬇️</span><span><b>เตรียมออฟไลน์สำหรับบริเวณนี้</b><span class="sub">แผนที่ แหล่งน้ำ พยากรณ์</span></span></button>`);
   $('#sheet').classList.add('mt-sheet');
   $('#offOpen').onclick = offlineSheet;
   $$('#sheet [data-layer]').forEach(b => b.onclick = () => { setLayer(b.dataset.layer); $$('#sheet [data-layer]').forEach(x => x.classList.toggle('sel', x === b)); });
-  $$('#optTypes button').forEach(b => b.onclick = () => {
-    b.classList.toggle('sel'); const on = $$('#optTypes button.sel').map(x => x.dataset.type);
-    OPT.types = on.length === Object.values(SPOT_TYPES).filter(t => !t.hidden).length ? null : on; saveOpt(); renderSpots();
-  });
+  $('#fltOpen').onclick = filterSheet;
   $$('#sheet [data-opt]').forEach(x => x.onchange = () => {
     const k = x.dataset.opt; OPT[k] = x.checked;
     saveOpt(); renderSpots(); updateCoordBar();

@@ -175,7 +175,7 @@ const GRP = (() => {
   function renderMap() {
     layer.clearLayers();
     if (OPT.friends === false) return;
-    friendPins().filter(p => !OPT.types || OPT.types.includes(p.type === 'hot' ? 'fish' : p.type)).forEach(p => {
+    friendPins().filter(p => inRange(p) && (!OPT.types || OPT.types.includes(p.type === 'hot' ? 'fish' : p.type))).forEach(p => {
       const t = SPOT_TYPES[p.type] || SPOT_TYPES.other;
       L.marker([p.lat, p.lng], { icon: L.divIcon({ className: '', html: `<div class="mk friend${window.HOT ? HOT.markClass(p) : ''}" style="background:${t.color}"><span>${t.icon}</span><em>${esc(initial(p.by))}</em></div>`, iconSize: [34, 34], iconAnchor: [17, 34] }) }).on('click', () => pinSheet(p.id)).addTo(layer);
     });
