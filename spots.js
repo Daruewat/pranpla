@@ -6,6 +6,8 @@ const HOT = (() => {
   const WALK = ['ติดถนน', 'เดิน < 100 ม.', 'เดิน 100–500 ม.', 'เดินไกล > 500 ม.'];
   const BAITS = ['กบยาง', 'เหยื่อผิวน้ำ', 'สปินเนอร์เบท', 'ปลาเป็น', 'กบเป็น', 'หนอนยาง', 'ใบหลิว'];
   const NEAR = 150, DAY = 864e5;
+  const FISHING = ['fish', 'hot'];   // เฉพาะหมุดตกปลา (ไม่รวมที่จอดรถ อันตราย ร้านค้า ฯลฯ)
+  const isFishing = s => FISHING.includes(s.type || 'fish');
   const isChon = c => /ช่อน/.test(c.species || '');
   const agoTxt = t => { const m = Math.round((Date.now() - t) / 6e4); return m < 60 ? `${Math.max(m, 1)} นาทีก่อน` : m < 1440 ? `${Math.round(m / 60)} ชม.ก่อน` : `${Math.round(m / 1440)} วันก่อน`; };
   const st = () => grp('st') || {};
@@ -51,6 +53,7 @@ const HOT = (() => {
     return rows.length ? `<div class="kv">${rows.join('')}</div>` : '';
   }
   function panel(s) {
+    if (!isFishing(s)) return '';
     const x = stats(s), last = x.catches[0];
     return `<div class="hotp" id="hotPanel">
       <div class="hotp-top">${badge(x, true)}<span class="sub">${x.catches.length ? `ปลา ${x.catches.length} ตัวใน 60 วัน${x.chon ? ` (ช่อน ${x.chon})` : ''}` : 'ยังไม่มีใครบันทึกปลาที่หมายนี้'}</span></div>
@@ -61,6 +64,7 @@ const HOT = (() => {
       ${details(s)}</div>`;
   }
   function bindPanel(s, rerender) {
+    if (!isFishing(s)) return;
     $$('#hotPanel [data-vote]').forEach(b => b.onclick = async () => {
       const v = +b.dataset.vote, cur = stats(s).my;
       const r = await grp('vote', s.id, cur === v ? 0 : v);
@@ -75,13 +79,13 @@ const HOT = (() => {
   let sortBy = 'hot';
   function listSheet() {
     const me = S.pos || map.getCenter();
-    const items = allSpots().filter(s => s.lat != null).map(s => ({ s, x: stats(s), d: dist(me, s) })).filter(o => o.d < 80000);
+    const items = allSpots().filter(s => s.lat != null && isFishing(s)).map(s => ({ s, x: stats(s), d: dist(me, s) })).filter(o => o.d < 80000);
     items.sort(sortBy === 'hot' ? (a, b) => b.x.score - a.x.score || a.d - b.d : (a, b) => a.d - b.d);
     openSheet(`<h3>🔥 หมายเด็ด${S.pos ? 'ใกล้ฉัน' : 'แถวนี้'}</h3>
       <div class="seg" id="hotSort"><button data-s="hot" class="${sortBy === 'hot' ? 'sel' : ''}">เด็ดสุด</button><button data-s="near" class="${sortBy === 'near' ? 'sel' : ''}">ใกล้สุด</button></div>
       <div class="hotlist">${items.length ? items.slice(0, 40).map(({ s, x, d }) => { const t = SPOT_TYPES[s.type] || SPOT_TYPES.other, last = x.catches[0];
         return `<button class="hotrow" data-id="${s.id}" data-mine="${s.mine ? 1 : 0}"><span class="hotico l${x.lvl}">${t.icon}</span><span class="hotmain"><b>${esc(s.name || t.label)}</b><span class="sub">${fmtDist(d)}${s.mine ? '' : ` · ${esc(s.by || '')}`}${last ? ` · ${esc(last.species || 'ปลา')} ${agoTxt(last.t)}` : ''}${x.up || x.down ? ` · 🔥${x.up} 😴${x.down}` : ''}</span></span>${badge(x)}</button>`; }).join('')
-        : '<div class="empty small">ยังไม่มีหมายในรัศมี 80 กม. ปักหมุดหมายแรกได้จากปุ่ม ＋</div>'}</div>`);
+        : '<div class="empty small">ยังไม่มีหมุดตกปลาในรัศมี 80 กม. ปักหมุดหมายแรกได้จากปุ่ม ＋</div>'}</div>`);
     $$('#hotSort button').forEach(b => b.onclick = () => { sortBy = b.dataset.s; listSheet(); });
     $$('.hotlist .hotrow').forEach(b => b.onclick = () => {
       const s = allSpots().find(x => x.id === b.dataset.id); if (!s) return;
@@ -109,8 +113,8 @@ const HOT = (() => {
   }
 
   /* เครื่องหมายบนแผนที่ */
-  const markClass = s => { const l = stats(s).lvl; return l ? ` hot${l}` : ''; };
-  return { stats, panel, bindPanel, refreshPanel, listSheet, formHtml, bindForm, markClass, details, badge, HAB };
+  const markClass = s => { if (!isFishing(s)) return ''; const l = stats(s).lvl; return l ? ` hot${l}` : ''; };
+  return { isFishing, stats, panel, bindPanel, refreshPanel, listSheet, formHtml, bindForm, markClass, details, badge, HAB };
 })();
 window.HOT = HOT;
 renderSpots();
