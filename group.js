@@ -344,13 +344,13 @@ const GRP = (() => {
   }
   function avSheet() {
     openSheet(`<h3>รูปโปรไฟล์</h3><div class="avpick">${avatar(myAv(), st.me, 'av big')}</div>
-      <div class="row" style="flex-direction:column;align-items:stretch"><label class="btn">เลือกรูปจากเครื่อง<input type="file" id="avFile" accept="image/*" hidden></label>
+      <div class="row" style="flex-direction:column;align-items:stretch"><label class="btn">เลือกรูปจากเครื่อง<input type="file" id="avFile" accept="image/*,.heic,.heif" hidden></label>
       ${ls.get('myAv', '') && st.user?.photoURL ? '<button class="btn ghost" id="avG">ใช้รูปจากบัญชี Google</button>' : ''}</div><div class="sub" style="margin-top:8px">ทุกคนในชุมชนจะเห็นรูปนี้ข้างชื่อคุณ</div>`);
     $('#avFile').onchange = async e => { const f = e.target.files[0]; if (!f) return; const url = await squareThumb(f, 256); if (!url) return toast('เปิดรูปนี้ไม่ได้'); setAv(url); };
     if ($('#avG')) $('#avG').onclick = () => setAv('');
   }
-  function squareThumb(file, size) {   // ตัดกลางรูปเป็นสี่เหลี่ยมจัตุรัส ย่อเหลือ 256px
-    return new Promise(res => { const u = URL.createObjectURL(file), im = new Image(); im.onload = () => { const m = Math.min(im.width, im.height), c = document.createElement('canvas'); c.width = c.height = size; c.getContext('2d').drawImage(im, (im.width - m) / 2, (im.height - m) / 2, m, m, 0, 0, size, size); URL.revokeObjectURL(u); res(c.toDataURL('image/jpeg', .8)); }; im.onerror = () => res(null); im.src = u; });
+  async function squareThumb(file, size) {   // ตัดกลางรูปเป็นสี่เหลี่ยมจัตุรัส ย่อเหลือ 256px (รองรับรูป HEIF)
+    try { const im = await window.decodeImage(file), m = Math.min(im.width, im.height), c = document.createElement('canvas'); c.width = c.height = size; c.getContext('2d').drawImage(im, (im.width - m) / 2, (im.height - m) / 2, m, m, 0, 0, size, size); return c.toDataURL('image/jpeg', .8); } catch { return null; }
   }
   async function setAv(url) {
     ls.set('myAv', url); closeSheet(); render();

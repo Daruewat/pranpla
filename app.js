@@ -327,13 +327,14 @@ $('#targetClear').onclick = () => setTarget(null);
 /* ============ sheets ============ */
 let sheetHist = false, backPending = false;   // backPending: สั่งย้อนประวัติไปแล้วแต่ยังไม่เสร็จ (ปิดแผ่นหนึ่งแล้วเปิดอีกแผ่นทันที)
 function openSheet(html) {
+  const sh = $('#sheet'); sh.oninput = sh.onchange = null; delete sh.dataset.form;
   $('#sheet').innerHTML = '<div class="grab"></div><button class="sheet-x" data-act="close" aria-label="ปิด">✕</button>' + html;
   $('#sheet').classList.add('open'); $('#sheetBg').classList.remove('hidden'); $('#sheet').scrollTop = 0;
   if (!sheetHist && !backPending) { try { history.pushState({ sheet: 1 }, ''); sheetHist = true; } catch {} }   // ให้ปุ่มย้อนกลับของมือถือปิดหน้าต่างนี้
 }
 function hideSheet() { $('#sheet').classList.remove('open'); $('#sheetBg').classList.add('hidden'); $('#crosshair').classList.toggle('hidden', !OPT.cross); }
 function sheetRepush() { if ($('#sheet').classList.contains('open') && !sheetHist) { try { history.pushState({ sheet: 1 }, ''); sheetHist = true; } catch {} } }
-function closeSheet() { hideSheet(); if (sheetHist) { sheetHist = false; backPending = true; try { history.back(); } catch {} setTimeout(() => { if (backPending) { backPending = false; sheetRepush(); } }, 600); } }
+function closeSheet() { const dr = ls.get('draft', null); if (dr?.open) ls.set('draft', { ...dr, open: false }); hideSheet(); if (sheetHist) { sheetHist = false; backPending = true; try { history.back(); } catch {} setTimeout(() => { if (backPending) { backPending = false; sheetRepush(); } }, 600); } }
 window.addEventListener('popstate', () => {
   if (backPending) { backPending = false; sheetRepush(); return; }   // เป็นการย้อนที่เราสั่งเอง: ถ้าเปิดแผ่นใหม่ไปแล้ว ให้แผ่นใหม่ปิดด้วยปุ่มย้อนกลับได้ต่อ
   if (sheetHist) { sheetHist = false; hideSheet(); }
@@ -341,25 +342,46 @@ window.addEventListener('popstate', () => {
 // ลากแถบบนลงเพื่อปิด
 { let y0 = null; const sh = $('#sheet');
   sh.addEventListener('touchstart', e => { y0 = sh.scrollTop <= 0 && e.touches[0].clientY - sh.getBoundingClientRect().top < 70 ? e.touches[0].clientY : null; }, { passive: true });
-  sh.addEventListener('touchend', e => { if (y0 != null && e.changedTouches[0].clientY - y0 > 70) closeSheet(); y0 = null; }, { passive: true }); }
-$('#sheetBg').onclick = closeSheet;
-function compressImage(file, max = 1100, q = .72) {
-  return new Promise((res, rej) => {
-    const img = new Image();
-    img.onload = () => {
-      const s = Math.min(1, max / Math.max(img.width, img.height)), c = document.createElement('canvas');
-      c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
-      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(img.src);
-      res(c.toDataURL('image/jpeg', q));
-    };
-    img.onerror = rej; img.src = URL.createObjectURL(file);
-  });
+  sh.addEventListener('touchend', e => { if (y0 != null && !sh.dataset.form && e.changedTouches[0].clientY - y0 > 70) closeSheet(); y0 = null; }, { passive: true }); }
+$('#sheetBg').onclick = () => { if (!$('#sheet').dataset.form) closeSheet(); };   // ฟอร์มกรอกข้อมูล: ปิดได้เฉพาะปุ่ม ✕ กันเผลอแตะแล้วหาย
+const isHeif = f => /hei[cf]/i.test(f.type || '') || /\.(heic|heif)$/i.test(f.name || '');
+function loadImg(blob) { return new Promise((res, rej) => { const img = new Image(), u = URL.createObjectURL(blob); img.onload = () => { URL.revokeObjectURL(u); res(img); }; img.onerror = () => { URL.revokeObjectURL(u); rej(new Error('decode')); }; img.src = u; }); }
+async function decodeImage(file) {   // รูปทั่วไปเปิดตรงๆ ได้ · รูป HEIF/HEIC (กล้อง Samsung/iPhone) แปลงเป็น JPEG ในเครื่องก่อน
+  if (!isHeif(file)) try { return await loadImg(file); } catch {}
+  try { return await loadImg(file); } catch {}
+  toast('กำลังแปลงรูป HEIF… รอสักครู่', 6000);
+  if (!window.HeicTo) await loadScript('lib/heic/heic-to.js');
+  const jpg = await window.HeicTo({ blob: file, type: 'image/jpeg', quality: .92 });
+  return loadImg(jpg);
 }
+window.decodeImage = decodeImage;
+async function compressImage(file, max = 1100, q = .72) {
+  const img = await decodeImage(file);
+  const s = Math.min(1, max / Math.max(img.width, img.height)), c = document.createElement('canvas');
+  c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', q);
+}
+/* ร่างฟอร์ม: เก็บสิ่งที่พิมพ์ไว้ทุกครั้งที่แก้ ถ้าฟอร์มปิดไปหรือแอปโหลดใหม่ (เช่น ตอนไปเลือกรูปแล้วมือถือปิดแอปทิ้ง) จะกู้กลับมาให้ */
+function draftBind(r, key, holder, init) {
+  const sh = $('#sheet'), dr = ls.get('draft', null);
+  if (dr && dr.key === key && Date.now() - dr.t < 864e5) {
+    let any = false;
+    for (const [k, v] of Object.entries(dr.vals || {})) { const el = $(`[name="${k}"]`, r); if (!el || el.type === 'file') continue; if (el.type === 'checkbox') el.checked = v; else { if (v && v !== el.value) any = true; el.value = v; } }
+    if (dr.type && holder.type !== undefined) { holder.type = dr.type; $$('.types button', r).forEach(b => b.classList.toggle('sel', b.dataset.type === dr.type)); }
+    if (dr.photo) { holder.photo = dr.photo; const pv = $('.photo-prev', r); if (pv) { pv.src = dr.photo; pv.classList.remove('hidden'); } any = true; }
+    if (any) toast('กู้ข้อมูลที่กรอกค้างไว้ให้แล้ว');
+  }
+  sh.dataset.form = key;
+  const save = () => { const vals = {}; $$('[name]', r).forEach(el => { if (el.type !== 'file' && el.name) vals[el.name] = el.type === 'checkbox' ? el.checked : el.value; }); ls.set('draft', { key, init, vals, type: holder.type, photo: holder.photo || null, t: Date.now(), open: true }); };
+  sh.oninput = sh.onchange = save; holder._draft = save; save();
+}
+const draftClear = () => ls.set('draft', null);
 function bindPhoto(root, holder) {
   $('[name=photo]', root).onchange = async e => {
     const f = e.target.files[0]; if (!f) return;
-    try { holder.photo = await compressImage(f); $('.photo-prev', root).src = holder.photo; $('.photo-prev', root).classList.remove('hidden'); }
-    catch { toast('อ่านรูปไม่ได้'); }
+    try { holder.photo = await compressImage(f); $('.photo-prev', root).src = holder.photo; $('.photo-prev', root).classList.remove('hidden'); holder._draft?.(); }
+    catch { toast('อ่านรูปนี้ไม่ได้ ลองเลือกรูปอื่น หรือถ่ายรูปใหม่', 4500); }
   };
 }
 
@@ -401,21 +423,21 @@ function spotForm(init) {
     <div><label>เวลาเปิด–ปิด</label><input name="hours" value="${esc(d.hours)}" placeholder="06:00–18:00"></div></div>
     <label>กฎ / ข้อห้าม</label><input name="rules" value="${esc(d.rules)}" placeholder="ห้ามเหยื่อสด, ปล่อยปลาเล็ก, ขออนุญาตเจ้าของ">
     <label>เบอร์ติดต่อ</label><input name="tel" type="tel" value="${esc(d.tel)}" placeholder="เจ้าของบ่อ / ผู้ดูแล">
-    <label>รูป</label><input name="photo" type="file" accept="image/*">
+    <label>รูป</label><input name="photo" type="file" accept="image/*,.heic,.heif">
     <img class="photo-prev ${d.photo ? '' : 'hidden'}" src="${d.photo || ''}">
     <label class="privrow"><input name="priv" type="checkbox" ${d.private ? 'checked' : ''}> 🔒 ส่วนตัว — ไม่ให้คนอื่นเห็น</label>
     <div class="row"><button class="btn block acc" id="spSave">บันทึกหมุด</button></div>
   </div>`);
   const r = $('#sheet');
   $$('.types button', r).forEach(b => b.onclick = () => { d.type = b.dataset.type; $$('.types button', r).forEach(x => x.classList.toggle('sel', x === b)); });
-  bindPhoto(r, d);
+  bindPhoto(r, d); draftBind(r, 'spot:' + (ex ? d.id : 'new'), d, ex ? { id: d.id } : { lat: d.lat, lng: d.lng });
   $('#spSave').onclick = () => {
     d.name = $('[name=name]', r).value.trim() || SPOT_TYPES[d.type].label;
     ['fish', 'note', 'fee', 'hours', 'rules', 'tel'].forEach(k => d[k] = $(`[name=${k}]`, r).value.trim());
     if ($('[name=priv]', r)) d.private = $('[name=priv]', r).checked;
     const i = S.spots.findIndex(s => s.id === d.id);
     if (i >= 0) S.spots[i] = d; else S.spots.push(d);
-    save('spots'); renderSpots(); renderLog(); closeSheet(); toast('บันทึกหมุดแล้ว'); grp('pushSpot', d);
+    draftClear(); save('spots'); renderSpots(); renderLog(); closeSheet(); toast('บันทึกหมุดแล้ว'); grp('pushSpot', d);
   };
 }
 const svUrl = p => `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${(+p.lat).toFixed(6)},${(+p.lng).toFixed(6)}`;
@@ -474,14 +496,14 @@ function catchForm(init = {}) {
     <label>เหยื่อ / วิธีตก</label><input name="bait" placeholder="กบยาง, ไส้เดือน, ตกทุ่น…" value="${esc(d.bait)}">
     <label>จุดที่ได้</label><select name="spot"><option value="">ตำแหน่งปัจจุบัน (GPS)</option>${S.spots.map(s => `<option value="${s.id}" ${s.id === d.spotId ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select>
     <label>เวลา</label><input name="t" type="datetime-local" value="${now}">
-    <label>รูปปลา</label><input name="photo" type="file" accept="image/*">
+    <label>รูปปลา</label><input name="photo" type="file" accept="image/*,.heic,.heif">
     <img class="photo-prev ${d.photo ? '' : 'hidden'}" src="${d.photo || ''}">
     <label>โน้ต</label><textarea name="note">${esc(d.note)}</textarea>
     <label style="display:flex;gap:8px;align-items:center;color:var(--tx)"><input name="rel" type="checkbox" style="width:auto" ${d.released ? 'checked' : ''}> ปล่อยคืนน้ำ</label>
     <label class="privrow"><input name="priv" type="checkbox" ${d.private ? 'checked' : ''}> 🔒 ส่วนตัว — ไม่ให้คนอื่นเห็น</label>
     <div class="row"><button class="btn block acc" id="ctSave">บันทึก</button></div>
   </div>`);
-  const r = $('#sheet'); bindPhoto(r, d);
+  const r = $('#sheet'); bindPhoto(r, d); draftBind(r, 'catch:' + (editing ? d.id : 'new'), d, editing ? { id: d.id } : { lat: d.lat, lng: d.lng, spotId: d.spotId });
   $('#ctSave').onclick = () => {
     const v = n => $(`[name=${n}]`, r).value.trim();
     d.species = v('species') || 'ไม่ระบุชนิด'; d.len = parseFloat(v('len')) || null; d.wt = parseFloat(v('wt')) || null;
@@ -490,7 +512,7 @@ function catchForm(init = {}) {
     d.t = v('t') ? new Date(v('t')).getTime() : Date.now();
     const sp = S.spots.find(s => s.id === d.spotId);
     if (sp) { d.lat = sp.lat; d.lng = sp.lng; } else if (S.pos && !editing) { d.lat = S.pos.lat; d.lng = S.pos.lng; }
-    if (editing) { const i = S.catches.findIndex(x => x.id === d.id); if (i >= 0) S.catches[i] = d; S.catches.sort((x, y) => y.t - x.t); save('catches'); renderLog(); closeSheet(); toast('แก้ไขแล้ว'); grp('pushCatch', d); return; }
+    draftClear(); if (editing) { const i = S.catches.findIndex(x => x.id === d.id); if (i >= 0) S.catches[i] = d; S.catches.sort((x, y) => y.t - x.t); save('catches'); renderLog(); closeSheet(); toast('แก้ไขแล้ว'); grp('pushCatch', d); return; }
     if (Math.abs(Date.now() - d.t) < 2 * 36e5 && S.fcLoc && (d.lat == null || dist(S.fcLoc, d) < 25000)) d.wx = wxSnap();
     d.moon = SunCalc.getMoonIllumination(new Date(d.t)).phase;
     S.catches.unshift(d); save('catches'); renderLog(); closeSheet(); toast('บันทึกปลาแล้ว 🎣'); grp('pushCatch', d);
@@ -1318,5 +1340,11 @@ $$('.tabbar [data-tab]').forEach(b => b.onclick = () => showTab(b.dataset.tab));
   setInterval(() => { if ($('#view-tools').classList.contains('show')) renderTools(); }, 30000);
   setInterval(() => { if (document.visibilityState !== 'visible' || !S.fcLoc) return; if (S.fcLoc.auto && S.pos) loadForecast({ lat: S.pos.lat, lng: S.pos.lng, name: 'ตำแหน่งของฉัน', auto: true }); else loadForecast(); }, 20 * 6e4);
   navigator.storage?.persist?.();
+  { const dr = ls.get('draft', null);   // แอปถูกปิดกลางคันระหว่างกรอก → เปิดฟอร์มเดิมให้ต่อ
+    if (dr?.open && Date.now() - dr.t < 30 * 6e4) setTimeout(() => {
+      const [kind, id] = dr.key.split(':');
+      if (kind === 'catch') catchForm(id === 'new' ? dr.init : S.catches.find(c => c.id === id) || dr.init);
+      else if (kind === 'spot') spotForm(id === 'new' ? dr.init : { id });
+    }, 900); }
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
