@@ -3,7 +3,7 @@
    โครงข้อมูล: groups/all/members/{uid} · pins/{id} · catches/{id} · admins/{uid} (สร้างเองใน Console) · banned/{uid}
    ทุกเอกสารมี uid ของเจ้าของ กฎฐานข้อมูล (firestore.rules): แก้/ลบได้เฉพาะของตัวเอง แอดมินจัดการได้ทั้งหมด */
 const GRP = (() => {
-  const st = { gid: 'all', gname: 'ชุมชนพรานปลา', me: ls.get('myname', ''), uid: null, user: null, admin: false, banned: false, bannedList: [], db: null, ready: false, authed: false, err: '', pins: [], catches: [], members: [], likes: [], comments: [], unsub: [], first: { pins: false, catches: false } };
+  const st = { gid: 'all', gname: 'ชุมชนพรานปลา', me: ls.get('myname', ''), uid: null, user: null, admin: false, banned: false, bannedList: [], db: null, ready: false, authed: false, err: '', pins: [], catches: [], members: [], likes: [], comments: [], votes: [], unsub: [], first: { pins: false, catches: false } };
   const layer = L.layerGroup().addTo(map);
   const pushed = ls.get('grpPushed', {});           // id → ลายนิ้วมือของข้อมูลที่ส่งขึ้นไปล่าสุด กันส่งซ้ำ
   const enabled = () => !!(window.FB_CONFIG && FB_CONFIG.apiKey);
@@ -57,23 +57,24 @@ const GRP = (() => {
         render();
       }, e => { st.err = e.code === 'permission-denied' ? 'ฐานข้อมูลปฏิเสธการเข้าถึง (ตรวจกฎความปลอดภัยใน Firebase)' : (e.message || String(e)); render(); }));
       watch('pins', 'pins', () => syncAll('pins'));
-      watch('catches', 'catches', () => syncAll('catches'));
+      watch('catches', 'catches', () => syncAll('catches'), hotRefresh);
       watch('members', 'members');
       watch('likes', 'likes');
+      watch('votes', 'votes', null, hotRefresh);
       watch('comments', 'comments', null, () => { if (cmOpen) renderComments(); });
       if (st.admin) st.unsub.push(st.db.collection('banned').onSnapshot(s => { st.bannedList = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); }, () => {}));
       st.ready = true;
     } catch (e) { st.err = navigator.onLine === false ? 'ออฟไลน์ — จะเชื่อมเมื่อมีเน็ต' : (e.message || String(e)); }
     render();
   }
-  function stop() { st.unsub.forEach(f => { try { f(); } catch {} }); st.unsub = []; st.ready = false; st.pins = []; st.catches = []; st.members = []; st.likes = []; st.comments = []; st.first = { pins: false, catches: false }; }
+  function stop() { st.unsub.forEach(f => { try { f(); } catch {} }); st.unsub = []; st.ready = false; st.pins = []; st.catches = []; st.members = []; st.likes = []; st.comments = []; st.votes = []; st.first = { pins: false, catches: false }; }
 
   /* ---------- ส่งของเราขึ้นกลุ่ม ---------- */
   function thumb(src, max = 360) {
     if (!src) return Promise.resolve(null);
     return new Promise(res => { const im = new Image(); im.onload = () => { const s = Math.min(1, max / Math.max(im.width, im.height)), c = document.createElement('canvas'); c.width = Math.round(im.width * s); c.height = Math.round(im.height * s); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); res(c.toDataURL('image/jpeg', .6)); }; im.onerror = () => res(null); im.src = src; });
   }
-  const spotDoc = s => ({ uid: st.uid, by: st.me || 'ไม่ระบุชื่อ', av: docAv(), type: s.type, name: s.name, lat: s.lat, lng: s.lng, fish: s.fish || '', note: s.note || '', fee: s.fee || '', hours: s.hours || '', rules: s.rules || '', tel: s.tel || '' });
+  const spotDoc = s => ({ uid: st.uid, by: st.me || 'ไม่ระบุชื่อ', av: docAv(), type: s.type, name: s.name, lat: s.lat, lng: s.lng, fish: s.fish || '', note: s.note || '', fee: s.fee || '', hours: s.hours || '', rules: s.rules || '', tel: s.tel || '', hab: s.hab || [], park: s.park || '', walk: s.walk || '', baits: s.baits || '' });
   const catchDoc = c => { const sp = S.spots.find(x => x.id === c.spotId); return { uid: st.uid, by: st.me || 'ไม่ระบุชื่อ', av: docAv(), species: c.species, len: c.len ?? null, wt: c.wt ?? null, bait: c.bait || '', note: c.note || '', t: c.t, lat: c.lat ?? sp?.lat ?? null, lng: c.lng ?? sp?.lng ?? null, spot: sp?.name || '', released: !!c.released }; };
   let shareOk = !!ls.get('shareOk', false);   // ผู้ใช้ยืนยันแล้วว่ายอมแชร์ของที่มีอยู่ในเครื่อง
   async function push(kind, item) {
@@ -91,7 +92,7 @@ const GRP = (() => {
     tomb[kind + ':' + id] = Date.now(); ls.set('grpDeleted', tomb);
     if (!st.ready) return;
     const remote = st[kind].find(x => x.id === id);
-    if (remote && remote.uid === st.uid) { if (kind === 'catches') await clearReactions(id); await col(kind).doc(id).delete().catch(() => {}); }
+    if (remote && remote.uid === st.uid) { await clearReactions(id); await col(kind).doc(id).delete().catch(() => {}); }
     delete pushed[kind + ':' + id]; ls.set('grpPushed', pushed);
   }
   async function syncAll(kind) {      // ส่งของในเครื่องที่ยังไม่ขึ้น และดึงของเราจากเซิร์ฟเวอร์ที่เครื่องนี้ไม่มี (เช่น เปลี่ยนเครื่อง/ล้างเบราว์เซอร์)
@@ -127,14 +128,14 @@ const GRP = (() => {
   }
 
   /* ---------- แอดมิน ---------- */
-  async function clearReactions(post) { for (const k of ['likes', 'comments']) for (const x of st[k].filter(x => x.post === post)) await col(k).doc(x.id).delete().catch(() => {}); }
-  async function adminDel(kind, id) { if (!st.admin) return; if (kind === 'catches') await clearReactions(id); await col(kind).doc(id).delete().then(() => toast('ลบแล้ว')).catch(e => toast('ลบไม่ได้: ' + e.message)); }
+  async function clearReactions(post) { for (const k of ['likes', 'comments', 'votes']) for (const x of st[k].filter(x => x.post === post)) await col(k).doc(x.id).delete().catch(() => {}); }
+  async function adminDel(kind, id) { if (!st.admin) return; await clearReactions(id); await col(kind).doc(id).delete().then(() => toast('ลบแล้ว')).catch(e => toast('ลบไม่ได้: ' + e.message)); }
   async function ban(uid, name, on) {
     if (!st.admin || uid === st.uid) return;
     const ref = st.db.collection('banned').doc(uid);
     await (on ? ref.set({ uid, name: name || '', by: st.uid, t: Date.now() }) : ref.delete()).then(() => toast(on ? 'แบนแล้ว คนนี้ปักหมุดหรือแก้อะไรไม่ได้อีก' : 'ปลดแบนแล้ว')).catch(e => toast(e.message));
   }
-  async function wipe(uid) { if (!st.admin) return; let n = 0; for (const k of ['pins', 'catches', 'comments', 'likes']) for (const x of st[k].filter(x => x.uid === uid)) { if (k === 'catches') await clearReactions(x.id); await col(k).doc(x.id).delete().catch(() => {}); if (k !== 'likes') n++; } toast(`ลบแล้ว ${n} รายการ`); }
+  async function wipe(uid) { if (!st.admin) return; let n = 0; for (const k of ['pins', 'catches', 'comments', 'likes', 'votes']) for (const x of st[k].filter(x => x.uid === uid)) { if (k === 'catches' || k === 'pins') await clearReactions(x.id); await col(k).doc(x.id).delete().catch(() => {}); if (k !== 'likes') n++; } toast(`ลบแล้ว ${n} รายการ`); }
   const armBtn = (el, label, fn) => { let a = false; el.onclick = e => { if (!a) { a = true; e.currentTarget.textContent = label; return; } fn(); }; };
 
   function adminEditPin(p) {   // แอดมินแก้หมุดของคนอื่นบนเซิร์ฟเวอร์โดยตรง (เจ้าของยังเป็นคนเดิม)
@@ -157,12 +158,25 @@ const GRP = (() => {
   /* ---------- ของเพื่อน ---------- */
   const friendPins = () => st.user ? st.pins.filter(p => p.uid !== st.uid) : [];
   const friendCatches = () => (st.user ? st.catches : []).filter(c => c.uid !== st.uid).sort((a, b) => b.t - a.t);
+  let hotT = null;
+  function hotRefresh() { clearTimeout(hotT); hotT = setTimeout(() => { try { renderSpots(); } catch {} const hp = $('#hotPanel'); if (hp && hotOpen) window.HOT?.refreshPanel(hotOpen); }, 150); }
+  let hotOpen = null;
+  async function vote(pin, v) {   // 1 = ยังกินอยู่, -1 = เงียบแล้ว, 0 = ยกเลิก
+    if (!st.ready || !st.user) return 'login';
+    if (st.banned) { toast('บัญชีนี้ถูกระงับ'); return 'banned'; }
+    if (!st.pins.some(p => p.id === pin)) return 'private';
+    const id = pin + '_' + st.uid, ref = col('votes').doc(id);
+    st.votes = st.votes.filter(x => x.id !== id);
+    if (v) st.votes.push({ id, uid: st.uid, post: pin, v, t: Date.now() });
+    if (v) await ref.set({ uid: st.uid, post: pin, v, t: Date.now() }).catch(e => toast(e.message)); else await ref.delete().catch(() => {});
+    hotRefresh(); return 'ok';
+  }
   function renderMap() {
     layer.clearLayers();
     if (OPT.friends === false) return;
     friendPins().filter(p => !OPT.types || OPT.types.includes(p.type)).forEach(p => {
       const t = SPOT_TYPES[p.type] || SPOT_TYPES.other;
-      L.marker([p.lat, p.lng], { icon: L.divIcon({ className: '', html: `<div class="mk friend" style="background:${t.color}"><span>${t.icon}</span><em>${esc(initial(p.by))}</em></div>`, iconSize: [34, 34], iconAnchor: [17, 34] }) }).on('click', () => pinSheet(p.id)).addTo(layer);
+      L.marker([p.lat, p.lng], { icon: L.divIcon({ className: '', html: `<div class="mk friend${window.HOT ? HOT.markClass(p) : ''}" style="background:${t.color}"><span>${t.icon}</span><em>${esc(initial(p.by))}</em></div>`, iconSize: [34, 34], iconAnchor: [17, 34] }) }).on('click', () => pinSheet(p.id)).addTo(layer);
     });
   }
   function pinSheet(id) {
@@ -170,6 +184,7 @@ const GRP = (() => {
     const t = SPOT_TYPES[p.type] || SPOT_TYPES.other, n = st.catches.filter(c => c.lat != null && dist(c, p) < 150).length;
     openSheet(`<h3>${t.icon} ${esc(p.name)}</h3>
     <div class="sub">👥 หมุดของ ${esc(p.by)} · ${t.label}${S.pos ? ' · ห่าง ' + fmtDist(dist(S.pos, p)) : ''}</div>
+    ${window.HOT ? HOT.panel(p) : ''}
     ${p.photo ? `<img class="photo-prev" src="${p.photo}">` : ''}
     <div class="kv"><span>พิกัด</span><b class="mono">${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}</b>
       ${p.fish ? `<span>ปลา</span><b>${esc(p.fish)}</b>` : ''}${p.note ? `<span>โน้ต</span><b>${esc(p.note)}</b>` : ''}
@@ -184,6 +199,7 @@ const GRP = (() => {
       ${st.admin ? '<button class="btn ghost" id="fpEdit">แก้ไขหมุด (แอดมิน)</button><button class="btn danger" id="fpDel">ลบหมุดนี้ (แอดมิน)</button>' : ''}
     </div>`);
     if (st.admin) { armBtn($('#fpDel'), 'แตะอีกครั้งเพื่อลบหมุดของ ' + p.by, () => { adminDel('pins', p.id); closeSheet(); }); $('#fpEdit').onclick = () => adminEditPin(p); }
+    hotOpen = p; window.HOT?.bindPanel(p, () => window.HOT.refreshPanel(p));
     $('#fpNav').onclick = () => { setTarget({ lat: p.lat, lng: p.lng, name: p.name }); closeSheet(); showTab('tools'); };
     $('#fpFc').onclick = () => { closeSheet(); loadForecast({ lat: p.lat, lng: p.lng, name: p.name }); showTab('forecast'); };
     $('#fpCopy').onclick = () => spotForm({ private: true, lat: p.lat, lng: p.lng, type: p.type, name: p.name, fish: p.fish, note: p.note, fee: p.fee, hours: p.hours, rules: p.rules, tel: p.tel });
@@ -373,7 +389,7 @@ const GRP = (() => {
     pushSpot: s => push('pins', s), delSpot: id => drop('pins', id),
     pushCatch: c => push('catches', c), delCatch: id => drop('catches', id),
     syncAll: () => { syncAll('pins'); syncAll('catches'); },
-    renderMap, render, pinSheet, catchSheet: catchSheetF, badge, openComments,
+    renderMap, render, pinSheet, catchSheet: catchSheetF, badge, openComments, vote, setHotOpen: s => { hotOpen = s; },
     get joined() { return enabled() && !!st.user; },
     friendPins, friendCatches, st
   };

@@ -61,7 +61,7 @@ const S = {
   wx: null, fcLoc: null, layer: ls.get('layer', 'hyb'), firstFix: false
 };
 const grp = (f, ...x) => { try { if (typeof GRP !== 'undefined') return typeof GRP[f] === 'function' ? GRP[f](...x) : GRP[f]; } catch (e) { console.warn(e); } };   // เรียกโมดูลกลุ่ม (group.js) ถ้ามี
-const save = k => DB.set(k, S[k]).catch(() => toast('บันทึกข้อมูลไม่สำเร็จ'));
+const save = k => DB.set(k, S[k]).catch(() => DB.set(k, JSON.parse(JSON.stringify(S[k])))).catch(() => toast('บันทึกข้อมูลไม่สำเร็จ'));   // ถ้ามีอะไรที่เก็บลงเครื่องไม่ได้ปนมา ตัดทิ้งแล้วลองใหม่
 /* ข้อมูลแยกตามบัญชี: ออกจากระบบแล้วเก็บของบัญชีนั้นไว้ (ไม่ลบ) หน้าจอว่าง · ล็อกอินบัญชีเดิมกลับมาครบ
    ของที่บันทึกตอนยังไม่ล็อกอิน จะรวมเข้าบัญชีที่ล็อกอินถัดไป */
 const ACCT_KEYS = ['spots', 'catches', 'tracks'];
@@ -123,16 +123,16 @@ map.on('dragstart', () => { S.follow = false; $('#btnLocate').classList.remove('
 map.on('contextmenu', e => M.on || spotForm({ lat: e.latlng.lat, lng: e.latlng.lng }));   // กดค้าง = ปักหมุด
 map.on('click', () => { closeSearch(); map.removeLayer(searchPin); });
 
-function spotIcon(type) {
+function spotIcon(type, cls = '') {
   const t = SPOT_TYPES[type] || SPOT_TYPES.other;
-  return L.divIcon({ className: '', html: `<div class="mk" style="background:${t.color}"><span>${t.icon}</span></div>`, iconSize: [34, 34], iconAnchor: [17, 34] });
+  return L.divIcon({ className: '', html: `<div class="mk${cls}" style="background:${t.color}"><span>${t.icon}</span></div>`, iconSize: [34, 34], iconAnchor: [17, 34] });
 }
 const OPT = Object.assign({ types: null, catches: false, cross: false, heat: false, water: true, friends: true }, ls.get('mapopt', {}));
 const saveOpt = () => ls.set('mapopt', OPT);
 const gCatch = L.layerGroup().addTo(map), gHeat = L.layerGroup().addTo(map);
 function renderSpots() {
   gSpots.clearLayers(); gCatch.clearLayers(); gHeat.clearLayers();
-  S.spots.filter(s => !OPT.types || OPT.types.includes(s.type)).forEach(s => L.marker([s.lat, s.lng], { icon: spotIcon(s.type) }).on('click', () => spotSheet(s.id)).addTo(gSpots));
+  S.spots.filter(s => !OPT.types || OPT.types.includes(s.type)).forEach(s => L.marker([s.lat, s.lng], { icon: spotIcon(s.type, window.HOT ? HOT.markClass(s) : '') }).on('click', () => spotSheet(s.id)).addTo(gSpots));
   const C = S.catches.filter(c => c.lat != null);
   if (OPT.catches) C.forEach(c => L.marker([c.lat + (Math.random() - .5) * 8e-5, c.lng + (Math.random() - .5) * 8e-5], { icon: L.divIcon({ className: '', html: '<div class="cmk">🐟</div>', iconSize: [26, 26], iconAnchor: [13, 13] }) }).on('click', () => catchSheet(c.id)).addTo(gCatch));
   if (OPT.heat) C.forEach(c => L.marker([c.lat, c.lng], { interactive: false, zIndexOffset: -1000, icon: L.divIcon({ className: '', html: '<div class="heat"></div>', iconSize: [110, 110], iconAnchor: [55, 55] }) }).addTo(gHeat));
@@ -386,12 +386,13 @@ function draftBind(r, key, holder, init) {
     let any = false;
     for (const [k, v] of Object.entries(dr.vals || {})) { const el = $(`[name="${k}"]`, r); if (!el || el.type === 'file') continue; if (el.type === 'checkbox') el.checked = v; else { if (v && v !== el.value) any = true; el.value = v; } }
     if (dr.type && holder.type !== undefined) { holder.type = dr.type; $$('.types button', r).forEach(b => b.classList.toggle('sel', b.dataset.type === dr.type)); }
+    ['hab', 'park', 'walk'].forEach(k => { if (dr[k] != null && holder.type !== undefined) { holder[k] = dr[k]; $$(`.hchips[data-hname=${k}] button`, r).forEach(b => b.classList.toggle('sel', Array.isArray(dr[k]) ? dr[k].includes(b.dataset.v) : dr[k] === b.dataset.v)); } });
     if (dr.photo) { holder.photo = dr.photo; const pv = $('.photo-prev', r); if (pv) { pv.src = dr.photo; pv.classList.remove('hidden'); } any = true; }
     if (any) toast('กู้ข้อมูลที่กรอกค้างไว้ให้แล้ว');
   }
   sh.dataset.form = key;
-  const save = () => { const vals = {}; $$('[name]', r).forEach(el => { if (el.type !== 'file' && el.name) vals[el.name] = el.type === 'checkbox' ? el.checked : el.value; }); ls.set('draft', { key, init, vals, type: holder.type, photo: holder.photo || null, t: Date.now(), open: true }); };
-  sh.oninput = sh.onchange = save; holder._draft = save; save();
+  const save = () => { const vals = {}; $$('[name]', r).forEach(el => { if (el.type !== 'file' && el.name) vals[el.name] = el.type === 'checkbox' ? el.checked : el.value; }); ls.set('draft', { key, init, vals, type: holder.type, hab: holder.hab, park: holder.park, walk: holder.walk, photo: holder.photo || null, t: Date.now(), open: true }); };
+  sh.oninput = sh.onchange = save; Object.defineProperty(holder, '_draft', { value: save, enumerable: false, configurable: true, writable: true }); save();   // ไม่ให้ฟังก์ชันติดไปตอนบันทึกลงเครื่อง
 }
 const draftClear = () => ls.set('draft', null);
 function bindPhoto(root, holder) {
@@ -442,12 +443,13 @@ function spotForm(init) {
     <label>เบอร์ติดต่อ</label><input name="tel" type="tel" value="${esc(d.tel)}" placeholder="เจ้าของบ่อ / ผู้ดูแล">
     <label>รูป</label><input name="photo" type="file" accept="image/*,.heic,.heif">
     <img class="photo-prev ${d.photo ? '' : 'hidden'}" src="${d.photo || ''}">
+    ${window.HOT ? HOT.formHtml(d) : ''}
     <label class="privrow"><input name="priv" type="checkbox" ${d.private ? 'checked' : ''}> 🔒 ส่วนตัว — ไม่ให้คนอื่นเห็น</label>
     <div class="row"><button class="btn block acc" id="spSave">บันทึกหมุด</button></div>
   </div>`);
   const r = $('#sheet');
   $$('.types button', r).forEach(b => b.onclick = () => { d.type = b.dataset.type; $$('.types button', r).forEach(x => x.classList.toggle('sel', x === b)); });
-  bindPhoto(r, d); draftBind(r, 'spot:' + (ex ? d.id : 'new'), d, ex ? { id: d.id } : { lat: d.lat, lng: d.lng });
+  bindPhoto(r, d); window.HOT && HOT.bindForm(r, d); draftBind(r, 'spot:' + (ex ? d.id : 'new'), d, ex ? { id: d.id } : { lat: d.lat, lng: d.lng });
   $('#spSave').onclick = () => {
     d.name = $('[name=name]', r).value.trim() || SPOT_TYPES[d.type].label;
     ['fish', 'note', 'fee', 'hours', 'rules', 'tel'].forEach(k => d[k] = $(`[name=${k}]`, r).value.trim());
@@ -465,6 +467,7 @@ function spotSheet(id) {
   const t = SPOT_TYPES[s.type] || SPOT_TYPES.other, n = S.catches.filter(c => c.spotId === id).length;
   openSheet(`<h3>${t.icon} ${esc(s.name)}</h3>
   <div class="sub">${t.label}${S.pos ? ' · ห่าง ' + fmtDist(dist(S.pos, s)) : ''}${s.private ? ' · 🔒 ส่วนตัว' : grp('joined') ? ' · 👥 ทุกคนเห็น' : ''}</div>
+  ${window.HOT ? HOT.panel(s) : ''}
   ${s.photo ? `<img class="photo-prev" src="${s.photo}">` : ''}
   <div class="kv"><span>พิกัด</span><b class="mono">${s.lat.toFixed(5)}, ${s.lng.toFixed(5)}</b>
     ${s.fish ? `<span>ปลา</span><b>${esc(s.fish)}</b>` : ''}${s.note ? `<span>โน้ต</span><b>${esc(s.note)}</b>` : ''}
@@ -481,6 +484,7 @@ function spotSheet(id) {
     <button class="btn ghost" id="spEdit">แก้ไข</button>
     <button class="btn danger" id="spDel">ลบ</button>
   </div>`);
+  grp('setHotOpen', s); window.HOT && HOT.bindPanel(s, () => HOT.refreshPanel(s));
   $('#spNav').onclick = () => { setTarget({ lat: s.lat, lng: s.lng, name: s.name }); closeSheet(); showTab('tools'); };
   $('#spFc').onclick = () => { closeSheet(); loadForecast({ lat: s.lat, lng: s.lng, name: s.name }); showTab('forecast'); };
   $('#spCatch').onclick = () => catchForm({ spotId: s.id });
@@ -1053,6 +1057,7 @@ function renderForecast() {
 $('#fcRefresh').onclick = () => { toast('กำลังรีเฟรช…'); loadForecast(); };
 $('#alertBar').onclick = () => showTab('forecast');
 $('#wxPill').onclick = () => showTab('forecast');
+$('#hotPill').onclick = () => window.HOT && HOT.listSheet();
 $('#seasonPill').onclick = () => { showTab('forecast'); setTimeout(() => $('#view-forecast').scrollTo({ top: 99999, behavior: 'smooth' }), 80); };
 
 /* ============ ฝนบนแผนที่: เรดาร์ย้อนหลัง 2 ชม. (ทุก 10 นาที) + พยากรณ์ฝนรายชั่วโมง 6 ชม. ข้างหน้า ============

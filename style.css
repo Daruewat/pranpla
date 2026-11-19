@@ -2359,3 +2359,36 @@ body.radar-on #coordBar,body.radar-on .crosshair{display:none}
 .look-e .sheet{border-radius:28px 28px 0 0;border-top:0}
 .look-e .av.big{box-shadow:0 0 0 3px var(--sig),0 0 0 9px var(--bg)}
 .look-e .adm,.look-e .mchip i{border-radius:999px}
+
+/* ===== หมายเด็ด ===== */
+.mk.hot1{box-shadow:0 0 0 3px rgba(255,200,60,.55)}
+.mk.hot2{box-shadow:0 0 0 3px rgba(61,242,196,.8),0 0 14px 4px rgba(61,242,196,.45)}
+.mk.hot3{box-shadow:0 0 0 3px #ff5a36,0 0 18px 6px rgba(255,90,54,.55);animation:hotpulse 1.6s ease-in-out infinite}
+.mk.hot3::after{content:"🔥";position:absolute;top:-12px;right:-12px;font-size:16px;line-height:1;transform:rotate(0)}
+@keyframes hotpulse{50%{box-shadow:0 0 0 3px #ff5a36,0 0 26px 10px rgba(255,90,54,.35)}}
+@media (prefers-reduced-motion:reduce){.mk.hot3{animation:none}}
+.hotb{display:inline-flex;align-items:center;white-space:nowrap;padding:4px 10px;border-radius:999px;font:600 12.5px/1.2 var(--disp);background:var(--card2);color:var(--tx2)}
+.hotb.big{font-size:14px;padding:6px 12px}
+.hotb.l1{background:rgba(255,200,60,.16);color:#ffd36b}
+.hotb.l2{background:rgba(61,242,196,.16);color:#3df2c4}
+.hotb.l3{background:#ff5a36;color:#fff}
+:root[data-theme=light] .hotb.l1{color:#8a5a00}
+:root[data-theme=light] .hotb.l2{color:#0b7d63}
+.hotp{background:var(--card2);border-radius:16px;padding:12px 14px;margin:10px 0 12px;display:flex;flex-direction:column;gap:8px}
+.hotp-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.hotp-vote{display:flex;flex-direction:column;gap:6px}
+.hotp-vote .row{margin:0;gap:8px}
+.hotp .kv{margin:4px 0 0}
+.vbtn.on.up{background:#ff5a36;color:#fff;box-shadow:none}
+.vbtn.on.down{background:var(--tx2);color:var(--bg);box-shadow:none}
+.hotpill{font-weight:600}
+.hotlist{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.hotrow{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:10px 12px;border:0;border-radius:16px;background:var(--card2);color:var(--tx);font:inherit;min-height:56px}
+.hotico{flex:none;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--card);font-size:18px}
+.hotico.l2{box-shadow:0 0 0 2px #3df2c4}.hotico.l3{box-shadow:0 0 0 2px #ff5a36}.hotico.l1{box-shadow:0 0 0 2px #ffc83c}
+.hotmain{flex:1;min-width:0;display:flex;flex-direction:column}
+.hotmain b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hotmain .sub{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hform{margin:6px 0 4px;border-radius:14px;background:var(--card2);padding:10px 12px}
+.hform summary{cursor:pointer;font-weight:600;min-height:32px;display:flex;align-items:center}
+.hchips{flex-wrap:wrap}
