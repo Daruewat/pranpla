@@ -2,7 +2,7 @@
 /* ข้อมูลคงที่: ชนิดหมุด, ปลา, ฤดูกาล, เช็กลิสต์ */
 const SPOT_TYPES = {
   fish:  {label:'จุดตกปลา',        icon:'🎣', color:'#f59e0b'},
-  hot:   {label:'จุดปลากินดี',      icon:'🔥', color:'#ef4444'},
+  hot:   {label:'จุดตกปลา',        icon:'🎣', color:'#f59e0b', hidden:true},   // เลิกใช้แล้ว: ระบบหมายเด็ดคิดให้เอง หมุดเก่าแปลงเป็นจุดตกปลา
   camp:  {label:'ที่พัก/แคมป์',      icon:'⛺', color:'#22c55e'},
   car:   {label:'ที่จอดรถ',         icon:'🚗', color:'#3b82f6'},
   water: {label:'น้ำดื่ม/ห้องน้ำ',    icon:'🚰', color:'#06b6d4'},

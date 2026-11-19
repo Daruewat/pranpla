@@ -142,7 +142,7 @@ const GRP = (() => {
     let type = p.type;
     const f = (k, l, ph = '') => `<label>${l}</label><input name="${k}" value="${esc(p[k] || '')}" placeholder="${ph}">`;
     openSheet(`<h3>แก้ไขหมุดของ ${esc(p.by)}</h3><div class="sub">แก้ในฐานะแอดมิน เจ้าของหมุดยังเป็น ${esc(p.by)}</div><div class="form">
-      <label>ประเภท</label><div class="types">${Object.entries(SPOT_TYPES).map(([k, t]) => `<button type="button" data-type="${k}" class="${k === type ? 'sel' : ''}">${t.icon} ${t.label}</button>`).join('')}</div>
+      <label>ประเภท</label><div class="types">${Object.entries(SPOT_TYPES).filter(([, t]) => !t.hidden).map(([k, t]) => `<button type="button" data-type="${k}" class="${k === type ? 'sel' : ''}">${t.icon} ${t.label}</button>`).join('')}</div>
       ${f('name', 'ชื่อจุด')}${f('fish', 'ปลาที่เจอ')}<label>โน้ต</label><textarea name="note">${esc(p.note || '')}</textarea>
       <div class="two"><div>${f('fee', 'ค่าบริการ / ค่าบ่อ')}</div><div>${f('hours', 'เวลาเปิด–ปิด')}</div></div>${f('rules', 'กฎ / ข้อห้าม')}${f('tel', 'เบอร์ติดต่อ')}
       <div class="row"><button class="btn block acc" id="aeSave">บันทึก</button></div></div>`);
@@ -174,7 +174,7 @@ const GRP = (() => {
   function renderMap() {
     layer.clearLayers();
     if (OPT.friends === false) return;
-    friendPins().filter(p => !OPT.types || OPT.types.includes(p.type)).forEach(p => {
+    friendPins().filter(p => !OPT.types || OPT.types.includes(p.type === 'hot' ? 'fish' : p.type)).forEach(p => {
       const t = SPOT_TYPES[p.type] || SPOT_TYPES.other;
       L.marker([p.lat, p.lng], { icon: L.divIcon({ className: '', html: `<div class="mk friend${window.HOT ? HOT.markClass(p) : ''}" style="background:${t.color}"><span>${t.icon}</span><em>${esc(initial(p.by))}</em></div>`, iconSize: [34, 34], iconAnchor: [17, 34] }) }).on('click', () => pinSheet(p.id)).addTo(layer);
     });

@@ -132,7 +132,7 @@ const saveOpt = () => ls.set('mapopt', OPT);
 const gCatch = L.layerGroup().addTo(map), gHeat = L.layerGroup().addTo(map);
 function renderSpots() {
   gSpots.clearLayers(); gCatch.clearLayers(); gHeat.clearLayers();
-  S.spots.filter(s => !OPT.types || OPT.types.includes(s.type)).forEach(s => L.marker([s.lat, s.lng], { icon: spotIcon(s.type, window.HOT ? HOT.markClass(s) : '') }).on('click', () => spotSheet(s.id)).addTo(gSpots));
+  S.spots.filter(s => !OPT.types || OPT.types.includes(s.type === 'hot' ? 'fish' : s.type)).forEach(s => L.marker([s.lat, s.lng], { icon: spotIcon(s.type, window.HOT ? HOT.markClass(s) : '') }).on('click', () => spotSheet(s.id)).addTo(gSpots));
   const C = S.catches.filter(c => c.lat != null);
   if (OPT.catches) C.forEach(c => L.marker([c.lat + (Math.random() - .5) * 8e-5, c.lng + (Math.random() - .5) * 8e-5], { icon: L.divIcon({ className: '', html: '<div class="cmk">🐟</div>', iconSize: [26, 26], iconAnchor: [13, 13] }) }).on('click', () => catchSheet(c.id)).addTo(gCatch));
   if (OPT.heat) C.forEach(c => L.marker([c.lat, c.lng], { interactive: false, zIndexOffset: -1000, icon: L.divIcon({ className: '', html: '<div class="heat"></div>', iconSize: [110, 110], iconAnchor: [55, 55] }) }).addTo(gHeat));
@@ -199,7 +199,7 @@ function mapOptSheet() {
   <div class="card-h" style="font-size:15px;margin-top:6px">รูปแบบแผนที่</div>
   <div class="stylegrid">${Object.entries(LAYERS).filter(([, o]) => !o.hidden).map(([k, o]) => `<button data-layer="${k}" class="${k === S.layer ? 'sel' : ''}"><span>${o.ico}</span>${o.short || o.name}</button>`).join('')}</div>
   <div class="card-h" style="font-size:15px;margin-top:14px">กรองหมุด</div>
-  <div class="types" id="optTypes">${Object.entries(SPOT_TYPES).map(([k, t]) => `<button type="button" data-type="${k}" class="${!OPT.types || OPT.types.includes(k) ? 'sel' : ''}">${t.icon} ${t.label}</button>`).join('')}</div>
+  <div class="types" id="optTypes">${Object.entries(SPOT_TYPES).filter(([, t]) => !t.hidden).map(([k, t]) => `<button type="button" data-type="${k}" class="${!OPT.types || OPT.types.includes(k) ? 'sel' : ''}">${t.icon} ${t.label}</button>`).join('')}</div>
   ${sw('catches', '🐟', 'ปลาที่ฉันจับได้', '')}
   ${sw('heat', '🔥', 'ฮีตแมปของฉัน', 'จากสมุดบันทึกของคุณ')}
   ${grp('joined') ? sw('friends', '👥', 'หมุดของคนอื่น', '') : ''}
@@ -210,7 +210,7 @@ function mapOptSheet() {
   $$('#sheet [data-layer]').forEach(b => b.onclick = () => { setLayer(b.dataset.layer); $$('#sheet [data-layer]').forEach(x => x.classList.toggle('sel', x === b)); });
   $$('#optTypes button').forEach(b => b.onclick = () => {
     b.classList.toggle('sel'); const on = $$('#optTypes button.sel').map(x => x.dataset.type);
-    OPT.types = on.length === Object.keys(SPOT_TYPES).length ? null : on; saveOpt(); renderSpots();
+    OPT.types = on.length === Object.values(SPOT_TYPES).filter(t => !t.hidden).length ? null : on; saveOpt(); renderSpots();
   });
   $$('#sheet [data-opt]').forEach(x => x.onchange = () => {
     OPT[x.dataset.opt] = x.checked; saveOpt(); renderSpots(); updateCoordBar();
@@ -433,7 +433,7 @@ function spotForm(init) {
   <div class="sub mono">${d.lat.toFixed(5)}, ${d.lng.toFixed(5)}</div>
   <div class="form">
     <label>ประเภท</label>
-    <div class="types">${Object.entries(SPOT_TYPES).map(([k, t]) => `<button type="button" data-type="${k}" class="${k === d.type ? 'sel' : ''}">${t.icon} ${t.label}</button>`).join('')}</div>
+    <div class="types">${Object.entries(SPOT_TYPES).filter(([, t]) => !t.hidden).map(([k, t]) => `<button type="button" data-type="${k}" class="${k === d.type ? 'sel' : ''}">${t.icon} ${t.label}</button>`).join('')}</div>
     <label>ชื่อจุด</label><input name="name" value="${esc(d.name)}" placeholder="เช่น หนองบัว ฝั่งตอไม้">
     <label>ปลาที่เจอ</label><input name="fish" value="${esc(d.fish)}" placeholder="ช่อน ชะโด นิล…">
     <label>โน้ต</label><textarea name="note" placeholder="ทางเข้า ความลึก เหยื่อที่ได้ผล ข้อควรระวัง">${esc(d.note)}</textarea>
@@ -1355,6 +1355,7 @@ $$('.tabbar [data-tab]').forEach(b => b.onclick = () => showTab(b.dataset.tab));
 (async function boot() {
   try {
     S.spots = (await DB.get('spots')) || []; S.catches = (await DB.get('catches')) || [];
+    if (S.spots.some(s => s.type === 'hot')) { S.spots.forEach(s => { if (s.type === 'hot') s.type = 'fish'; }); save('spots'); }   // เลิกใช้ประเภท จุดปลากินดี
     S.tracks = (await DB.get('tracks')) || [];
     const tr = await DB.get('track'); if (tr) { const wasOn = tr.on; S.track = tr; S.track.on = false; trackLine.setLatLngs((tr.pts || []).map(p => [p[0], p[1]])); if ((wasOn || !tr.id) && tr.pts?.length > 1) { archiveTrack(); save('track'); } }
   } catch { toast('เปิดที่เก็บข้อมูลในเครื่องไม่ได้ ข้อมูลจะไม่ถูกบันทึก'); }
