@@ -1,5 +1,6 @@
 'use strict';
 /* สไตล์แผนที่เวกเตอร์ของพรานปลา (ข้อมูล OpenStreetMap ผ่าน OpenFreeMap, โครงสร้าง OpenMapTiles) */
+const OPEN_BLD = 'https://data.source.coop/vida/google-microsoft-open-buildings/pmtiles/go_ms_building_footprints.pmtiles';
 const VEC_PAL = {
   dark: { bg: '#0d1a1c', wood: '#10261f', grass: '#122a22', farm: '#0f1f1d', resid: '#13221f', park: '#123024', water: '#1d6a73', river: '#2a8f97', wet: '#113331',
     bld: '#1f3835', bldo: '#2f504b', minor: '#243b38', mid: '#30504b', major: '#41675f', hwy: '#7d6a3e', path: '#3a5550', rail: '#2b403c', bnd: '#456660',
@@ -16,7 +17,8 @@ function vecStyle(theme) {
     layout: { 'text-field': NAME, 'text-font': [font], 'text-size': size, 'text-max-width': 9, 'text-padding': 4, ...extra }, paint: { 'text-color': color, 'text-halo-color': c.halo, 'text-halo-width': 1.6 } });
   return {
     version: 8, glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
-    sources: { o: { type: 'vector', url: 'https://tiles.openfreemap.org/planet', attribution: '© OpenStreetMap · OpenFreeMap' } },
+    sources: { o: { type: 'vector', url: 'https://tiles.openfreemap.org/planet', attribution: '© OpenStreetMap · OpenFreeMap' },
+      ...(window._pmProto ? { gb: { type: 'vector', url: 'pmtiles://' + OPEN_BLD, attribution: 'อาคาร: Google Open Buildings · Microsoft' } } : {}) },
     layers: [
       { id: 'bg', type: 'background', paint: { 'background-color': c.bg } },
       { id: 'resid', type: 'fill', source: 'o', 'source-layer': 'landuse', filter: ['in', 'class', 'residential', 'commercial', 'industrial', 'retail'], paint: { 'fill-color': c.resid } },
@@ -29,6 +31,7 @@ function vecStyle(theme) {
       { id: 'river', type: 'line', source: 'o', 'source-layer': 'waterway', filter: ['in', 'class', 'river', 'canal'], layout: { 'line-cap': 'round' }, paint: { 'line-color': c.river, 'line-width': ['interpolate', ['linear'], ['zoom'], 8, 1, 13, 3, 17, 8] } },
       { id: 'water', type: 'fill', source: 'o', 'source-layer': 'water', paint: { 'fill-color': c.water } },
       { id: 'water-edge', type: 'line', source: 'o', 'source-layer': 'water', minzoom: 12, paint: { 'line-color': c.river, 'line-width': 1 } },
+      ...(window._pmProto ? [{ id: 'gbld', type: 'fill', source: 'gb', 'source-layer': 'building_footprints', minzoom: 14, paint: { 'fill-color': c.bld, 'fill-outline-color': c.bldo } }] : []),   // อาคารที่ OSM ยังไม่มี (ข้อมูลเปิด Google + Microsoft)
       { id: 'bld', type: 'fill', source: 'o', 'source-layer': 'building', minzoom: 13, paint: { 'fill-color': c.bld, 'fill-outline-color': c.bldo } },
       { id: 'path', type: 'line', source: 'o', 'source-layer': 'transportation', minzoom: 13, filter: ['in', 'class', 'path', 'track'], paint: { 'line-color': c.path, 'line-width': ['interpolate', ['linear'], ['zoom'], 13, .8, 18, 2.5], 'line-dasharray': [2, 1.5] } },
       road('minor', ['minor', 'service'], c.minor, [12, .6, 15, 3, 19, 14], 12),
