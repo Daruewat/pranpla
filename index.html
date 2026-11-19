@@ -8,15 +8,75 @@
 <title>พรานปลา – แผนที่ตกปลา & เอาชีวิตรอด</title>
 <script>try{var t=JSON.parse(localStorage.getItem("theme")||'"dark"');if(t==="auto")t=matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";document.documentElement.dataset.theme=t;var q=new URLSearchParams(location.search).get("look");if(q)localStorage.setItem("look",q==="off"?"":q);var l=localStorage.getItem("look");if(l===null)l="e";if(l)document.documentElement.classList.add("look-"+l)}catch(e){}</script>
 <link rel="manifest" href="manifest.webmanifest">
+<style>
+#splash{position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(120% 70% at 50% 40%,#2b1709 0%,#0e0a09 62%);color:#fff3e6;transition:opacity .45s ease,transform .45s ease}
+#splash.out{opacity:0;transform:scale(1.04);pointer-events:none}
+#splash .sp-stage{position:relative;width:220px;height:220px}
+#splash .sp-logo{position:absolute;inset:0;width:100%;height:100%}
+#splash .sp-ring{stroke-dasharray:100;stroke-dashoffset:100;animation:sp-draw .9s .1s cubic-bezier(.6,0,.2,1) forwards}
+#splash .sp-fish{transform-origin:120px 124px;animation:sp-swim .8s .35s cubic-bezier(.2,.9,.3,1.1) both}
+#splash .sp-ping{position:absolute;inset:18px;border-radius:50%;border:2px solid #ff7d1f;opacity:0;animation:sp-ping 2s 1s ease-out infinite}
+#splash .sp-ping.b{animation-delay:1.7s}
+#splash .sp-name{margin-top:20px;font:600 40px/1.1 Prompt,Anuphan,system-ui,sans-serif;animation:sp-up .6s .55s ease-out both}
+#splash .sp-tag{margin-top:8px;font:400 16px/1.4 Sarabun,Anuphan,system-ui,sans-serif;color:#ffb36b;animation:sp-up .6s .7s ease-out both}
+@keyframes sp-draw{to{stroke-dashoffset:0}}
+@keyframes sp-swim{0%{transform:translateX(-60px) scale(.9);opacity:0}100%{transform:none;opacity:1}}
+@keyframes sp-ping{0%{transform:scale(.9);opacity:.6}100%{transform:scale(1.45);opacity:0}}
+@keyframes sp-up{from{transform:translateY(10px);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){#splash *{animation:none!important}#splash .sp-ring{stroke-dashoffset:0}#splash .sp-ping{display:none}}
+</style>
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;500;600;700&family=Chakra+Petch:wght@500;600;700&family=Prompt:wght@300;400;500;600&family=Sarabun:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="lib/leaflet.css?v=53">
-<link rel="stylesheet" href="style.css?v=53">
+<link rel="stylesheet" href="lib/leaflet.css?v=54">
+<link rel="stylesheet" href="style.css?v=54">
 </head>
 <body>
+<div id="splash" role="presentation"><div class="sp-stage"><i class="sp-ping"></i><i class="sp-ping b"></i><svg class="sp-logo" viewBox="0 0 240 240" aria-hidden="true">
+  <defs>
+    <linearGradient id="spog" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffbe4d"/><stop offset=".5" stop-color="#ff7d1f"/><stop offset="1" stop-color="#ff4a12"/></linearGradient>
+    <linearGradient id="spbl" x1="0" y1="0" x2="0" y2="1"><stop offset=".45" stop-color="#ffe2a8" stop-opacity="0"/><stop offset="1" stop-color="#ffe2a8" stop-opacity=".75"/></linearGradient>
+    <linearGradient id="spfg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e2560f"/><stop offset="1" stop-color="#b8380a"/></linearGradient>
+    <radialGradient id="spbg" cx=".5" cy=".45" r=".72"><stop offset="0" stop-color="#2b1709"/><stop offset=".75" stop-color="#0e0a09"/></radialGradient>
+    <clipPath id="spbodyc"><path id="spbp" d="M3 49C3 40 14 32 32 31C60 30 120 31 150 36C162 38 170 41 177 44L177 55C168 58 156 62 146 63C116 67 80 70 60 69C40 69 22 66 12 61C5 58 3 54 3 49Z"/></clipPath>
+  </defs>
+  
+  <circle class="sp-ring" cx="120" cy="120" r="90" fill="none" stroke="url(#spog)" stroke-width="4" pathLength="100"/>
+  <circle cx="120" cy="120" r="74" fill="none" stroke="#ff7d1f" stroke-opacity=".16" stroke-width="1.5"/>
+  <path d="M120 30v10M120 200v10M30 120h10M200 120h10" stroke="#ff7d1f" stroke-opacity=".5" stroke-width="3" stroke-linecap="round"/>
+  <g class="sp-fish"><g transform="translate(122 124) rotate(-16) scale(.86) translate(-114 -52)">
+    <g fill="url(#spfg)">
+      <path d="M50 34C56 22 120 15 168 27C176 30 180 36 179 44L172 44C140 36 90 34 50 36Z"/>
+      <path d="M90 66C104 79 152 77 178 61L176 55C150 63 120 67 90 66Z"/>
+      <path d="M175 43C192 29 222 33 223 50C223 67 192 71 175 56Z"/>
+    </g>
+    <g stroke="#1a0d06" stroke-width="1.2" stroke-linecap="round" opacity=".55">
+      <path d="M66 33l2-9M84 32l2-11M102 31l2-12M120 31l2-12M138 32l2-11M156 35l3-8"/>
+      <path d="M104 67l0 7M120 67l1 7M136 66l1 7M152 63l2 7M166 60l3 5"/>
+      <path d="M180 49l38-10M181 51l42 0M180 53l38 11"/>
+    </g>
+    <use href="#spbp" fill="url(#spog)" stroke="#1a0d06" stroke-width="1.6"/>
+    <g clip-path="url(#spbodyc)">
+      <rect x="0" y="30" width="190" height="45" fill="url(#spbl)"/>
+      <g fill="#1a0d06">
+        <path d="M60 35C66 37 68 41 65 45C68 48 65 51 61 50C62 46 57 43 60 35Z"/>
+        <path d="M76 32C86 34 90 40 86 46C90 50 88 56 80 55C84 49 74 46 76 32Z"/>
+        <path d="M98 32C108 34 112 42 106 48C112 52 108 58 100 57C104 51 94 45 98 32Z"/>
+        <path d="M118 33C130 34 134 44 128 49C135 53 131 59 122 58C126 51 114 47 118 33Z"/>
+        <path d="M141 35C150 37 152 44 147 49C152 52 148 57 142 56C145 51 138 46 141 35Z"/>
+        <path d="M160 38C167 40 168 46 164 50C168 52 165 55 161 54C163 50 158 47 160 38Z"/>
+      </g>
+    </g>
+    <path d="M42 33C37 45 38 57 45 67" fill="none" stroke="#1a0d06" stroke-width="2.4" stroke-linecap="round"/>
+    <path d="M3 51C12 53 26 55 36 55" fill="none" stroke="#1a0d06" stroke-width="2.4" stroke-linecap="round"/>
+    <circle cx="19" cy="41" r="5.4" fill="#1a0d06"/><circle cx="20.8" cy="39.4" r="1.9" fill="#fff1d6"/>
+    <path d="M50 57C60 57 70 64 70 74C61 74 52 67 50 57Z" fill="#ffd27a"/>
+    <path d="M53 59l13 12M55 58l10 6" stroke="#b5520f" stroke-width="1" stroke-linecap="round"/>
+  </g>
+</g></svg></div><div class="sp-name">พรานปลา</div><div class="sp-tag">ปักหมายปลาช่อน · หมายไหนเด็ด</div></div>
+<script>(function(){var sp=document.getElementById('splash'),t0=Date.now(),done=false;function hide(){if(done)return;done=true;sp.classList.add('out');setTimeout(function(){sp.remove()},500)}function ready(){setTimeout(hide,Math.max(0,1700-(Date.now()-t0)))}if(document.readyState==='complete')ready();else window.addEventListener('load',ready);setTimeout(hide,4500);sp.addEventListener('click',hide)})();</script>
 <div id="app">
 
   <!-- ===== MAP ===== -->
@@ -219,13 +279,13 @@
   <div id="flash" class="flash hidden"></div>
 </div>
 
-<script src="lib/leaflet.js?v=53"></script>
-<script src="lib/suncalc.js?v=53"></script>
-<script src="data.js?v=53"></script>
-<script src="icons.js?v=53"></script>
-<script src="firebase-config.js?v=53"></script>
-<script src="app.js?v=53"></script>
-<script src="group.js?v=53"></script>
-<script src="spots.js?v=53"></script>
+<script src="lib/leaflet.js?v=54"></script>
+<script src="lib/suncalc.js?v=54"></script>
+<script src="data.js?v=54"></script>
+<script src="icons.js?v=54"></script>
+<script src="firebase-config.js?v=54"></script>
+<script src="app.js?v=54"></script>
+<script src="group.js?v=54"></script>
+<script src="spots.js?v=54"></script>
 </body>
 </html>
