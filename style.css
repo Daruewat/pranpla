@@ -2471,3 +2471,23 @@ a.btn,a.btn:visited{text-decoration:none}
 .flt-act{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:22px}
 .flt-act .btn{margin:0;justify-content:center;padding:14px}
 #fcPlace::after{content:' ▾';opacity:.7}
+/* ---- หน้าล็อกอินแบบ A: การ์ดโลโก้ + วงโซนาร์ ---- */
+.login-mode{display:block!important;padding:0!important;background:none!important;border:0!important;box-shadow:none!important}
+.lhero{position:relative;overflow:hidden;text-align:center;border-radius:28px;padding:28px 22px 20px;background:radial-gradient(120% 70% at 50% 0%,rgba(255,125,31,.22),transparent 60%),var(--card)}
+.lrings{position:absolute;left:50%;top:76px;width:320px;height:320px;transform:translate(-50%,-50%);pointer-events:none}
+.lrings i{position:absolute;inset:0;border-radius:50%;border:1.5px solid var(--sig-dim,rgba(61,242,196,.18))}
+.lrings i:nth-child(2){inset:42px}.lrings i:nth-child(3){inset:84px;border-color:var(--sig-glow,rgba(61,242,196,.3));animation:lring 3s ease-out infinite}
+@keyframes lring{0%{transform:scale(.7);opacity:1}100%{transform:scale(1.9);opacity:0}}
+.llogo{position:relative;width:96px;height:96px;border-radius:26px;box-shadow:0 0 0 6px rgba(255,125,31,.15),0 12px 40px rgba(255,125,31,.35)}
+.lhero h2{position:relative;font:600 23px var(--disp,Prompt),sans-serif;margin:20px 0 4px;color:var(--tx)}
+.lhero>.sub{position:relative}
+.lben{text-align:left;margin:20px 0;display:grid;gap:12px}
+.lben div{display:flex;gap:12px;align-items:center;font-size:15px;color:var(--tx)}
+.lben b{flex:none;width:38px;height:38px;border-radius:12px;background:var(--card2);display:grid;place-items:center;font-size:18px;color:var(--sig)}
+.lben .lh svg{width:20px;height:20px;fill:#ff4d6d;stroke:none}
+.gbtn{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;height:56px;border:0;border-radius:999px;background:#fff;color:#1f1f1f;font:600 17px var(--disp,Prompt),sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.3)}
+.gbtn .gg{width:22px;height:22px}
+.gbtn:disabled{opacity:.5}
+.gbtn:focus-visible{outline:3px solid var(--sig);outline-offset:3px}
+.lhero small{display:block;margin-top:12px;color:var(--tx3);font-size:12.5px}
+@media (prefers-reduced-motion:reduce){.lrings i{animation:none!important}}

@@ -225,6 +225,13 @@ const GRP = (() => {
   }
 
   /* ---------- หน้ากลุ่มในแท็บบันทึก ---------- */
+  const GLOGO = '<svg class="gg" viewBox="0 0 48 48" aria-hidden="true"><path fill="#4285F4" d="M45 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h11.8c-.5 2.7-2 5-4.4 6.6v5.5h7.1c4.1-3.8 6.5-9.4 6.5-16.1z"/><path fill="#34A853" d="M24 46c5.9 0 10.9-2 14.5-5.4l-7.1-5.5c-2 1.3-4.5 2.1-7.4 2.1-5.7 0-10.6-3.9-12.3-9.1H4.4v5.7C8 41 15.4 46 24 46z"/><path fill="#FBBC05" d="M11.7 28.1c-.4-1.3-.7-2.7-.7-4.1s.3-2.8.7-4.1v-5.7H4.4C2.9 17.2 2 20.5 2 24s.9 6.8 2.4 9.8l7.3-5.7z"/><path fill="#EA4335" d="M24 10.8c3.2 0 6.1 1.1 8.4 3.3l6.3-6.3C34.9 4.2 29.9 2 24 2 15.4 2 8 7 4.4 14.2l7.3 5.7c1.7-5.2 6.6-9.1 12.3-9.1z"/></svg>';
+  const loginHero = (id, title, sub) => `<div class="lhero"><div class="lrings"><i></i><i></i><i></i></div><img class="llogo" src="icons/icon-192.png?v=3" alt="">
+    <h2>${title}</h2><div class="sub">${sub}</div>
+    <div class="lben"><div><b>☁️</b>หมุดและปลาสำรองบนคลาวด์ ไม่หาย</div><div><b>🔥</b>เห็นหมายเด็ดที่เพื่อนแชร์</div><div><b class="lh"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"/></svg></b>ไลก์ คอมเมนต์ ปลาของเพื่อน</div></div>
+    ${st.err ? `<div class="warn" style="margin:0 0 12px;text-align:left">${esc(st.err)}</div>` : ''}
+    <button class="gbtn" id="${id}" ${st.authed ? '' : 'disabled'}>${GLOGO}เข้าสู่ระบบด้วย Google</button>
+    <small>เราเห็นแค่ชื่อกับรูปโปรไฟล์ ไม่โพสต์อะไรแทนคุณ</small></div>`;
   const avatar = (url, name, cls = 'av') => url ? `<i class="${cls}" style="background-image:url('${esc(url)}')"></i>` : `<i class="${cls}">${esc(initial(name))}</i>`;
   const ago = t => { const m = Math.round((Date.now() - t) / 6e4); return m < 60 ? Math.max(1, m) + ' นาทีที่แล้ว' : m < 1440 ? Math.round(m / 60) + ' ชม.ที่แล้ว' : m < 10080 ? Math.round(m / 1440) + ' วันที่แล้ว' : new Date(t).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }); };
   let tambons = null; loadTambons().then(T => { tambons = T; renderFeed(); });
@@ -232,10 +239,10 @@ const GRP = (() => {
   let feedMode = 'all';
   function render() { renderMap(); renderProfile(); renderCommunity(); renderFeed(); }
   function renderProfile() {
-    const el = $('#profileBox'); if (!el) return;
+    const el = $('#profileBox'); if (!el) return; el.classList.remove('login-mode');
     if (!enabled()) { el.innerHTML = `${avatar('', 'ฉัน', 'av big')}<div class="pinfo"><b>สมุดบันทึกของฉัน</b></div>`; return; }
     if (!st.user) {
-      el.innerHTML = `${avatar('', '?', 'av big')}<div class="pinfo"><b>ยังไม่เข้าสู่ระบบ</b><span class="sub">เข้าสู่ระบบเพื่อแชร์หมุดและปลาในชุมชน</span><button class="btn small" id="pLogin" ${st.authed ? '' : 'disabled'}>เข้าสู่ระบบด้วย Google</button></div>`;
+      el.classList.add('login-mode'); el.innerHTML = loginHero('pLogin', 'เข้าร่วมก๊วนพรานปลา', 'ล็อกอินครั้งเดียว ใช้ได้ทุกเครื่อง');
       $('#pLogin').onclick = () => { st.err = ''; login(); };
       return;
     }
@@ -245,13 +252,11 @@ const GRP = (() => {
     if ($('#pUid')) $('#pUid').onclick = () => copy(st.uid, 'คัดลอกรหัสผู้ใช้แล้ว');
   }
   function renderCommunity() {
-    const el = $('#groupCard'); if (!el) return;
+    const el = $('#groupCard'); if (!el) return; el.classList.remove('login-mode');
     $('#feedSeg')?.classList.toggle('hidden', !st.user);
     if (!enabled()) { el.innerHTML = '<div class="sub">ยังไม่ได้เชื่อมเซิร์ฟเวอร์</div>'; return; }
     if (!st.user) {
-      el.innerHTML = `<div style="font-weight:600;font-size:17px">ดูปลาและจุดตกปลาของทุกคน</div><div class="sub" style="margin-top:4px">เข้าสู่ระบบเพื่อเห็นโพสต์ปลาของคนอื่น และแชร์ของคุณ</div>
-        ${st.err ? `<div class="warn" style="margin:10px 0 0">${esc(st.err)}</div>` : ''}
-        <div class="row"><button class="btn" id="gLogin" ${st.authed ? '' : 'disabled'}>เข้าสู่ระบบด้วย Google</button></div>`;
+      el.classList.add('login-mode'); el.innerHTML = loginHero('gLogin', 'ดูปลาและหมายเด็ดของทุกคน', 'เข้าสู่ระบบเพื่อเห็นโพสต์ของก๊วน และแชร์ปลาของคุณ');
       $('#gLogin').onclick = () => { st.err = ''; login(); };
       return;
     }
