@@ -9,6 +9,22 @@ const VEC_PAL = {
     bld: '#d9d0c1', bldo: '#bfb3a0', minor: '#ffffff', mid: '#fff6d6', major: '#ffe49a', hwy: '#f6b86a', path: '#b89a78', rail: '#a9a9a9', bnd: '#9a8fb0',
     tx: '#1d2a23', tx2: '#55665d', halo: '#ffffff', wtx: '#0b5a94', poi: '#4c6a1f' }
 };
+VEC_PAL.terrain = { ...VEC_PAL.light, bg: '#e2f4e8', farm: '#e2f4e8', grass: '#d5efdd', wood: '#c9e8d3', park: '#c4e6cf', resid: '#eceeec', wet: '#cfeadf', water: '#a9d6f0', river: '#86c1e8', bld: '#dcdcd6', bldo: '#c6c6bf' };
+const DEM_URL = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
+/* ภูมิประเทศแบบ Google: พื้นเขียวมิ้นต์ + เงาภูเขา + เส้นชั้นความสูง + ถนน/ชื่อไทย */
+function terrainStyle() {
+  const st = vecStyle('terrain'), at = st.layers.findIndex(l => l.id === 'water');
+  const dem = window._dem;
+  st.sources.dem = { type: 'raster-dem', encoding: 'terrarium', tiles: [dem ? dem.sharedDemProtocolUrl : DEM_URL], tileSize: 256, maxzoom: 12, attribution: 'ความสูง: Mapzen Terrain Tiles (AWS)' };
+  const add = [{ id: 'hill', type: 'hillshade', source: 'dem', paint: { 'hillshade-exaggeration': .55, 'hillshade-shadow-color': '#2e4a3b', 'hillshade-highlight-color': 'rgba(255,255,255,.45)', 'hillshade-accent-color': '#3f5c4c', 'hillshade-illumination-direction': 315 } }];
+  if (dem) {
+    st.sources.ct = { type: 'vector', tiles: [dem.contourProtocolUrl({ thresholds: { 10: [200, 1000], 11: [100, 500], 12: [50, 200], 13: [20, 100], 14: [20, 100], 15: [10, 50] }, contourLayer: 'c', elevationKey: 'ele', levelKey: 'lv', overzoom: 1 })], maxzoom: 15 };
+    add.push({ id: 'ct', type: 'line', source: 'ct', 'source-layer': 'c', minzoom: 10, paint: { 'line-color': '#5d7a68', 'line-opacity': ['match', ['get', 'lv'], 1, .45, .22], 'line-width': ['match', ['get', 'lv'], 1, 1, .6] } });
+    st.layers.push({ id: 'ct-lb', type: 'symbol', source: 'ct', 'source-layer': 'c', minzoom: 12, filter: ['>', ['get', 'lv'], 0], layout: { 'symbol-placement': 'line', 'text-field': ['concat', ['to-string', ['get', 'ele']], 'm'], 'text-font': ['Noto Sans Regular'], 'text-size': 10, 'text-padding': 30 }, paint: { 'text-color': '#6f8778', 'text-halo-color': '#e2f4e8', 'text-halo-width': 1.2 } });
+  }
+  st.layers.splice(at < 0 ? 1 : at, 0, ...add);
+  return st;
+}
 function vecStyle(theme) {
   const c = VEC_PAL[theme] || VEC_PAL.dark, NAME = ['coalesce', ['get', 'name:th'], ['get', 'name'], ['get', 'name:latin']];
   const road = (id, cls, color, w, minzoom, extra = {}) => ({ id, type: 'line', source: 'o', 'source-layer': 'transportation', minzoom, filter: ['all', ['in', 'class', ...cls], ['!=', 'brunnel', 'tunnel']],

@@ -86,17 +86,18 @@ const OSM = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', ESRI = 'https://se
 const TL = (u, o) => L.tileLayer(u, { crossOrigin: true, maxZoom: 19, ...o });
 const LAYERS = {
   hyb: { short: 'ดาวเทียม', name: 'ดาวเทียม + ถนน', ico: '🛰️', desc: 'ภาพถ่ายจริง เห็นบ้าน ถนน ชื่อสถานที่ภาษาไทย', maxZ: 17, kb: 26, urls: [ESRI + 'World_Imagery/MapServer/tile/{z}/{y}/{x}'], uMax: [17, 14], make: () => makeVec(() => hybridStyle()) },
-  vec: { short: 'ถนน', name: 'แผนที่ถนน', ico: '🗺️', desc: 'แผนที่ถนนสีสว่าง ตัวหนังสือคม ซูมลื่น · ออฟไลน์ใช้พื้นที่น้อย', maxZ: 14, kb: 22, urls: [], make: () => makeVec(() => vecStyle('light')) },
+  vec: { short: 'ค่าเริ่มต้น', name: 'ค่าเริ่มต้น', ico: '🗺️', desc: 'แผนที่ถนนสีสว่าง ตัวหนังสือคม ซูมลื่น · ออฟไลน์ใช้พื้นที่น้อย', maxZ: 14, kb: 22, urls: [], make: () => makeVec(() => vecStyle('light')) },
   light: { hidden: true, short: 'ถนน', name: 'แผนที่', ico: '🗺️', desc: 'สว่าง อ่านง่าย ชื่อสถานที่ภาษาไทย', urls: [OSM], maxZ: 18, kb: 18, l: TL(OSM, { attribution: '© OpenStreetMap' }) },
-  topo: { name: 'ภูมิประเทศ', ico: '⛰️', desc: 'เส้นชั้นความสูง ลำห้วย ทางเดินป่า', urls: ['https://a.tile.opentopomap.org/{z}/{x}/{y}.png'], maxZ: 16, kb: 28, l: TL('https://a.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17, attribution: '© OpenTopoMap' }) }
+  topo: { short: 'ภูมิประเทศ', name: 'ภูมิประเทศ', ico: '⛰️', desc: 'เงาภูเขา เส้นชั้นความสูง ลำห้วย ถนน', maxZ: 14, kb: 30, urls: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'], uMax: [12, 14], make: () => makeVec(() => terrainStyle()) }
 };
 const loadScript = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
 const curTheme = () => document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
 async function makeVec(styleFn) {   // โหลดตัววาดแผนที่เวกเตอร์เฉพาะตอนเลือกใช้
-  if (!window.maplibregl) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'lib/maplibre-gl.css'; document.head.appendChild(l); await loadScript('lib/maplibre-gl.js'); await loadScript('lib/leaflet-maplibre-gl.js'); await loadScript('vecstyle.js?v=63'); }
-  try { if (!window.pmtiles) await loadScript('lib/pmtiles.js?v=63'); if (!window._pmProto) { window._pmProto = new pmtiles.Protocol(); maplibregl.addProtocol('pmtiles', _pmProto.tile); } } catch {}   // รูปอาคาร Google+Microsoft
+  if (!window.maplibregl) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'lib/maplibre-gl.css'; document.head.appendChild(l); await loadScript('lib/maplibre-gl.js'); await loadScript('lib/leaflet-maplibre-gl.js'); await loadScript('vecstyle.js?v=64'); }
+  try { if (!window.pmtiles) await loadScript('lib/pmtiles.js?v=64'); if (!window._pmProto) { window._pmProto = new pmtiles.Protocol(); maplibregl.addProtocol('pmtiles', _pmProto.tile); } } catch {}   // รูปอาคาร Google+Microsoft
+  try { if (!window.mlcontour) await loadScript('lib/mlcontour.js?v=64'); if (!window._dem) { window._dem = new mlcontour.DemSource({ url: 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png', encoding: 'terrarium', maxzoom: 12, worker: true, cacheSize: 100 }); _dem.setupMaplibre(maplibregl); } } catch {}   // เส้นชั้นความสูง
   if (!maplibregl.supported?.() && !document.createElement('canvas').getContext('webgl')) throw new Error('no webgl');
-  fetch('https://tiles.openfreemap.org/planet').then(r => r.json()).then(j => { if (j.tiles?.[0]) { LAYERS.vec.urls = [j.tiles[0]]; LAYERS.hyb.urls = [LAYERS.hyb.urls[0], j.tiles[0]]; } }).catch(() => {});
+  fetch('https://tiles.openfreemap.org/planet').then(r => r.json()).then(j => { if (j.tiles?.[0]) { LAYERS.vec.urls = [j.tiles[0]]; LAYERS.hyb.urls = [LAYERS.hyb.urls[0], j.tiles[0]]; LAYERS.topo.urls = [LAYERS.topo.urls[0], j.tiles[0]]; } }).catch(() => {});
   return L.maplibreGL({ style: styleFn(), attribution: '© OpenStreetMap · OpenFreeMap · Esri' });
 }
 function vecRestyle() {}
@@ -197,7 +198,7 @@ $('#btnLocate').onclick = () => {
 const MT_THUMB = {   // ภาพตัวอย่างประเภทแผนที่ (วาดเอง)
   vec: `<svg viewBox="0 0 80 80"><rect width="80" height="80" fill="#eef1ea"/><path d="M0 0h34c-6 14-2 26 8 34-14 4-26 2-42-4z" fill="#a7d3f2"/><path d="M48 0h32v38c-14-2-26-10-32-38z" fill="#bfe3c3"/><path d="M-4 66C20 52 44 50 84 30" stroke="#fff" stroke-width="9" fill="none"/><path d="M-4 66C20 52 44 50 84 30" stroke="#ffd98a" stroke-width="5" fill="none"/><path d="M30 84C34 62 40 46 62 -4" stroke="#fff" stroke-width="5" fill="none"/><g fill="#d9d0c1"><rect x="50" y="56" width="9" height="7"/><rect x="62" y="52" width="8" height="9"/><rect x="58" y="66" width="10" height="7"/><rect x="10" y="40" width="8" height="7"/></g></svg>`,
   hyb: `<svg viewBox="0 0 80 80"><rect width="80" height="80" fill="#4b5a3c"/><path d="M0 10l30 6 6 30-36 6z" fill="#6b7a4a"/><path d="M50 0h30v30L56 40z" fill="#2f4a32"/><path d="M40 50l40-6v36H34z" fill="#8a7b55"/><circle cx="20" cy="66" r="10" fill="#355a5e"/><path d="M-4 40C24 34 50 46 84 20" stroke="#cfc8b8" stroke-width="6" fill="none"/><path d="M-4 40C24 34 50 46 84 20" stroke="#fff" stroke-width="1.2" stroke-dasharray="4 4" fill="none"/><g fill="#c9c2b3"><rect x="40" y="10" width="6" height="5"/><rect x="48" y="14" width="5" height="6"/><rect x="14" y="22" width="6" height="5"/></g></svg>`,
-  topo: `<svg viewBox="0 0 80 80"><rect width="80" height="80" fill="#e6ead8"/><g fill="none" stroke="#b9a37c" stroke-width="1.4"><path d="M8 80c4-22 20-40 40-44s32-18 32-36"/><path d="M22 80c4-16 16-28 32-32s26-14 26-26"/><path d="M38 80c4-10 12-18 24-20s18-10 18-18"/><path d="M0 52c12-2 22-12 24-26S32 4 40 0"/><path d="M0 38c8-2 14-10 16-20S22 2 26 0"/></g><path d="M0 70C20 66 26 50 44 48s24-14 40-12" stroke="#7fb6e6" stroke-width="2.5" fill="none"/><path d="M60 80C58 60 70 44 84 40" stroke="#fff" stroke-width="4" fill="none"/></svg>`
+  topo: `<svg viewBox="0 0 80 80"><rect width="80" height="80" fill="#e2f4e8"/><path d="M14 0c10 14 4 26 18 34s20 22 14 46H80V0z" fill="#8fae9a" opacity=".55"/><path d="M40 0c6 12 2 20 12 28s14 18 10 52h18V0z" fill="#557a64" opacity=".5"/><g fill="none" stroke="#5d7a68" stroke-opacity=".5" stroke-width="1"><path d="M22 0c8 14 4 24 16 32s16 24 12 48"/><path d="M50 0c4 10 2 18 10 26s10 22 8 54"/></g><path d="M0 62C18 58 30 48 46 50s22-6 34-10" stroke="#86c1e8" stroke-width="2" fill="none"/><path d="M-2 30C20 34 36 46 82 70" stroke="#fff" stroke-width="4" fill="none"/><path d="M-2 30C20 34 36 46 82 70" stroke="#cfd6d2" stroke-width="1" fill="none"/></svg>`
 };
 const MT_ORDER = ['vec', 'hyb', 'topo'];
 function mapOptSheet() {
@@ -246,7 +247,7 @@ function offlinePlan() {
   const list = z1 => { const out = []; for (let z = Math.max(z0 - 3, 5); z <= z1; z++) { const x0 = lon2x(b.getWest(), z), x1 = lon2x(b.getEast(), z), y0 = lat2y(b.getNorth(), z), y1 = lat2y(b.getSouth(), z); for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) ly.urls.forEach((u, i) => z <= (ly.uMax?.[i] ?? ly.maxZ) && out.push(u.replace('{z}', z).replace('{x}', x).replace('{y}', y))); } return out; };
   let z1 = Math.min(z0 + 3, ly.maxZ), urls = list(z1);
   while (urls.length > OFF.cap && z1 > z0) urls = list(--z1);
-  if (S.layer === 'vec' || S.layer === 'hyb') ['Noto Sans Regular', 'Noto Sans Bold', 'Noto Sans Italic'].forEach(f => ['0-255', '3584-3839', '8192-8447'].forEach(g => urls.push(`https://tiles.openfreemap.org/fonts/${encodeURIComponent(f)}/${g}.pbf`)));   // ตัวอักษรไทย/อังกฤษของแผนที่
+  if (['vec', 'hyb', 'topo'].includes(S.layer)) ['Noto Sans Regular', 'Noto Sans Bold', 'Noto Sans Italic'].forEach(f => ['0-255', '3584-3839', '8192-8447'].forEach(g => urls.push(`https://tiles.openfreemap.org/fonts/${encodeURIComponent(f)}/${g}.pbf`)));   // ตัวอักษรไทย/อังกฤษของแผนที่
   return { urls, z0, z1, ly, tooBig: urls.length > OFF.cap };
 }
 async function offlineCount() { try { return (await (await caches.open('pranpla-offline')).keys()).length; } catch { return 0; } }
