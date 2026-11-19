@@ -93,9 +93,9 @@ const LAYERS = {
 const loadScript = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
 const curTheme = () => document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
 async function makeVec(styleFn) {   // โหลดตัววาดแผนที่เวกเตอร์เฉพาะตอนเลือกใช้
-  if (!window.maplibregl) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'lib/maplibre-gl.css'; document.head.appendChild(l); await loadScript('lib/maplibre-gl.js'); await loadScript('lib/leaflet-maplibre-gl.js'); await loadScript('vecstyle.js?v=64'); }
-  try { if (!window.pmtiles) await loadScript('lib/pmtiles.js?v=64'); if (!window._pmProto) { window._pmProto = new pmtiles.Protocol(); maplibregl.addProtocol('pmtiles', _pmProto.tile); } } catch {}   // รูปอาคาร Google+Microsoft
-  try { if (!window.mlcontour) await loadScript('lib/mlcontour.js?v=64'); if (!window._dem) { window._dem = new mlcontour.DemSource({ url: 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png', encoding: 'terrarium', maxzoom: 12, worker: true, cacheSize: 100 }); _dem.setupMaplibre(maplibregl); } } catch {}   // เส้นชั้นความสูง
+  if (!window.maplibregl) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'lib/maplibre-gl.css'; document.head.appendChild(l); await loadScript('lib/maplibre-gl.js'); await loadScript('lib/leaflet-maplibre-gl.js'); await loadScript('vecstyle.js?v=65'); }
+  try { if (!window.pmtiles) await loadScript('lib/pmtiles.js?v=65'); if (!window._pmProto) { window._pmProto = new pmtiles.Protocol(); maplibregl.addProtocol('pmtiles', _pmProto.tile); } } catch {}   // รูปอาคาร Google+Microsoft
+  try { if (!window.mlcontour) await loadScript('lib/mlcontour.js?v=65'); if (!window._dem) { window._dem = new mlcontour.DemSource({ url: 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png', encoding: 'terrarium', maxzoom: 12, worker: true, cacheSize: 100 }); _dem.setupMaplibre(maplibregl); } } catch {}   // เส้นชั้นความสูง
   if (!maplibregl.supported?.() && !document.createElement('canvas').getContext('webgl')) throw new Error('no webgl');
   fetch('https://tiles.openfreemap.org/planet').then(r => r.json()).then(j => { if (j.tiles?.[0]) { LAYERS.vec.urls = [j.tiles[0]]; LAYERS.hyb.urls = [LAYERS.hyb.urls[0], j.tiles[0]]; LAYERS.topo.urls = [LAYERS.topo.urls[0], j.tiles[0]]; } }).catch(() => {});
   return L.maplibreGL({ style: styleFn(), attribution: '© OpenStreetMap · OpenFreeMap · Esri' });
@@ -202,18 +202,18 @@ const MT_THUMB = {   // ภาพตัวอย่างประเภทแ�
 };
 const MT_ORDER = ['vec', 'hyb', 'topo'];
 function mapOptSheet() {
-  const det = (k, ico, title) => `<button type="button" class="mt-det ${OPT[k] ? 'sel' : ''}" data-opt="${k}" aria-pressed="${!!OPT[k]}"><span class="mt-ic">${ico}</span><span class="mt-lb">${title}</span></button>`;
+  const det = (k, ico, title, sub) => `<label class="optrow"><span class="oi">${ico}</span><span class="ot"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</span><input type="checkbox" class="switch" data-opt="${k}" ${OPT[k] ? 'checked' : ''}></label>`;
   const types = MT_ORDER.filter(k => LAYERS[k] && !LAYERS[k].hidden).concat(Object.keys(LAYERS).filter(k => !LAYERS[k].hidden && !MT_ORDER.includes(k)));
   openSheet(`<h3 class="mt-h1">ประเภทแผนที่</h3>
   <div class="mt-types">${types.map(k => { const o = LAYERS[k]; return `<button type="button" data-layer="${k}" class="mt-type ${k === S.layer ? 'sel' : ''}"><span class="mt-th">${MT_THUMB[k] || `<span class="mt-emo">${o.ico}</span>`}</span><span class="mt-lb">${o.short || o.name}</span></button>`; }).join('')}</div>
   <hr class="mt-hr">
   <h3 class="mt-h2">รายละเอียดแผนที่</h3>
-  <div class="mt-dets">
-    ${det('water', '💧', 'แหล่งน้ำ<br>ระดับน้ำ')}
-    ${grp('joined') ? det('friends', '👥', 'หมุดของ<br>คนอื่น') : ''}
-    ${det('catches', '🐟', 'ปลาที่ฉัน<br>จับได้')}
-    ${det('heat', '🔥', 'ฮีตแมป<br>ของฉัน')}
-    ${det('cross', '🎯', 'เส้นเล็ง')}
+  <div class="mt-dets-list">
+    ${det('water', '💧', 'แหล่งน้ำ / ระดับน้ำ', 'หมุดอ่างเก็บน้ำ แตะดูระดับน้ำ')}
+    ${grp('joined') ? det('friends', '👥', 'หมุดของคนอื่น', 'หมุดที่เพื่อนในชุมชนแชร์') : ''}
+    ${det('catches', '🐟', 'ปลาที่ฉันจับได้', 'จุดที่บันทึกว่าจับปลาได้')}
+    ${det('heat', '🔥', 'ฮีตแมปของฉัน', 'วงสีตรงที่จับปลาได้บ่อย')}
+    ${det('cross', '🎯', 'เส้นเล็ง', 'กากบาทกลางจอ ไว้เล็งจุดปักหมุด')}
   </div>
   <hr class="mt-hr">
   <h3 class="mt-h2">กรองหมุด</h3>
@@ -226,8 +226,8 @@ function mapOptSheet() {
     b.classList.toggle('sel'); const on = $$('#optTypes button.sel').map(x => x.dataset.type);
     OPT.types = on.length === Object.values(SPOT_TYPES).filter(t => !t.hidden).length ? null : on; saveOpt(); renderSpots();
   });
-  $$('#sheet [data-opt]').forEach(x => x.onclick = () => {
-    const k = x.dataset.opt; OPT[k] = !OPT[k]; x.classList.toggle('sel', OPT[k]); x.setAttribute('aria-pressed', OPT[k]);
+  $$('#sheet [data-opt]').forEach(x => x.onchange = () => {
+    const k = x.dataset.opt; OPT[k] = x.checked;
     saveOpt(); renderSpots(); updateCoordBar();
     if (k === 'heat' && OPT[k] && !S.catches.some(c => c.lat != null)) toast('ยังไม่มีปลาในสมุดบันทึก ฮีตแมปจะขึ้นเมื่อบันทึกปลาพร้อมตำแหน่ง');
   });
