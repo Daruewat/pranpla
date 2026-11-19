@@ -36,12 +36,13 @@ const GRP = (() => {
       if (e.code !== 'auth/popup-closed-by-user') { st.err = authErr(e); render(); }
     }
   }
-  async function logout() { stop(); ls.set('myAv', ''); await firebase.auth().signOut().catch(() => {}); st.admin = false; st.banned = false; render(); toast('ออกจากระบบแล้ว (หมุดในเครื่องยังอยู่ครบ)'); }
+  async function logout() { const was = st.uid || st.user?.uid; stop(); ls.set('myAv', ''); ls.set('myname', ''); st.me = ''; await window.acctOut?.(was); await firebase.auth().signOut().catch(() => {}); st.admin = false; st.banned = false; render(); toast('ออกจากระบบแล้ว · ข้อมูลของบัญชีเก็บไว้ ล็อกอินกลับมาก็เห็นครบ', 4000); }
   async function start() {
     stop(); st.err = '';
     if (!st.user) { render(); return; }
     try {
       st.uid = st.user.uid;
+      await window.acctIn?.(st.uid);   // ดึงข้อมูลของบัญชีนี้ที่เก็บไว้ในเครื่องกลับมา
       st.admin = await st.db.collection('admins').doc(st.uid).get().then(d => d.exists).catch(() => false);
       st.banned = await st.db.collection('banned').doc(st.uid).get().then(d => d.exists).catch(() => false);
       const md = await col('members').doc(st.uid).get().then(d => d.exists ? d.data() : null).catch(() => null);   // รูปที่ตั้งไว้จากเครื่องอื่น

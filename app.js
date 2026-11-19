@@ -62,6 +62,23 @@ const S = {
 };
 const grp = (f, ...x) => { try { if (typeof GRP !== 'undefined') return typeof GRP[f] === 'function' ? GRP[f](...x) : GRP[f]; } catch (e) { console.warn(e); } };   // เรียกโมดูลกลุ่ม (group.js) ถ้ามี
 const save = k => DB.set(k, S[k]).catch(() => toast('บันทึกข้อมูลไม่สำเร็จ'));
+/* ข้อมูลแยกตามบัญชี: ออกจากระบบแล้วเก็บของบัญชีนั้นไว้ (ไม่ลบ) หน้าจอว่าง · ล็อกอินบัญชีเดิมกลับมาครบ
+   ของที่บันทึกตอนยังไม่ล็อกอิน จะรวมเข้าบัญชีที่ล็อกอินถัดไป */
+const ACCT_KEYS = ['spots', 'catches', 'tracks'];
+const mergeById = (a, b) => { const m = new Map(); [...(a || []), ...(b || [])].forEach(x => x && m.set(x.id, { ...m.get(x.id), ...x })); return [...m.values()]; };
+function acctRender() { S.catches.sort((x, y) => y.t - x.t); ACCT_KEYS.forEach(save); renderSpots(); renderLog(); }
+window.acctOut = async uid => {   // ก่อนออกจากระบบ
+  if (!uid) return;
+  await DB.set('acct_' + uid, { spots: S.spots, catches: S.catches, tracks: S.tracks, t: Date.now() }).catch(() => {});
+  ACCT_KEYS.forEach(k => S[k] = []); ls.set('acctOwner', 'guest'); ls.set('draft', null); acctRender();
+};
+window.acctIn = async uid => {   // หลังล็อกอิน
+  const owner = ls.get('acctOwner', null);
+  if (owner === uid) return;
+  const st = await DB.get('acct_' + uid).catch(() => null);
+  if (st) { ACCT_KEYS.forEach(k => S[k] = mergeById(st[k], S[k])); await DB.set('acct_' + uid, null).catch(() => {}); acctRender(); }
+  ls.set('acctOwner', uid);
+};
 
 /* ============ map ============ */
 const map = L.map('map', { zoomControl: false, attributionControl: false }).setView(ls.get('view', [18.79, 98.98]), ls.get('zoom', 13));
