@@ -34,6 +34,7 @@ function vecStyle(theme) {
   return {
     version: 8, glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
     sources: { o: { type: 'vector', url: 'https://tiles.openfreemap.org/planet', attribution: '© OpenStreetMap · OpenFreeMap' },
+      wfix: { type: 'geojson', data: new URL('waterfix.json?v=1', location.href).href },   // อ่างเก็บน้ำที่ข้อมูล OSM ขาด (เช่น อ่างแม่กวง) วาดเติมเอง
       ...(window._pmProto ? { gb: { type: 'vector', url: 'pmtiles://' + OPEN_BLD, attribution: 'อาคาร: Google Open Buildings · Microsoft' } } : {}) },
     layers: [
       { id: 'bg', type: 'background', paint: { 'background-color': c.bg } },
@@ -45,6 +46,7 @@ function vecStyle(theme) {
       { id: 'wetland', type: 'fill', source: 'o', 'source-layer': 'landcover', filter: ['==', 'class', 'wetland'], paint: { 'fill-color': c.wet } },
       { id: 'stream', type: 'line', source: 'o', 'source-layer': 'waterway', minzoom: 11, filter: ['in', 'class', 'stream', 'ditch', 'drain'], paint: { 'line-color': c.river, 'line-width': ['interpolate', ['linear'], ['zoom'], 11, .6, 16, 2.2] } },
       { id: 'river', type: 'line', source: 'o', 'source-layer': 'waterway', filter: ['in', 'class', 'river', 'canal'], layout: { 'line-cap': 'round' }, paint: { 'line-color': c.river, 'line-width': ['interpolate', ['linear'], ['zoom'], 8, 1, 13, 3, 17, 8] } },
+      { id: 'water-fix', type: 'fill', source: 'wfix', paint: { 'fill-color': c.water } },
       { id: 'water', type: 'fill', source: 'o', 'source-layer': 'water', paint: { 'fill-color': c.water } },
       { id: 'water-edge', type: 'line', source: 'o', 'source-layer': 'water', minzoom: 12, paint: { 'line-color': c.river, 'line-width': 1 } },
       ...(window._pmProto ? [{ id: 'gbld', type: 'fill', source: 'gb', 'source-layer': 'building_footprints', minzoom: 14, paint: { 'fill-color': c.bld, 'fill-outline-color': c.bldo } }] : []),   // อาคารที่ OSM ยังไม่มี (ข้อมูลเปิด Google + Microsoft)
