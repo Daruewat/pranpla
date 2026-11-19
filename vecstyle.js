@@ -62,7 +62,8 @@ function hybridStyle() {
   return {
     version: 8, glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
     sources: {
-      img: { type: 'raster', tiles: [ESRI_IMG], tileSize: 256, maxzoom: 18, attribution: 'ภาพ: Esri, Maxar' },
+      img: { type: 'raster', tiles: [ESRI_IMG], tileSize: (window.devicePixelRatio || 1) >= 1.5 ? 128 : 256, maxzoom: 18,   // จอมือถือความละเอียดสูง: ดึงภาพซูมสูงกว่า 1 ขั้น ให้คมเท่าจอ
+      attribution: 'ภาพ: Esri, Maxar' },
       o: { type: 'vector', url: 'https://tiles.openfreemap.org/planet', attribution: '© OpenStreetMap · OpenFreeMap' }
     },
     layers: [
