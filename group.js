@@ -238,18 +238,35 @@ const GRP = (() => {
   const placeOf = c => { if (c.spot) return c.spot; if (!tambons || c.lat == null) return ''; let b = null, bd = 1e12; for (const t of tambons) { if (Math.abs(t[0] - c.lat) > .2 || Math.abs(t[1] - c.lng) > .2) continue; const d = dist(c, { lat: t[0], lng: t[1] }); if (d < bd) { bd = d; b = t; } } return b ? `${b[2]} · ${b[3]}` : ''; };
   let feedMode = 'all';
   function render() { renderMap(); renderProfile(); renderCommunity(); renderFeed(); }
-  function renderProfile() {
-    const el = $('#profileBox'); if (!el) return; el.classList.remove('login-mode');
-    if (!enabled()) { el.innerHTML = `${avatar('', 'ฉัน', 'av big')}<div class="pinfo"><b>สมุดบันทึกของฉัน</b></div>`; return; }
-    if (!st.user) {
+  function renderProfile() {   // หน้า "ของฉัน" แบบโปรไฟล์ไอจี
+    const el = $('#profileBox'), av = $('#meAv'), ttl = $('#meTitle'); if (!el) return; el.classList.remove('login-mode');
+    if (ttl) ttl.textContent = st.user && st.me ? st.me : 'ของฉัน';
+    if (!enabled() || !st.user) {
+      if (av) av.innerHTML = ringAv('', 'ฉัน', 'big seen');
+      if (!enabled()) { el.innerHTML = '<div class="mebio"><b>ของฉัน</b><div class="sub">เก็บไว้ในเครื่องนี้</div></div>'; return; }
       el.classList.add('login-mode'); el.innerHTML = loginHero('pLogin', 'เข้าร่วมก๊วนพรานปลา', 'ล็อกอินครั้งเดียว ใช้ได้ทุกเครื่อง');
       $('#pLogin').onclick = () => { st.err = ''; login(); };
       return;
     }
-    el.innerHTML = `<button class="avedit" id="pAv" aria-label="เปลี่ยนรูปโปรไฟล์">${avatar(myAv(), st.me, 'av big')}<span class="avpen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></svg></span></button><div class="pinfo"><b>${esc(st.me || 'ไม่ระบุชื่อ')}${st.admin ? ' <span class="adm">แอดมิน</span>' : ''}</b><span class="sub">${esc(st.user.email || '')}</span>
-      <div class="plinks"><button class="link" id="pName">เปลี่ยนชื่อ</button><button class="link" id="pOut">ออกจากระบบ</button>${st.admin ? '' : '<button class="link" id="pUid">รหัสผู้ใช้</button>'}</div></div>`;
-    $('#pName').onclick = renameSheet; $('#pOut').onclick = logout; $('#pAv').onclick = avSheet;
+    if (av) { av.innerHTML = `<button class="avedit" id="pAv" aria-label="เปลี่ยนรูปโปรไฟล์">${ringAv(myAv(), st.me, 'big')}</button>`; $('#pAv').onclick = avSheet; }
+    el.innerHTML = `<div class="mebio"><b>${esc(st.me || 'ไม่ระบุชื่อ')}</b>${teamB(st.uid)}${st.admin ? ' <span class="adm">แอดมิน</span>' : ''}<div class="sub">นักล่าปลาช่อนข้างทาง · พรานปลา</div></div>
+      <div class="mebtns"><button class="btn ghost" id="pEdit">แก้ไขโปรไฟล์</button><button class="btn ghost" id="pShare">แชร์โปรไฟล์</button></div>`;
+    $('#pEdit').onclick = editSheet; $('#pShare').onclick = shareProfile;
+  }
+  function editSheet() {
+    openSheet(`<h3>แก้ไขโปรไฟล์</h3><div class="menu">
+      <button class="menu-item" id="pAv2"><span class="mi">🖼️</span><span><b>เปลี่ยนรูปโปรไฟล์</b></span></button>
+      <button class="menu-item" id="pName"><span class="mi">✏️</span><span><b>เปลี่ยนชื่อ</b><small>${esc(st.me || '')}</small></span></button>
+      ${st.admin ? '' : '<button class="menu-item" id="pUid"><span class="mi">🔑</span><span><b>คัดลอกรหัสผู้ใช้</b></span></button>'}
+      <button class="menu-item danger" id="pOut"><span class="mi">↩️</span><span><b>ออกจากระบบ</b><small>ข้อมูลบัญชีเก็บไว้ ล็อกอินกลับมาก็เห็นครบ</small></span></button></div>`);
+    $('#pAv2').onclick = avSheet; $('#pName').onclick = renameSheet; $('#pOut').onclick = () => { closeSheet(); logout(); };
     if ($('#pUid')) $('#pUid').onclick = () => copy(st.uid, 'คัดลอกรหัสผู้ใช้แล้ว');
+  }
+  async function shareProfile() {
+    const n = S.catches.filter(c => !c.private).length, sp = new Set(S.catches.map(c => c.species)).size, big = S.catches.reduce((m, c) => Math.max(m, +c.wt || 0), 0);
+    const text = `${st.me || 'ผม'} ในพรานปลา: จับไป ${n} ตัว ${sp} ชนิด${big ? ` ตัวใหญ่สุด ${big} กก.` : ''} 🎣 มาลงหมายด้วยกัน`, url = location.origin + location.pathname;
+    try { if (navigator.share) return await navigator.share({ title: 'พรานปลา', text, url }); } catch (e) { if (e && e.name === 'AbortError') return; }
+    copy(text + '\n' + url, 'คัดลอกข้อความแชร์แล้ว');
   }
   function renderCommunity() {
     const el = $('#groupCard'); if (!el) return; el.classList.remove('login-mode');

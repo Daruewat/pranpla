@@ -93,9 +93,9 @@ const LAYERS = {
 const loadScript = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
 const curTheme = () => document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
 async function makeVec(styleFn) {   // โหลดตัววาดแผนที่เวกเตอร์เฉพาะตอนเลือกใช้
-  if (!window.maplibregl) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'lib/maplibre-gl.css'; document.head.appendChild(l); await loadScript('lib/maplibre-gl.js'); await loadScript('lib/leaflet-maplibre-gl.js'); await loadScript('vecstyle.js?v=89'); }
-  try { if (!window.pmtiles) await loadScript('lib/pmtiles.js?v=89'); if (!window._pmProto) { window._pmProto = new pmtiles.Protocol(); maplibregl.addProtocol('pmtiles', _pmProto.tile); } } catch {}   // รูปอาคาร Google+Microsoft
-  try { if (!window.mlcontour) await loadScript('lib/mlcontour.js?v=89'); if (!window._dem) { window._dem = new mlcontour.DemSource({ url: 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png', encoding: 'terrarium', maxzoom: 12, worker: true, cacheSize: 100 }); _dem.setupMaplibre(maplibregl); } } catch {}   // เส้นชั้นความสูง
+  if (!window.maplibregl) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'lib/maplibre-gl.css'; document.head.appendChild(l); await loadScript('lib/maplibre-gl.js'); await loadScript('lib/leaflet-maplibre-gl.js'); await loadScript('vecstyle.js?v=90'); }
+  try { if (!window.pmtiles) await loadScript('lib/pmtiles.js?v=90'); if (!window._pmProto) { window._pmProto = new pmtiles.Protocol(); maplibregl.addProtocol('pmtiles', _pmProto.tile); } } catch {}   // รูปอาคาร Google+Microsoft
+  try { if (!window.mlcontour) await loadScript('lib/mlcontour.js?v=90'); if (!window._dem) { window._dem = new mlcontour.DemSource({ url: 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png', encoding: 'terrarium', maxzoom: 12, worker: true, cacheSize: 100 }); _dem.setupMaplibre(maplibregl); } } catch {}   // เส้นชั้นความสูง
   if (!maplibregl.supported?.() && !document.createElement('canvas').getContext('webgl')) throw new Error('no webgl');
   fetch('https://tiles.openfreemap.org/planet').then(r => r.json()).then(j => { if (j.tiles?.[0]) { LAYERS.vec.urls = [j.tiles[0]]; LAYERS.hyb.urls = [LAYERS.hyb.urls[0], j.tiles[0]]; LAYERS.topo.urls = [LAYERS.topo.urls[0], j.tiles[0]]; } }).catch(() => {});
   return L.maplibreGL({ style: styleFn(), attribution: '© OpenStreetMap · OpenFreeMap · Esri' });
@@ -1444,11 +1444,11 @@ function renderLog() {
   grp('render');
   if (OPT.catches || OPT.heat) renderSpots();
   const sp = new Set(S.catches.map(c => c.species)), big = S.catches.reduce((m, c) => Math.max(m, c.wt || 0), 0);
-  $('#stats').innerHTML = `<div><b>${S.catches.length}</b><span>ปลาที่จับได้</span></div><div><b>${sp.size}</b><span>ชนิดปลา</span></div><div><b>${S.spots.length}</b><span>หมุด</span></div><div><b>${big || '-'}</b><span>กก. ใหญ่สุด</span></div>`;
-  $('#catchList').innerHTML = S.catches.length ? '<div class="strip">' + S.catches.map(c => {
-    const d = new Date(c.t), s = S.spots.find(x => x.id === c.spotId);
-    return `<div class="ccard" data-act="catch" data-id="${c.id}"><div class="cimg" ${c.photo ? `style="background-image:url(${c.photo})"` : ''}>${c.photo ? '' : '🐟'}${c.private ? '<span class="lock">🔒</span>' : ''}</div><b>${esc(c.species)}</b><span class="sub">${[c.wt && c.wt + ' กก.', c.len && c.len + ' ซม.'].filter(Boolean).join(' · ') || esc(c.bait || '')}</span><span class="sub">${d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}${s ? ' · ' + esc(s.name) : ''}</span></div>`;
-  }).join('') + '<div class="ccard add" data-act="new-catch"><span>＋</span>บันทึกปลา</div></div>' : '<div class="ccard first" data-act="new-catch"><span>📷</span><b>ปลาตัวแรกรอคุณอยู่</b><span class="sub">บันทึกไว้ แล้วจะมาแปะที่นี่</span></div>';
+  $('#stats').innerHTML = `<div><b>${S.catches.length}</b><span>ปลา</span></div><div><b>${sp.size}</b><span>ชนิด</span></div><div><b>${S.spots.length}</b><span>หมุด</span></div><div><b>${big || '-'}</b><span>กก.สูงสุด</span></div>`;
+  const GF = '<i class="gfish"><svg viewBox="0 0 24 24"><path d="M3 12c3-4.5 8-6 12-3.5L20 6v12l-5-2.5C11 18 6 16.5 3 12Z"/><circle cx="8" cy="11.5" r="1"/></svg></i>';
+  $('#catchList').innerHTML = `<div class="iggrid megrid"><button class="gadd" data-act="new-catch" aria-label="บันทึกปลา"><b>＋</b><span>บันทึกปลา</span></button>` + S.catches.map(c =>
+    `<button data-act="catch" data-id="${c.id}" ${c.photo ? `style="background-image:url('${c.photo}')"` : ''}>${c.photo ? '' : GF}${c.private ? '<em class="lock">🔒</em>' : ''}<span>${esc(c.species)}${c.wt ? ' · ' + c.wt + ' กก.' : ''}</span></button>`).join('') + '</div>'
+    + (S.catches.length ? '' : '<div class="empty">ยังไม่มีปลา กด ＋ บันทึกปลาตัวแรก</div>');
   const SPOT_SHOW = 4, list = S.spots.slice().sort((a, b) => S.pos ? dist(S.pos, a) - dist(S.pos, b) : (b.created || 0) - (a.created || 0));   // ใกล้สุดก่อน (ไม่มี GPS = ใหม่สุดก่อน)
   const shown = spotsAll ? list : list.slice(0, SPOT_SHOW);
   $('#spotList').innerHTML = S.spots.length ? shown.map(s => {
@@ -1458,6 +1458,10 @@ function renderLog() {
   const mb = $('#spotMore'); if (mb) mb.onclick = () => { spotsAll = !spotsAll; renderLog(); if (!spotsAll) $('#spotList').scrollIntoView({ block: 'nearest' }); };
   renderTrackUI(); renderStats();
 }
+let meTab = 'fish';
+function setMeTab(k) { meTab = k; $$('#meTabs [data-me]').forEach(b => { b.classList.toggle('on', b.dataset.me === k); b.setAttribute('aria-selected', b.dataset.me === k); }); $$('#view-log .mepane').forEach(p => p.hidden = p.dataset.pane !== k); }
+$$('#meTabs [data-me]').forEach(b => b.onclick = () => setMeTab(b.dataset.me));
+window.setMeTab = setMeTab;
 $('#exportBtn').onclick = () => {
   const blob = new Blob([JSON.stringify({ app: 'pranpla', v: 1, exported: new Date().toISOString(), spots: S.spots, catches: S.catches, tracks: S.tracks })], { type: 'application/json' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `pranpla-backup-${new Date().toISOString().slice(0, 10)}.json`;

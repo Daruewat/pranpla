@@ -2663,3 +2663,33 @@ button.pcap{cursor:pointer}
 .fchips{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
 .fchip{border-radius:14px;background:var(--card2);padding:7px 12px;font-size:13px;color:var(--tx2)}
 .fchip b{font:600 14px var(--disp,Prompt),sans-serif;color:var(--tx);margin-right:6px}
+
+/* ===== หน้า "ของฉัน" แบบโปรไฟล์ไอจี ===== */
+.mehead h1{font-size:22px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.metop{display:flex;align-items:center;gap:16px;padding:6px 2px 4px}
+#meAv .avedit{background:none;border:0;padding:0;cursor:pointer}
+#meAv .ring.big{width:86px;height:86px}#meAv .ring .av{font-size:28px}
+.stats.igstats{flex:1;display:grid;grid-template-columns:repeat(4,1fr);background:none!important;border:0!important;box-shadow:none!important;padding:0;margin:0;gap:0}
+.stats.igstats div{border:0!important;padding:0;text-align:center;display:flex;flex-direction:column;align-items:center}
+.stats.igstats b{font-size:20px;line-height:1.2}
+.stats.igstats span{font-size:12px;color:var(--tx2);white-space:nowrap}
+.mebio{padding:8px 2px 2px}
+.mebio>b{font:600 16px var(--disp,Prompt),sans-serif;color:var(--tx);margin-right:6px}
+.mebio .sub{margin-top:2px}
+.mebtns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0 4px}
+.mebtns .btn{padding:9px 6px;font-size:14px;border-radius:10px;min-height:0}
+#view-log .profile{display:block;padding:0;background:none;border:0;box-shadow:none}
+#view-log .profile.login-mode{margin-top:10px}
+.metabs{display:grid;grid-template-columns:repeat(4,1fr);margin:14px -14px 2px;border-bottom:1px solid var(--line)}
+.metabs button{background:none;border:0;padding:11px 0 9px;color:var(--tx3);border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer;display:grid;place-items:center}
+.metabs button svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.metabs button.on{color:var(--tx);border-bottom-color:var(--act,#ff7d1f)}
+.mepane{padding-top:2px}
+.mepane[data-pane=spots],.mepane[data-pane=trk],.mepane[data-pane=stat]{padding-top:12px}
+.megrid{margin-top:0}
+.megrid .gadd{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--act,#ff7d1f);background:var(--card)}
+.megrid .gadd b{font-size:30px;font-weight:400;line-height:1}
+.megrid .gadd span{position:static;background:none;font-size:12px;color:var(--tx2)}
+.megrid .lock{position:absolute;right:5px;top:5px;font-style:normal;font-size:12px;background:rgba(3,21,26,.6);border-radius:6px;padding:1px 4px}
+.menu-item.danger b{color:#ff6b5e}
+.menu-item small{display:block;font-size:12px;color:var(--tx2);font-weight:400}

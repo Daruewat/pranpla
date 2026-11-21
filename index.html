@@ -30,8 +30,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;500;600;700&family=Chakra+Petch:wght@500;600;700&family=Prompt:wght@300;400;500;600&family=Sarabun:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="lib/leaflet.css?v=89">
-<link rel="stylesheet" href="style.css?v=89">
+<link rel="stylesheet" href="lib/leaflet.css?v=90">
+<link rel="stylesheet" href="style.css?v=90">
 </head>
 <body>
 <div id="splash" role="presentation"><div class="sp-stage"><i class="sp-ping"></i><i class="sp-ping b"></i><svg class="sp-logo" viewBox="0 0 240 240" aria-hidden="true">
@@ -237,20 +237,20 @@
   </section>
 
   <section id="view-log" class="view">
-    <header class="vhead">
-      <div><h1>สมุดบันทึก</h1></div><button id="setBtn" class="iconbtn" title="ตั้งค่า" aria-label="ตั้งค่า">⚙️</button>
-    </header>
-    <div id="profileBox" class="profile"></div>
-    <div id="stats" class="stats"></div>
-    <div class="sect-h"><h2>ปลาที่จับได้ล่าสุด</h2><button class="link" data-act="new-catch">+ บันทึกปลา</button></div>
-    <div id="catchList"></div>
-    <div class="sect-h"><h2>จุดของฉัน</h2></div>
-    <div id="spotList"></div>
-    <div class="sect-h"><h2>สถิติของฉัน</h2></div>
-    <div id="myStats" class="card"></div>
-    <div class="sect-h"><h2>เส้นทาง</h2></div>
-    <div id="trackInfo" class="card"></div>
-    <div id="setHome" hidden><div id="setBox">
+      <header class="vhead mehead"><div><h1 id="meTitle">ของฉัน</h1></div><button id="setBtn" class="iconbtn" aria-label="ตั้งค่า">⚙️</button></header>
+      <div class="metop"><div id="meAv"></div><div id="stats" class="stats igstats"></div></div>
+      <div id="profileBox" class="profile"></div>
+      <div class="metabs" id="meTabs" role="tablist">
+        <button data-me="fish" class="on" role="tab" aria-label="ปลาที่จับได้"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1"/><rect x="13.5" y="3.5" width="7" height="7" rx="1"/><rect x="3.5" y="13.5" width="7" height="7" rx="1"/><rect x="13.5" y="13.5" width="7" height="7" rx="1"/></svg></button>
+        <button data-me="spots" role="tab" aria-label="จุดของฉัน"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.2 7-11a7 7 0 0 0-14 0c0 4.8 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg></button>
+        <button data-me="trk" role="tab" aria-label="เส้นทาง"><svg viewBox="0 0 24 24"><circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="6" r="2.2"/><path d="M8 18h6a3.5 3.5 0 0 0 0-7h-4a3.5 3.5 0 0 1 0-7h6"/></svg></button>
+        <button data-me="stat" role="tab" aria-label="สถิติ"><svg viewBox="0 0 24 24"><path d="M5 20V11M12 20V5M19 20v-6"/></svg></button>
+      </div>
+      <div class="mepane" data-pane="fish"><div id="catchList"></div></div>
+      <div class="mepane" data-pane="spots" hidden><div id="spotList"></div></div>
+      <div class="mepane" data-pane="trk" hidden><div id="trackInfo" class="card"></div></div>
+      <div class="mepane" data-pane="stat" hidden><div id="myStats" class="card"></div></div>
+      <div id="setHome" hidden><div id="setBox">
       <div class="card-h set-h">หน้าตาแอป</div>
       <div class="card">
         <div id="themeSeg" class="seg"><button data-theme="dark">🌙 มืด</button><button data-theme="light">☀️ สว่าง</button><button data-theme="auto">📱 ตามเครื่อง</button></div>
@@ -282,13 +282,13 @@
   <div id="flash" class="flash hidden"></div>
 </div>
 
-<script src="lib/leaflet.js?v=89"></script>
-<script src="lib/suncalc.js?v=89"></script>
-<script src="data.js?v=89"></script>
-<script src="icons.js?v=89"></script>
-<script src="firebase-config.js?v=89"></script>
-<script src="app.js?v=89"></script>
-<script src="group.js?v=89"></script>
-<script src="spots.js?v=89"></script>
+<script src="lib/leaflet.js?v=90"></script>
+<script src="lib/suncalc.js?v=90"></script>
+<script src="data.js?v=90"></script>
+<script src="icons.js?v=90"></script>
+<script src="firebase-config.js?v=90"></script>
+<script src="app.js?v=90"></script>
+<script src="group.js?v=90"></script>
+<script src="spots.js?v=90"></script>
 </body>
 </html>
