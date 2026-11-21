@@ -93,9 +93,9 @@ const LAYERS = {
 const loadScript = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
 const curTheme = () => document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
 async function makeVec(styleFn) {   // โหลดตัววาดแผนที่เวกเตอร์เฉพาะตอนเลือกใช้
-  if (!window.maplibregl) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'lib/maplibre-gl.css'; document.head.appendChild(l); await loadScript('lib/maplibre-gl.js'); await loadScript('lib/leaflet-maplibre-gl.js'); await loadScript('vecstyle.js?v=87'); }
-  try { if (!window.pmtiles) await loadScript('lib/pmtiles.js?v=87'); if (!window._pmProto) { window._pmProto = new pmtiles.Protocol(); maplibregl.addProtocol('pmtiles', _pmProto.tile); } } catch {}   // รูปอาคาร Google+Microsoft
-  try { if (!window.mlcontour) await loadScript('lib/mlcontour.js?v=87'); if (!window._dem) { window._dem = new mlcontour.DemSource({ url: 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png', encoding: 'terrarium', maxzoom: 12, worker: true, cacheSize: 100 }); _dem.setupMaplibre(maplibregl); } } catch {}   // เส้นชั้นความสูง
+  if (!window.maplibregl) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'lib/maplibre-gl.css'; document.head.appendChild(l); await loadScript('lib/maplibre-gl.js'); await loadScript('lib/leaflet-maplibre-gl.js'); await loadScript('vecstyle.js?v=88'); }
+  try { if (!window.pmtiles) await loadScript('lib/pmtiles.js?v=88'); if (!window._pmProto) { window._pmProto = new pmtiles.Protocol(); maplibregl.addProtocol('pmtiles', _pmProto.tile); } } catch {}   // รูปอาคาร Google+Microsoft
+  try { if (!window.mlcontour) await loadScript('lib/mlcontour.js?v=88'); if (!window._dem) { window._dem = new mlcontour.DemSource({ url: 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png', encoding: 'terrarium', maxzoom: 12, worker: true, cacheSize: 100 }); _dem.setupMaplibre(maplibregl); } } catch {}   // เส้นชั้นความสูง
   if (!maplibregl.supported?.() && !document.createElement('canvas').getContext('webgl')) throw new Error('no webgl');
   fetch('https://tiles.openfreemap.org/planet').then(r => r.json()).then(j => { if (j.tiles?.[0]) { LAYERS.vec.urls = [j.tiles[0]]; LAYERS.hyb.urls = [LAYERS.hyb.urls[0], j.tiles[0]]; LAYERS.topo.urls = [LAYERS.topo.urls[0], j.tiles[0]]; } }).catch(() => {});
   return L.maplibreGL({ style: styleFn(), attribution: '© OpenStreetMap · OpenFreeMap · Esri' });
@@ -1063,7 +1063,7 @@ function showPlace() {
   const generic = loc.auto || /^กลางแผนที่/.test(loc.name);
   $('#fcPlace').textContent = loc.place ? (generic ? '📍 ' + loc.place.full : `${loc.name} · ${loc.place.full}`) : loc.name;
   $('#wxPillPlace').textContent = loc.place ? loc.place.short : '';
-  const el = $('#fcNowPlace'); if (el) el.textContent = loc.place ? 'ตอนนี้ที่ ' + (generic ? loc.place.short : loc.name) : 'ตอนนี้';
+  const el = $('#fcNowPlace'); if (el) el.textContent = 'คำแนะนำ' + (loc.place ? ' · ' + (generic ? loc.place.short : loc.name) : '');
 }
 function rainOutlook(next) {
   const wet = x => (x.pop ?? 0) >= 50 || x.rain >= 0.3, h12 = next.slice(0, 12), i = h12.findIndex(wet);
@@ -1099,7 +1099,7 @@ function goodRanges(next) {   // ช่วงเวลาที่คะแน�
 }
 function barInfo(i) {
   const W = S.wx, x = W?.next[i]; if (!x) return;
-  $$('.bars div').forEach(b => b.classList.toggle('sel', +b.dataset.b === i));
+  const dt = $('#fDot'), cv = $('#fCurve'); if (dt && cv) { const vb = cv.viewBox.baseVal, CH = 72, xx = i / (W.next.length - 1) * vb.width, yy = CH - clamp((x.score - 20) / 80, 0, 1) * (CH - 8) - 4; dt.setAttribute('cx', xx); dt.setAttribute('cy', yy); }
   $('#barInfo').innerHTML = `<b>${i === 0 ? 'ตอนนี้' : (x.t.toDateString() === new Date().toDateString() ? '' : DAYS[x.t.getDay()] + ' ') + pad(x.t.getHours()) + ':00'}</b> <span style="color:${scoreColor(x.score)}">● ${x.score} ${LEVELS[scoreLevel(x.score)][1]}</span> <span class="sub">${Math.round(x.temp)}° · ฝน ${x.pop ?? 0}%</span>`;
 }
 // ทุ่นตกปลา: ปลากินมาก ทุ่นยิ่งจมและมีวงน้ำกระเพื่อม
@@ -1131,37 +1131,51 @@ function renderForecast() {
   $('#wxPillBest').textContent = `${scoreLabel(n.score)} · ดีสุด ${best.t.toDateString() === new Date().toDateString() ? '' : DAYS[best.t.getDay()] + ' '}${pad(best.t.getHours())}:00–${pad((best2.t.getHours() + 1) % 24)}:00`;
   $('#seasonPillText').textContent = `${sn.icon} ${sn.name}`;
   const keepScroll = $('#view-forecast').scrollTop;
+  const bestOk = scoreLevel(best.score) >= 2, today = d => d.toDateString() === new Date().toDateString();
+  const win = `${today(best.t) ? '' : DAYS[best.t.getDay()] + ' '}${pad(best.t.getHours())}:00–${pad((best2.t.getHours() + 1) % 24)}:00`;
+  const d7 = W.days.slice(0, 7), bestDay = d7.reduce((m, x, i) => x.score > d7[m].score ? i : m, 0);
+  // กราฟเส้นคะแนน 24 ชม.
+  const CW = 340, CH = 72, NX = W.next.length, px = i => (i / (NX - 1)) * CW, py = v => CH - clamp((v - 20) / 80, 0, 1) * (CH - 8) - 4;
+  const pts = W.next.map((x, i) => [px(i), py(x.score)]);
+  const path = pts.map((p, i) => { if (!i) return `M${p[0].toFixed(1)} ${p[1].toFixed(1)}`; const q = pts[i - 1], mx = (q[0] + p[0]) / 2; return `C${mx.toFixed(1)} ${q[1].toFixed(1)} ${mx.toFixed(1)} ${p[1].toFixed(1)} ${p[0].toFixed(1)} ${p[1].toFixed(1)}`; }).join(' ');
+  const bx0 = px(W.bi) - 6, bx1 = px(Math.min(W.bi + 1, NX - 1)) + 6;
+  const tick = i => { const x = W.next[i]; return i === 0 ? 'ตอนนี้' : pad(x.t.getHours()) + ':00'; };
   $('#fcBody').innerHTML = `
   ${W.stale || navigator.onLine === false ? `<div class="warn">ออฟไลน์อยู่ – แสดงข้อมูลที่โหลดไว้ล่าสุด ${new Date(W.fetched).toLocaleString('th-TH', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })}</div>` : ''}
-  <div class="card">
-    <div class="fc-now"><div><div class="sub" id="fcNowPlace">ตอนนี้</div><div class="fc-temp">${Math.round(n.temp)}°C</div><div class="sub">${wm.txt}</div></div><div class="fc-ico">${wm.ico}</div></div>
-    <div class="score-row">
-      ${bobberSvg(n.score)}
-      <div><div class="bob-num" style="color:${scoreColor(n.score)}">${n.score}<small>/100</small></div><div class="score-label">${scoreLabel(n.score)}</div><div class="sub">ช่วงดีที่สุด ${bestTxt}</div></div>
-    </div>
-    <div class="bar-info" id="barInfo"></div>
-    <div class="bars">${W.next.map((x, i) => `<div data-b="${i}" class="${i === 0 ? 'now' : ''}" style="height:${clamp((x.score - 20) * 1.25, 8, 100)}%;background:${scoreColor(x.score)}"></div>`).join('')}</div>
-    <div class="bar-hours">${W.next.map((x, i) => `<span>${i === 0 ? 'ตอนนี้' : i > 2 && x.t.getHours() % 3 === 0 ? pad(x.t.getHours()) : ''}</span>`).join('')}</div>
-    <div class="goods">${goodRanges(W.next)}</div>
-    <div class="scale">${LEVELS.map(l => `<i style="background:${l[0]}"></i>${l[1]}`).join('')}</div>
+  <div class="card verdict">
+    <div class="vt" id="fcNowPlace">คำแนะนำ</div>
+    <div class="vbig">${bestOk ? `ไปได้ <span class="vwin">${win}</span><br>${scoreLabel(best.score).replace('ปลา', 'ช่อน')}` : `${today(best.t) ? 'วันนี้' : ''}ปลายังไม่ค่อยกิน<br><span class="vwin">ลอง${bestDay ? 'วัน' + DAYS[d7[bestDay].date.getDay()] : 'ช่วง ' + win}</span>`}</div>
+    <div class="vrow"><span class="vring"><svg viewBox="0 0 58 58"><circle cx="29" cy="29" r="24" class="vr-bg"/><circle cx="29" cy="29" r="24" class="vr-fg" style="stroke:${scoreColor(n.score)};stroke-dashoffset:${(150.8 * (1 - n.score / 100)).toFixed(1)}"/></svg><b>${n.score}</b></span>
+      <div class="sub vwhy">ตอนนี้ ${wm.ico} ${Math.round(n.temp)}°C ${wm.txt}<br>ความกดอากาศ${trend.replace(/^\S+ /, '')} · ${moonName(mp).replace(' (โดยประมาณ)', '')} · ลม ${Math.round(n.wind)} กม./ชม.</div></div>
   </div>
   ${(() => { const m = renderAlert() || []; return m.length ? `<div class="warn alert-in">${m.map(x => `<div>${x}</div>`).join('')}</div>` : ''; })()}
-  ${(() => { const r = rainOutlook(W.next); return `<div class="card rain-card ${r.ok ? 'dry' : 'wet'}"><div class="card-h">${r.ok ? '🌂' : '🌧️'} ฝนที่จุดนี้</div><div>${r.txt}</div><div class="row"><button class="btn ghost small" id="fcRainMap">🗺️ ดูฝนบนแผนที่</button></div></div>`; })()}
-  <div class="card"><div class="card-h">พยากรณ์ ${W.days.length} วัน</div><div class="days">${W.days.map((x, i) => `<div class="d ${i === 0 ? 'today' : ''}"><span class="dn">${i === 0 ? 'วันนี้' : DAYS[x.date.getDay()] + ' ' + x.date.getDate()}</span><span>${wmo(x.code).ico}</span><span class="track"><i style="width:${x.score}%;background:${scoreColor(x.score)}"></i></span><span class="sc ${x.score === maxDay ? 'top' : ''}" style="${x.score === maxDay ? '' : 'color:' + scoreColor(x.score)}">${x.score}</span><span class="tt">${Math.round(x.max)}° <span>${Math.round(x.min)}°</span></span></div>`).join('')}</div></div>
-  <div class="card-h" style="margin:16px 2px 8px">สภาพแวดล้อม</div>
-  <div class="env">
-    <div><div class="sub">💨 ลม</div><div class="v">${Math.round(n.wind)} <small>กม./ชม.</small></div><div class="sub">จากทิศ${dirTxt(n.wdir)}</div></div>
-    <div><div class="sub">⏱ ความกดอากาศ</div><div class="v">${Math.round(n.pres)} <small>hPa</small></div><div class="sub">${trend} · ที่พื้น ${Math.round(n.sp)}</div></div>
-    <div><div class="sub">💧 ความชื้น / ฝน</div><div class="v">${Math.round(n.hum)}<small>%</small></div><div class="sub">โอกาสฝน ${n.pop ?? 0}%</div></div>
-    <div><div class="sub">🌅 พระอาทิตย์</div><div class="v">${hm(sun.sunrise)}</div><div class="sub">ตก ${hm(sun.sunset)} · ${moonName(mp).replace(" (โดยประมาณ)", "")}</div></div>
+  <div class="card">
+    <div class="card-h">ปลากินตลอด 24 ชม.</div>
+    <svg class="fcurve" id="fCurve" viewBox="0 -4 ${CW} ${CH + 22}" role="img" aria-label="กราฟคะแนนปลากินรายชั่วโมง แตะเพื่อดูแต่ละชั่วโมง">
+      <defs><linearGradient id="fcg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--sig)" stop-opacity=".45"/><stop offset="1" stop-color="var(--sig)" stop-opacity="0"/></linearGradient></defs>
+      <rect x="${bx0.toFixed(1)}" y="-4" width="${(bx1 - bx0).toFixed(1)}" height="${CH + 4}" rx="8" class="fbest"/>
+      <path d="${path} L${CW} ${CH} L0 ${CH}Z" fill="url(#fcg)"/><path d="${path}" class="fline"/>
+      <circle id="fDot" r="5" cx="${pts[0][0]}" cy="${pts[0][1]}" class="fdot"/>
+      ${[0, 6, 12, 18].filter(i => i < NX).map(i => `<text x="${px(i) + (i ? 0 : 2)}" y="${CH + 16}" class="ftk" text-anchor="${i ? 'middle' : 'start'}">${tick(i)}</text>`).join('')}
+    </svg>
+    <div class="bar-info" id="barInfo"></div>
+    <div class="goods">${goodRanges(W.next)}</div>
   </div>
-  <div class="card" style="margin-top:12px" id="damCard"><div class="card-h">🌊 ระดับน้ำเขื่อน/อ่างใกล้ที่นี่</div><div class="sub">กำลังโหลด…</div></div>
+  ${(() => { const r = rainOutlook(W.next); return `<div class="card rain-card ${r.ok ? 'dry' : 'wet'}"><div class="card-h">${r.ok ? '🌂' : '🌧️'} ฝนที่จุดนี้</div><div>${r.txt}</div><div class="row"><button class="btn ghost small" id="fcRainMap">🗺️ ดูฝนบนแผนที่</button></div></div>`; })()}
+  <div class="card"><div class="card-h">7 วันข้างหน้า ไปวันไหนดี</div>
+    <div class="d7">${d7.map((x, i) => `<button class="d7d${i === bestDay ? ' best' : ''}" data-d="${i}"><span>${i === 0 ? 'วันนี้' : DAYS[x.date.getDay()]}</span><i>${wmo(x.code).ico}</i><b>${x.score}</b>${i === bestDay ? '<small>ดีสุด</small>' : ''}</button>`).join('')}</div>
+    <div class="sub" id="d7Info" style="margin-top:10px">แตะวันเพื่อดูรายละเอียด</div></div>
+  <div class="card" id="damCard"><div class="card-h">🌊 ระดับน้ำเขื่อน/อ่างใกล้ที่นี่</div><div class="sub">กำลังโหลด…</div></div>
   <div class="card"><div class="card-h">${sn.icon} ${sn.name}</div><div class="sub" style="color:var(--tx)">${sn.tip}</div>
     ${sn.law ? `<div class="warn" style="margin:10px 0 0">${sn.law}</div>` : ''}
     <div class="card-h" style="margin-top:12px;font-size:15px">น่าตกช่วงนี้</div>
-    <div class="fishrow">${fishNow.map(f => `<div class="fish"><b>${f.n}</b><p>🪱 ${f.bait}</p><p>📍 ${f.where}</p></div>`).join('')}</div></div>
+    <div class="fishrow">${fishNow.map(f => `<div class="fish"><b>${f.n}</b><p>🪱 ${f.bait}</p><p>📍 ${f.where}</p></div>`).join('')}</div>
+    <div class="sub" style="margin-top:10px">🌅 ขึ้น ${hm(sun.sunrise)} · ตก ${hm(sun.sunset)}</div></div>
   <div class="row"><button class="btn ghost small" id="fcMine">📍 ดูที่ตำแหน่งของฉัน</button><button class="btn ghost small" id="fcCenter">🎯 ดูที่กลางแผนที่</button></div>`;
-  $$('.bars div').forEach(b => b.onclick = () => barInfo(+b.dataset.b)); barInfo(W.bi);
+  const cv = $('#fCurve'), pick = e => { const r = cv.getBoundingClientRect(), x = ((e.touches ? e.touches[0].clientX : e.clientX) - r.left) / r.width * CW; const i = clamp(Math.round(x / CW * (NX - 1)), 0, NX - 1); barInfo(i); };
+  cv.onclick = pick; cv.ontouchmove = e => { pick(e); };
+  $$('.d7d').forEach(b => b.onclick = () => { const x = d7[+b.dataset.d]; $$('.d7d').forEach(y => y.classList.toggle('sel', y === b)); $('#d7Info').innerHTML = `<b style="color:var(--tx)">${+b.dataset.d === 0 ? 'วันนี้' : 'วัน' + DAYS[x.date.getDay()] + ' ' + x.date.getDate()}</b> · ${wmo(x.code).txt} · ${Math.round(x.min)}–${Math.round(x.max)}°C${x.pop != null ? ' · โอกาสฝน ' + x.pop + '%' : ''} · <span style="color:${scoreColor(x.score)}">${scoreLabel(x.score)}</span>`; });
+  barInfo(W.bi);
   showPlace(); renderAlert(); renderDamCard(); $('#view-forecast').scrollTop = keepScroll;
   $('#fcRainMap').onclick = () => { showTab('map'); map.setView([W.lat, W.lng], Math.min(map.getZoom(), 11)); setRain(true); };
   $('#fcMine').onclick = () => S.pos ? loadForecast({ lat: S.pos.lat, lng: S.pos.lng, name: 'ตำแหน่งของฉัน', auto: true }) : toast('ยังไม่ได้ตำแหน่ง GPS');
