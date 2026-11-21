@@ -2636,3 +2636,30 @@ button.pcap{cursor:pointer}
 :root[data-theme=light] .card.verdict{background:radial-gradient(120% 90% at 0% 0%,rgba(255,125,31,.16),transparent 60%),#fff}
 #fcBody > .card.verdict{background:radial-gradient(120% 90% at 0% 0%,rgba(255,125,31,.22),transparent 60%),#08232a;border:1px solid rgba(255,125,31,.28);padding:16px}
 :root[data-theme=light] #fcBody > .card.verdict{background:radial-gradient(120% 90% at 0% 0%,rgba(255,125,31,.16),transparent 60%),#fff}
+/* ===== แถบล่างแบบไอจี (โทนพรานปลา) ===== */
+.tabbar.igbar{display:flex;align-items:center;justify-content:space-around;height:calc(58px + var(--safe-b));padding:0 6px var(--safe-b);background:var(--navbg);border-top:1px solid var(--line);box-shadow:none}
+.tabbar.igbar button{flex:1;height:58px;display:grid;place-items:center;padding:0;margin:0;background:none;border:0;color:var(--tx2);font-size:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.tabbar.igbar button::before{display:none!important}
+.tabbar.igbar svg{width:27px;height:27px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;filter:none!important;margin:0}
+.tabbar.igbar button.active{color:var(--sig)}
+.tabbar.igbar button.active svg{stroke-width:2.3}
+.tabbar.igbar button.active .f{fill:currentColor;fill-opacity:.22}
+.tabbar.igbar .fab{width:auto;height:58px;margin:0;border-radius:0;background:none!important;box-shadow:none!important;color:var(--tx2)}
+.tabbar.igbar .fab:active{color:var(--act)}
+.tabbar.igbar button:focus-visible{outline:2px solid var(--link);outline-offset:-6px;border-radius:14px}
+.tabav{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:center/cover var(--card2);box-sizing:border-box}
+.tabav svg{width:20px!important;height:20px!important}
+.tabav.img svg{display:none}
+.tabbar.igbar button.active .tabav{box-shadow:0 0 0 2px var(--navbg),0 0 0 4px var(--sig)}
+.tabbar.igbar [data-n]::after{top:10px;left:calc(50% + 6px)}
+/* ===== การ์ดฤดู: ไทม์ไลน์ทั้งวัน ===== */
+.sdl{position:relative;padding-left:24px;margin-top:6px}
+.sdl::before{content:'';position:absolute;left:7px;top:8px;bottom:8px;width:2px;background:var(--line2)}
+.sdl>div{position:relative;margin-bottom:12px;font-size:14px;line-height:1.45;color:var(--tx2)}
+.sdl>div:last-child{margin-bottom:0}
+.sdl>div::before{content:'';position:absolute;left:-22px;top:4px;width:12px;height:12px;border-radius:50%;background:var(--card);border:2px solid var(--sig)}
+.sdl>div.hot::before{background:var(--act);border-color:var(--act);box-shadow:0 0 10px var(--act)}
+.sdl b{display:block;font:600 14.5px var(--disp,Prompt),sans-serif;color:var(--tx)}
+.fchips{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.fchip{border-radius:14px;background:var(--card2);padding:7px 12px;font-size:13px;color:var(--tx2)}
+.fchip b{font:600 14px var(--disp,Prompt),sans-serif;color:var(--tx);margin-right:6px}

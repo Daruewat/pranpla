@@ -93,9 +93,9 @@ const LAYERS = {
 const loadScript = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
 const curTheme = () => document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
 async function makeVec(styleFn) {   // โหลดตัววาดแผนที่เวกเตอร์เฉพาะตอนเลือกใช้
-  if (!window.maplibregl) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'lib/maplibre-gl.css'; document.head.appendChild(l); await loadScript('lib/maplibre-gl.js'); await loadScript('lib/leaflet-maplibre-gl.js'); await loadScript('vecstyle.js?v=88'); }
-  try { if (!window.pmtiles) await loadScript('lib/pmtiles.js?v=88'); if (!window._pmProto) { window._pmProto = new pmtiles.Protocol(); maplibregl.addProtocol('pmtiles', _pmProto.tile); } } catch {}   // รูปอาคาร Google+Microsoft
-  try { if (!window.mlcontour) await loadScript('lib/mlcontour.js?v=88'); if (!window._dem) { window._dem = new mlcontour.DemSource({ url: 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png', encoding: 'terrarium', maxzoom: 12, worker: true, cacheSize: 100 }); _dem.setupMaplibre(maplibregl); } } catch {}   // เส้นชั้นความสูง
+  if (!window.maplibregl) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'lib/maplibre-gl.css'; document.head.appendChild(l); await loadScript('lib/maplibre-gl.js'); await loadScript('lib/leaflet-maplibre-gl.js'); await loadScript('vecstyle.js?v=89'); }
+  try { if (!window.pmtiles) await loadScript('lib/pmtiles.js?v=89'); if (!window._pmProto) { window._pmProto = new pmtiles.Protocol(); maplibregl.addProtocol('pmtiles', _pmProto.tile); } } catch {}   // รูปอาคาร Google+Microsoft
+  try { if (!window.mlcontour) await loadScript('lib/mlcontour.js?v=89'); if (!window._dem) { window._dem = new mlcontour.DemSource({ url: 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png', encoding: 'terrarium', maxzoom: 12, worker: true, cacheSize: 100 }); _dem.setupMaplibre(maplibregl); } } catch {}   // เส้นชั้นความสูง
   if (!maplibregl.supported?.() && !document.createElement('canvas').getContext('webgl')) throw new Error('no webgl');
   fetch('https://tiles.openfreemap.org/planet').then(r => r.json()).then(j => { if (j.tiles?.[0]) { LAYERS.vec.urls = [j.tiles[0]]; LAYERS.hyb.urls = [LAYERS.hyb.urls[0], j.tiles[0]]; LAYERS.topo.urls = [LAYERS.topo.urls[0], j.tiles[0]]; } }).catch(() => {});
   return L.maplibreGL({ style: styleFn(), attribution: '© OpenStreetMap · OpenFreeMap · Esri' });
@@ -1148,6 +1148,9 @@ function renderForecast() {
     <div class="vrow"><span class="vring"><svg viewBox="0 0 58 58"><circle cx="29" cy="29" r="24" class="vr-bg"/><circle cx="29" cy="29" r="24" class="vr-fg" style="stroke:${scoreColor(n.score)};stroke-dashoffset:${(150.8 * (1 - n.score / 100)).toFixed(1)}"/></svg><b>${n.score}</b></span>
       <div class="sub vwhy">ตอนนี้ ${wm.ico} ${Math.round(n.temp)}°C ${wm.txt}<br>ความกดอากาศ${trend.replace(/^\S+ /, '')} · ${moonName(mp).replace(' (โดยประมาณ)', '')} · ลม ${Math.round(n.wind)} กม./ชม.</div></div>
   </div>
+  <div class="card seasonday"><div class="card-h">${sn.icon} ${sn.name} · วันนี้เล่นยังไง</div>
+    <div class="sdl">${(sn.day || []).map(([t, txt, hot]) => `<div class="${hot ? 'hot' : ''}"><b>${t}${hot ? ' 🔥' : ''}</b>${txt}</div>`).join('')}</div>
+    ${sn.law ? `<div class="warn" style="margin:10px 0 0">${sn.law}</div>` : ''}</div>
   ${(() => { const m = renderAlert() || []; return m.length ? `<div class="warn alert-in">${m.map(x => `<div>${x}</div>`).join('')}</div>` : ''; })()}
   <div class="card">
     <div class="card-h">ปลากินตลอด 24 ชม.</div>
@@ -1166,10 +1169,7 @@ function renderForecast() {
     <div class="d7">${d7.map((x, i) => `<button class="d7d${i === bestDay ? ' best' : ''}" data-d="${i}"><span>${i === 0 ? 'วันนี้' : DAYS[x.date.getDay()]}</span><i>${wmo(x.code).ico}</i><b>${x.score}</b>${i === bestDay ? '<small>ดีสุด</small>' : ''}</button>`).join('')}</div>
     <div class="sub" id="d7Info" style="margin-top:10px">แตะวันเพื่อดูรายละเอียด</div></div>
   <div class="card" id="damCard"><div class="card-h">🌊 ระดับน้ำเขื่อน/อ่างใกล้ที่นี่</div><div class="sub">กำลังโหลด…</div></div>
-  <div class="card"><div class="card-h">${sn.icon} ${sn.name}</div><div class="sub" style="color:var(--tx)">${sn.tip}</div>
-    ${sn.law ? `<div class="warn" style="margin:10px 0 0">${sn.law}</div>` : ''}
-    <div class="card-h" style="margin-top:12px;font-size:15px">น่าตกช่วงนี้</div>
-    <div class="fishrow">${fishNow.map(f => `<div class="fish"><b>${f.n}</b><p>🪱 ${f.bait}</p><p>📍 ${f.where}</p></div>`).join('')}</div>
+  <div class="card"><div class="card-h">น่าตกช่วงนี้</div><div class="fchips">${fishNow.map(f => `<span class="fchip"><b>${f.n.replace(/^ปลา/, '')}</b>${f.bait.split(/[ ,]/)[0]}</span>`).join('')}</div>
     <div class="sub" style="margin-top:10px">🌅 ขึ้น ${hm(sun.sunrise)} · ตก ${hm(sun.sunset)}</div></div>
   <div class="row"><button class="btn ghost small" id="fcMine">📍 ดูที่ตำแหน่งของฉัน</button><button class="btn ghost small" id="fcCenter">🎯 ดูที่กลางแผนที่</button></div>`;
   const cv = $('#fCurve'), pick = e => { const r = cv.getBoundingClientRect(), x = ((e.touches ? e.touches[0].clientX : e.clientX) - r.left) / r.width * CW; const i = clamp(Math.round(x / CW * (NX - 1)), 0, NX - 1); barInfo(i); };
@@ -1183,6 +1183,11 @@ function renderForecast() {
 }
 $('#fcRefresh').onclick = () => { toast('กำลังรีเฟรช…'); loadForecast(); };
 $('#alertBar').onclick = () => showTab('forecast');
+function setTabAv() {   // ช่อง "ของฉัน" บนแถบล่างใช้รูปโปรไฟล์แบบไอจี
+  const el = $('#tabAv'); if (!el) return; const u = ls.get('myAv', '') || (grp('st')?.user?.photoURL || '');
+  el.classList.toggle('img', !!u); el.style.backgroundImage = u ? `url("${u.replace(/"/g, '%22')}")` : '';
+}
+setTabAv(); setInterval(setTabAv, 5000); addEventListener('storage', setTabAv);
 setInterval(() => { if (S.wx) renderAlert(); }, 10 * 60e3);   // เวลาเดินไป เตือนที่ผ่านไปแล้วหายเอง
 (() => {   // วางเข็มทิศ/แถบเตือนใต้แถวป้ายจริง ๆ (ป้ายขึ้นสองบรรทัดบนจอเล็กหรือฟอนต์ใหญ่)
   const pills = $('.pills'), ab = $('#alertBar'), R = document.documentElement.style;
