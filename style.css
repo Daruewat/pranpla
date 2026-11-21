@@ -2570,3 +2570,41 @@ button.pcap{cursor:pointer}
 /* เข็มทิศ/แถบเตือนอยู่ใต้แถวป้ายเสมอ ไม่ซ้อนกัน */
 .alertbar{top:calc(var(--tb,124px) + 8px)!important;left:10px!important;right:10px!important}
 .mapcompass{top:calc(var(--tb,124px) + 8px + var(--ab,0px))!important}
+/* ===== แถบโซนาร์ (แบบ A) แทนแถวป้ายเดิม ===== */
+.pills.sonarbar{display:flex;flex-wrap:nowrap;gap:0;justify-content:stretch;align-items:center;margin-top:8px;padding:6px 6px 6px 8px;border-radius:22px;background:var(--glass);border:1px solid var(--line2);box-shadow:0 6px 18px rgba(0,0,0,.28);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.topbar>.pills.sonarbar{pointer-events:auto}
+.sstrip{flex:1;min-width:0;display:flex;align-items:center;gap:10px;background:none!important;border:0!important;box-shadow:none!important;padding:0;color:var(--tx);font:inherit;text-align:left;cursor:pointer}
+.sring{position:relative;flex:none;width:46px;height:46px}
+.sring svg{width:46px;height:46px;transform:rotate(-90deg)}
+.sring .sr-bg{fill:none;stroke:var(--card2);stroke-width:5}
+.sring .sr-fg{fill:none;stroke:var(--act);stroke-width:5;stroke-linecap:round;stroke-dasharray:125.7;stroke-dashoffset:125.7;transition:stroke-dashoffset .8s}
+.sring b{position:absolute;inset:0;display:grid;place-items:center;font:600 15px var(--disp,Prompt),sans-serif;color:var(--tx);background:none!important}
+.stx{min-width:0;line-height:1.25}
+.stx>b{display:flex;gap:6px;align-items:baseline;font:600 16px var(--disp,Prompt),sans-serif;white-space:nowrap;overflow:hidden}
+.stx .pill-place{font-weight:500;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;max-width:none}
+.stx .pill-place:not(:empty)::before{content:'· ';color:var(--tx3)}
+.stx small{display:block;font-size:12.5px;color:#ffbe4d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+:root[data-theme=light] .stx small{color:#b45309}
+.shot{flex:none;display:flex;align-items:center;gap:2px;margin-left:8px;border:0;border-radius:16px;padding:10px 12px;background:linear-gradient(135deg,#ff7d1f,#ff9f45);color:#fff;font:600 14px var(--disp,Prompt),sans-serif;cursor:pointer;box-shadow:0 4px 12px rgba(255,125,31,.35);white-space:nowrap}
+.shot .shl{margin-left:4px}
+.sonarbar .offpill{margin-left:6px}
+/* ===== หน้ากรองแบบใหม่ ===== */
+.ftiles{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:16px 0 6px}
+.ftile{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 4px 10px;border-radius:16px;border:2px solid transparent;background:var(--card2);color:var(--tx2);font:inherit;font-size:12.5px;line-height:1.2;cursor:pointer;min-height:78px}
+.ftile i{font-style:normal;font-size:22px;opacity:.55}
+.ftile.on{border-color:var(--sig);background:color-mix(in srgb,var(--sig) 12%,var(--card2));color:var(--tx)}
+.ftile.on i{opacity:1}
+.ftile span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mt-sheet .mt-h2,#sheet .mt-h2{margin:18px 0 10px}
+.fwho{display:flex;gap:8px}
+.fwho button{flex:1;border:0;border-radius:14px;padding:12px 6px;background:var(--card2);color:var(--tx2);font:inherit;font-size:14.5px;cursor:pointer;min-height:44px}
+.fwho button.sel{background:var(--sig);color:#03151a;font-weight:600}
+.fkm{margin:-2px 0 8px}.fkm b{font:600 16px var(--disp,Prompt),sans-serif;color:var(--sig)}
+.frange{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:transparent;margin:0;--p:100%}
+.frange::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:linear-gradient(90deg,var(--sig) var(--p),var(--card2) var(--p))}
+.frange::-moz-range-track{height:6px;border-radius:3px;background:linear-gradient(90deg,var(--sig) var(--p),var(--card2) var(--p))}
+.frange::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;margin-top:-10px;border-radius:50%;background:#fff;box-shadow:0 0 0 6px color-mix(in srgb,var(--sig) 28%,transparent),0 2px 6px rgba(0,0,0,.4)}
+.frange::-moz-range-thumb{width:26px;height:26px;border:0;border-radius:50%;background:#fff;box-shadow:0 0 0 6px color-mix(in srgb,var(--sig) 28%,transparent)}
+.frange:focus-visible{outline:2px solid var(--link);outline-offset:4px;border-radius:8px}
+.fticks{display:flex;justify-content:space-between;font-size:12px;color:var(--tx3);margin-top:4px}
+.shot svg,.shot .ico{color:#fff!important;stroke:#fff!important;fill:none}.shot svg *{stroke:#fff!important}

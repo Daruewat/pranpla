@@ -93,9 +93,9 @@ const LAYERS = {
 const loadScript = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
 const curTheme = () => document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
 async function makeVec(styleFn) {   // โหลดตัววาดแผนที่เวกเตอร์เฉพาะตอนเลือกใช้
-  if (!window.maplibregl) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'lib/maplibre-gl.css'; document.head.appendChild(l); await loadScript('lib/maplibre-gl.js'); await loadScript('lib/leaflet-maplibre-gl.js'); await loadScript('vecstyle.js?v=86'); }
-  try { if (!window.pmtiles) await loadScript('lib/pmtiles.js?v=86'); if (!window._pmProto) { window._pmProto = new pmtiles.Protocol(); maplibregl.addProtocol('pmtiles', _pmProto.tile); } } catch {}   // รูปอาคาร Google+Microsoft
-  try { if (!window.mlcontour) await loadScript('lib/mlcontour.js?v=86'); if (!window._dem) { window._dem = new mlcontour.DemSource({ url: 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png', encoding: 'terrarium', maxzoom: 12, worker: true, cacheSize: 100 }); _dem.setupMaplibre(maplibregl); } } catch {}   // เส้นชั้นความสูง
+  if (!window.maplibregl) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'lib/maplibre-gl.css'; document.head.appendChild(l); await loadScript('lib/maplibre-gl.js'); await loadScript('lib/leaflet-maplibre-gl.js'); await loadScript('vecstyle.js?v=87'); }
+  try { if (!window.pmtiles) await loadScript('lib/pmtiles.js?v=87'); if (!window._pmProto) { window._pmProto = new pmtiles.Protocol(); maplibregl.addProtocol('pmtiles', _pmProto.tile); } } catch {}   // รูปอาคาร Google+Microsoft
+  try { if (!window.mlcontour) await loadScript('lib/mlcontour.js?v=87'); if (!window._dem) { window._dem = new mlcontour.DemSource({ url: 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png', encoding: 'terrarium', maxzoom: 12, worker: true, cacheSize: 100 }); _dem.setupMaplibre(maplibregl); } } catch {}   // เส้นชั้นความสูง
   if (!maplibregl.supported?.() && !document.createElement('canvas').getContext('webgl')) throw new Error('no webgl');
   fetch('https://tiles.openfreemap.org/planet').then(r => r.json()).then(j => { if (j.tiles?.[0]) { LAYERS.vec.urls = [j.tiles[0]]; LAYERS.hyb.urls = [LAYERS.hyb.urls[0], j.tiles[0]]; LAYERS.topo.urls = [LAYERS.topo.urls[0], j.tiles[0]]; } }).catch(() => {});
   return L.maplibreGL({ style: styleFn(), attribution: '© OpenStreetMap · OpenFreeMap · Esri' });
@@ -135,6 +135,7 @@ const inRange = p => !OPT.maxKm || !S.pos || dist(S.pos, p) <= OPT.maxKm * 1000;
 const saveOpt = () => ls.set('mapopt', OPT);
 const gCatch = L.layerGroup().addTo(map), gHeat = L.layerGroup().addTo(map);
 function renderSpots() {
+  try { const n = window.HOT ? HOT.hotCount() : 0; $('#hotN').textContent = n ? ' ' + n : ''; } catch {}
   gSpots.clearLayers(); gCatch.clearLayers(); gHeat.clearLayers();
   S.spots.filter(s => OPT.mine !== false && !(MV && MV.s.id === s.id) && inRange(s)).filter(s => !OPT.types || OPT.types.includes(s.type === 'hot' ? 'fish' : s.type)).forEach(s => L.marker([s.lat, s.lng], { icon: spotIcon(s.type, window.HOT ? HOT.markClass(s) : '') }).on('click', () => spotSheet(s.id)).addTo(gSpots));
   const C = S.catches.filter(c => c.lat != null && inRange(c));
@@ -214,35 +215,42 @@ function fltSummary() {
   if (OPT.maxKm) p.push(`ในระยะ ${OPT.maxKm} กม.`);
   return p.length ? p.join(' · ') : 'แสดงทุกอย่าง ไม่จำกัดระยะ';
 }
-function filterSheet() {   // กรองแผนที่: เลือกแล้วกด "ใช้" ถึงจะมีผล
-  const D = { types: OPT.types ? [...OPT.types] : visTypes().map(([k]) => k), mine: OPT.mine !== false, friends: OPT.friends !== false, catches: !!OPT.catches, maxKm: OPT.maxKm || 0 };
-  const sw = (k, ico, title, sub, on) => `<label class="optrow"><span class="oi">${ico}</span><span class="ot"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</span><input type="checkbox" class="switch" data-f="${k}" ${on ? 'checked' : ''}></label>`;
-  const KM = [5, 10, 25, 50, 100, 0];
-  openSheet(`<h3 class="mt-h1" style="margin-bottom:4px">กรองแผนที่</h3><div class="sub">แสดงเฉพาะสิ่งที่อยากเห็น</div>
-  <h3 class="mt-h2" style="margin-top:18px">ประเภทหมุด</h3>
-  <div class="mt-dets-list">${visTypes().map(([k, t]) => sw('t:' + k, t.icon, t.label, '', D.types.includes(k))).join('')}</div>
-  <h3 class="mt-h2" style="margin-top:18px">ของใคร</h3>
-  <div class="mt-dets-list">
-    ${sw('mine', '📍', 'หมุดของฉัน', '', D.mine)}
-    ${grp('joined') ? sw('friends', '👥', 'หมุดของคนอื่น', 'หมุดที่เพื่อนในชุมชนแชร์', D.friends) : ''}
-    ${sw('catches', '🐟', 'ปลาที่ฉันจับได้', 'จุดที่บันทึกว่าจับปลาได้', D.catches)}
-  </div>
-  <h3 class="mt-h2" style="margin-top:18px">ระยะทางสูงสุด</h3>
-  <div class="sub" style="margin:-6px 0 10px">แสดงเฉพาะหมุดรอบตำแหน่งของคุณ${S.pos ? '' : ' (ต้องเปิด GPS ก่อน ไม่งั้นแสดงทั้งหมด)'}</div>
-  <div class="kmchips">${KM.map(k => `<button type="button" data-km="${k}" class="${k === D.maxKm ? 'sel' : ''}">${k ? k + ' กม.' : 'ไม่จำกัด'}</button>`).join('')}</div>
-  <div class="row flt-act"><button class="btn ghost" id="fltReset">รีเซ็ต</button><button class="btn acc" id="fltApply">ใช้</button></div>`);
-  $$('#sheet [data-f]').forEach(x => x.onchange = () => {
-    const k = x.dataset.f;
-    if (k.startsWith('t:')) { const t = k.slice(2); D.types = x.checked ? [...new Set([...D.types, t])] : D.types.filter(y => y !== t); }
-    else D[k] = x.checked;
-  });
-  $$('#sheet [data-km]').forEach(b => b.onclick = () => { D.maxKm = +b.dataset.km; $$('#sheet [data-km]').forEach(y => y.classList.toggle('sel', y === b)); });
-  $('#fltReset').onclick = () => { Object.assign(D, { types: visTypes().map(([k]) => k), mine: true, friends: true, catches: false, maxKm: 0 }); $$('#sheet [data-f]').forEach(x => x.checked = x.dataset.f === 'catches' ? false : true); $$('#sheet [data-km]').forEach(y => y.classList.toggle('sel', y.dataset.km === '0')); };
+function filterSheet() {   // กรองแผนที่: ปุ่มไอคอน + ของใคร + แถบเลื่อนระยะ แล้วกด "แสดง N หมุด"
+  const KM = [3, 10, 20, 50, 0], types = visTypes();
+  const D = { types: OPT.types ? [...OPT.types] : types.map(([k]) => k), mine: OPT.mine !== false, friends: OPT.friends !== false, catches: !!OPT.catches, maxKm: OPT.maxKm || 0 };
+  const joined = grp('joined');
+  const kmIdx = () => Math.max(0, KM.indexOf(D.maxKm) < 0 ? KM.length - 1 : KM.indexOf(D.maxKm));
+  const count = () => {
+    const ok = p => p.lat != null && D.types.includes(p.type === 'hot' ? 'fish' : (p.type || 'other')) && (!D.maxKm || !S.pos || dist(S.pos, p) <= D.maxKm * 1000);
+    return (D.mine ? S.spots.filter(ok).length : 0) + (D.friends && joined ? (grp('friendPins') || []).filter(ok).length : 0);
+  };
+  const who = () => D.mine && D.friends ? 'all' : D.mine ? 'mine' : 'others';
+  openSheet(`<h3 class="mt-h1" style="margin-bottom:4px">กรองแผนที่</h3><div class="sub">เลือกหมุดที่อยากให้ขึ้นบนแผนที่</div>
+  <div class="ftiles">${types.map(([k, t]) => `<button type="button" class="ftile${D.types.includes(k) ? ' on' : ''}" data-t="${k}" aria-pressed="${D.types.includes(k)}"><i>${t.icon}</i><span>${t.label.split('/')[0]}</span></button>`).join('')}
+    <button type="button" class="ftile${D.catches ? ' on' : ''}" data-c="1" aria-pressed="${D.catches}"><i>🐟</i><span>ปลาของฉัน</span></button></div>
+  <h3 class="mt-h2">หมุดของใคร</h3>
+  <div class="fwho">${[['all', 'ทุกคน'], ['mine', 'ของฉัน'], ...(joined ? [['others', 'คนอื่น']] : [])].map(([k, l]) => `<button type="button" data-w="${k}" class="${who() === k ? 'sel' : ''}">${l}</button>`).join('')}</div>
+  <h3 class="mt-h2">ระยะรอบตัวฉัน</h3>
+  <div class="fkm"><b id="fKmV"></b>${S.pos ? '' : '<span class="sub"> · ต้องเปิด GPS ก่อน ไม่งั้นแสดงทุกระยะ</span>'}</div>
+  <input type="range" id="fKm" class="frange" min="0" max="${KM.length - 1}" step="1" value="${kmIdx()}" aria-label="ระยะรอบตัว">
+  <div class="fticks">${KM.map(k => `<span>${k || 'ทุกระยะ'}</span>`).join('')}</div>
+  <div class="row flt-act"><button class="btn ghost" id="fltReset">ล้างตัวกรอง</button><button class="btn acc" id="fltApply"></button></div>`);
+  const upd = () => {
+    $('#fKmV').textContent = D.maxKm ? `ไม่เกิน ${D.maxKm} กม.` : 'ทุกระยะ';
+    const r = $('#fKm'); r.style.setProperty('--p', (r.value / (KM.length - 1) * 100) + '%');
+    const n = count(); $('#fltApply').textContent = n ? `แสดง ${n} หมุด` : 'แสดงบนแผนที่';
+  };
+  $$('#sheet .ftile[data-t]').forEach(b => b.onclick = () => { const t = b.dataset.t, on = !D.types.includes(t); D.types = on ? [...D.types, t] : D.types.filter(x => x !== t); b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); upd(); });
+  $('#sheet .ftile[data-c]').onclick = e => { D.catches = !D.catches; e.currentTarget.classList.toggle('on', D.catches); e.currentTarget.setAttribute('aria-pressed', D.catches); };
+  $$('#sheet .fwho button').forEach(b => b.onclick = () => { const w = b.dataset.w; D.mine = w !== 'others'; D.friends = w !== 'mine'; $$('#sheet .fwho button').forEach(x => x.classList.toggle('sel', x === b)); upd(); });
+  $('#fKm').oninput = e => { D.maxKm = KM[+e.target.value]; upd(); };
+  $('#fltReset').onclick = () => { Object.assign(D, { types: types.map(([k]) => k), mine: true, friends: true, catches: false, maxKm: 0 }); $$('#sheet .ftile').forEach(x => { const on = !x.dataset.c; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); }); $$('#sheet .fwho button').forEach(x => x.classList.toggle('sel', x.dataset.w === 'all')); $('#fKm').value = KM.length - 1; upd(); };
   $('#fltApply').onclick = () => {
-    OPT.types = D.types.length === visTypes().length ? null : D.types; OPT.mine = D.mine; OPT.friends = D.friends; OPT.catches = D.catches; OPT.maxKm = D.maxKm; rangeAt = S.pos ? { lat: S.pos.lat, lng: S.pos.lng } : null;
-    saveOpt(); renderSpots(); closeSheet(); toast(fltSummary() === 'แสดงทุกอย่าง ไม่จำกัดระยะ' ? 'แสดงทุกอย่างแล้ว' : 'กรองแล้ว: ' + fltSummary());
+    OPT.types = D.types.length === types.length ? null : D.types; OPT.mine = D.mine; OPT.friends = D.friends; OPT.catches = D.catches; OPT.maxKm = D.maxKm; rangeAt = S.pos ? { lat: S.pos.lat, lng: S.pos.lng } : null;
+    saveOpt(); renderSpots(); grp('renderMap'); closeSheet(); toast(fltSummary() === 'แสดงทุกอย่าง ไม่จำกัดระยะ' ? 'แสดงทุกอย่างแล้ว' : 'กรองแล้ว: ' + fltSummary());
     if (OPT.maxKm && S.pos) map.fitBounds(L.latLng(S.pos.lat, S.pos.lng).toBounds(OPT.maxKm * 2000), { maxZoom: 15 });
   };
+  upd();
 }
 function mapOptSheet() {
   const det = (k, ico, title, sub) => `<label class="optrow"><span class="oi">${ico}</span><span class="ot"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</span><input type="checkbox" class="switch" data-opt="${k}" ${OPT[k] ? 'checked' : ''}></label>`;
@@ -1118,8 +1126,9 @@ function renderForecast() {
   const maxDay = Math.max(...W.days.map(x => x.score));
   const trend = n.dp < -0.4 ? '↘ กำลังลด' : n.dp > 0.4 ? '↗ กำลังเพิ่ม' : '→ คงที่';
   const fishNow = FISH.filter(f => f.m.includes(mo)).slice(0, 8);
-  $('#wxPillTemp').textContent = `${wm.ico} ${Math.round(n.temp)}°C`;
-  $('#wxPillScore').textContent = n.score; $('#wxPillScore').style.background = scoreColor(n.score);
+  $('#wxPillTemp').textContent = `${wm.ico} ${Math.round(n.temp)}°`;
+  $('#wxPillScore').textContent = n.score; $('#wxRing').style.strokeDashoffset = (125.7 * (1 - n.score / 100)).toFixed(1); $('#wxRing').style.stroke = scoreColor(n.score);
+  $('#wxPillBest').textContent = `${scoreLabel(n.score)} · ดีสุด ${best.t.toDateString() === new Date().toDateString() ? '' : DAYS[best.t.getDay()] + ' '}${pad(best.t.getHours())}:00–${pad((best2.t.getHours() + 1) % 24)}:00`;
   $('#seasonPillText').textContent = `${sn.icon} ${sn.name}`;
   const keepScroll = $('#view-forecast').scrollTop;
   $('#fcBody').innerHTML = `
@@ -1169,7 +1178,8 @@ setInterval(() => { if (S.wx) renderAlert(); }, 10 * 60e3);   // เวลาเ
 })();
 $('#wxPill').onclick = () => showTab('forecast');
 $('#hotPill').onclick = () => window.HOT && HOT.listSheet();
-$('#seasonPill').onclick = () => { showTab('forecast'); setTimeout(() => $('#view-forecast').scrollTo({ top: 99999, behavior: 'smooth' }), 80); };
+$('#seasonPill').onclick = () => {   // ป้ายฤดูซ่อนแล้ว (ดูฤดูในหน้าพยากรณ์)
+  showTab('forecast'); setTimeout(() => $('#view-forecast').scrollTo({ top: 99999, behavior: 'smooth' }), 80); };
 
 /* ============ ฝนบนแผนที่: เรดาร์ย้อนหลัง 2 ชม. (ทุก 10 นาที) + พยากรณ์ฝนรายชั่วโมง 6 ชม. ข้างหน้า ============
    เรดาร์จาก RainViewer (ฟรี ซูมได้ถึงระดับ 7 ไม่มีภาพอนาคต) ส่วนอนาคตใช้พยากรณ์ Open-Meteo เป็นตาราง */

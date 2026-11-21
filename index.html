@@ -30,8 +30,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;500;600;700&family=Chakra+Petch:wght@500;600;700&family=Prompt:wght@300;400;500;600&family=Sarabun:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="lib/leaflet.css?v=86">
-<link rel="stylesheet" href="style.css?v=86">
+<link rel="stylesheet" href="lib/leaflet.css?v=87">
+<link rel="stylesheet" href="style.css?v=87">
 </head>
 <body>
 <div id="splash" role="presentation"><div class="sp-stage"><i class="sp-ping"></i><i class="sp-ping b"></i><svg class="sp-logo" viewBox="0 0 240 240" aria-hidden="true">
@@ -85,14 +85,14 @@
   <div class="topbar">
     <form id="searchForm" class="search" autocomplete="off">
       <span class="ico">🔍</span>
-      <input id="searchInput" type="search" placeholder="ค้นหาสถานที่ หมุด ปลาที่จับได้…">
+      <input id="searchInput" type="search" placeholder="หาหมาย อ่างน้ำ ชื่อปลา หรือที่ไหนก็ได้…">
     </form>
     <div id="searchResults" class="search-results hidden"></div>
-    <div class="pills">
-      <button id="wxPill" class="pill"><span id="wxPillTemp">--°</span><span id="wxPillPlace" class="pill-place"></span><span id="wxPillScore" class="score-dot">--</span></button>
+    <div class="pills sonarbar">
+      <button id="wxPill" class="sstrip" aria-label="พยากรณ์ปลากิน"><span class="sring"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="20" class="sr-bg"/><circle id="wxRing" cx="24" cy="24" r="20" class="sr-fg"/></svg><b id="wxPillScore">--</b></span><span class="stx"><b><span id="wxPillTemp">--°</span><span id="wxPillPlace" class="pill-place"></span></b><small id="wxPillBest">กำลังโหลดพยากรณ์…</small></span></button>
       <button id="offPill" class="pill offpill hidden">ออฟไลน์</button>
-      <button id="hotPill" class="pill hotpill">🔥 หมายเด็ด</button>
-      <button id="seasonPill" class="pill"><span id="seasonPillText">ฤดูกาล</span> ›</button>
+      <button id="hotPill" class="shot" aria-label="หมายเด็ดใกล้ฉัน">🔥<span id="hotN"></span><span class="shl">หมาย</span></button>
+      <button id="seasonPill" class="pill hidden" aria-hidden="true"><span id="seasonPillText">ฤดูกาล</span></button>
     </div>
   </div>
 
@@ -282,13 +282,13 @@
   <div id="flash" class="flash hidden"></div>
 </div>
 
-<script src="lib/leaflet.js?v=86"></script>
-<script src="lib/suncalc.js?v=86"></script>
-<script src="data.js?v=86"></script>
-<script src="icons.js?v=86"></script>
-<script src="firebase-config.js?v=86"></script>
-<script src="app.js?v=86"></script>
-<script src="group.js?v=86"></script>
-<script src="spots.js?v=86"></script>
+<script src="lib/leaflet.js?v=87"></script>
+<script src="lib/suncalc.js?v=87"></script>
+<script src="data.js?v=87"></script>
+<script src="icons.js?v=87"></script>
+<script src="firebase-config.js?v=87"></script>
+<script src="app.js?v=87"></script>
+<script src="group.js?v=87"></script>
+<script src="spots.js?v=87"></script>
 </body>
 </html>

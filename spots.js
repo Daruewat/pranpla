@@ -114,7 +114,11 @@ const HOT = (() => {
 
   /* เครื่องหมายบนแผนที่ */
   const markClass = s => { if (!isFishing(s)) return ''; const l = stats(s).lvl; return l ? ` hot${l}` : ''; };
-  return { isFishing, stats, panel, bindPanel, refreshPanel, listSheet, formHtml, bindForm, markClass, details, badge, HAB };
+  function hotCount() {   // หมายที่ "กำลังกิน" ขึ้นไป ในรัศมี 30 กม.
+    const me = S.pos || (window.map && map.getCenter()); if (!me) return 0;
+    return allSpots().filter(s => s.lat != null && isFishing(s) && dist(me, s) < 30000 && stats(s).lvl >= 2).length;
+  }
+  return { isFishing, hotCount, stats, panel, bindPanel, refreshPanel, listSheet, formHtml, bindForm, markClass, details, badge, HAB };
 })();
 window.HOT = HOT;
 renderSpots();
